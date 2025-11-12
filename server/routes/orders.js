@@ -1,14 +1,14 @@
 import express from "express";
 import Stripe from "stripe";
 import dotenv from "dotenv";
-import Order from "../models/Order.js"; // ajuste o caminho conforme sua estrutura
+import Order from "../models/Order.js";
 import { sendOrderEmail } from "../utils/mailer.js";
 
 dotenv.config();
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Criar sessão de pagamento
+// === CRIAR SESSÃO DE PAGAMENTO ===
 router.post("/create-checkout-session", async (req, res) => {
   try {
     const { items, customerEmail } = req.body;
@@ -37,12 +37,12 @@ router.post("/create-checkout-session", async (req, res) => {
 
     res.json({ id: session.id, url: session.url });
   } catch (error) {
-    console.error("Erro ao criar sessão:", error);
+    console.error("❌ Erro ao criar sessão:", error);
     res.status(500).json({ error: "Erro ao criar sessão de pagamento" });
   }
 });
 
-// Webhook Stripe (precisa de express.raw!)
+// === WEBHOOK DO STRIPE ===
 router.post(
   "/webhook",
   express.raw({ type: "application/json" }),
@@ -74,10 +74,15 @@ router.post(
 
       res.json({ received: true });
     } catch (err) {
-      console.error("Erro no webhook:", err.message);
+      console.error("❌ Erro no webhook:", err.message);
       res.status(400).send(`Webhook Error: ${err.message}`);
     }
   }
 );
+
+// === ROTA PADRÃO PARA TESTE ===
+router.get("/", (req, res) => {
+  res.json({ message: "Rota de pedidos ativa ✅" });
+});
 
 export default router;
