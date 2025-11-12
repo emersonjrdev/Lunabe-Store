@@ -17,6 +17,9 @@ router.post("/create-checkout-session", async (req, res) => {
       return res.status(400).json({ error: "Nenhum item no carrinho." });
     }
 
+    console.log("🛍️ Itens recebidos:", items);
+
+
     // montar itens no formato do Stripe
     const line_items = items.map((item) => ({
       price_data: {
