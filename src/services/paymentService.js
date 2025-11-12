@@ -3,40 +3,39 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 class PaymentService {
   // Criar pedido e sessão de checkout (Stripe)
-static async createOrder(cart, user) {
-  try {
-    const response = await fetch(`${API_URL}/api/orders/create-checkout-session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items: cart.map(item => ({
-          name: item.title,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-        customerEmail: user.email,
-      }),
-    });
+  static async createOrder(cart, user) {
+    try {
+      const response = await fetch(`${API_URL}/api/orders/create-checkout-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: cart.map(item => ({
+            name: item.name || item.title || "Produto sem nome",
+            image: item.image || "https://via.placeholder.com/150",
+            price: item.price || 0,
+            quantity: item.quantity || 1,
+          })),
+          customerEmail: user.email,
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.error || "Erro ao criar sessão de pagamento");
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao criar sessão de pagamento");
+      }
+
+      if (!data.checkoutUrl) {
+        throw new Error("checkoutUrl não retornado pelo servidor");
+      }
+
+      // 🔥 Redireciona pro Stripe
+      window.location.href = data.checkoutUrl;
+    } catch (error) {
+      console.error("Erro no checkout:", error);
+      alert(error.message || "Erro ao processar o pagamento.");
     }
-
-    if (!data.checkoutUrl) {
-      throw new Error("checkoutUrl não retornado pelo servidor");
-    }
-
-    // 🔥 Redireciona pro Stripe
-    window.location.href = data.checkoutUrl;
-  } catch (error) {
-    console.error("Erro no checkout:", error);
-    alert(error.message || "Erro ao processar o pagamento.");
   }
-}
-
-
 
   // Buscar pedido por session ID
   static async getOrderBySession(sessionId) {
