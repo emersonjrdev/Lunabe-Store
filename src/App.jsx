@@ -21,6 +21,17 @@ function AppContent() {
   const { isDark } = useTheme();
 
   useEffect(() => {
+  const handleStorageChange = () => {
+    const savedCart = localStorage.getItem("lunabe-cart");
+    setCart(savedCart ? JSON.parse(savedCart) : []);
+  };
+
+  window.addEventListener("storage", handleStorageChange);
+  return () => window.removeEventListener("storage", handleStorageChange);
+}, []);
+
+
+  useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1200);
     return () => clearTimeout(timer);
   }, []);

@@ -18,6 +18,8 @@ const Success = () => {
         if (data) {
           // limpa o carrinho
           localStorage.removeItem("lunabe-cart");
+          window.dispatchEvent(new Event("storage"));
+
           // salva a compra
           localStorage.setItem("ultima-compra", JSON.stringify(data));
         }
