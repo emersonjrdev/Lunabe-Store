@@ -1,9 +1,9 @@
 // frontend/src/services/paymentService.js
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
 
 class PaymentService {
   // Criar pedido e sessão de checkout
-  static async createOrder(cart, user, discount = 0, shipping = 0, appliedCoupon = '') {
+  static async createOrder(cart, user, discount = 0, shipping = 0, appliedCoupon = '', totalAmount = 0) {
     try {
       // Converter items do carrinho para o formato do backend
       const items = cart.map(item => ({
@@ -28,9 +28,10 @@ class PaymentService {
         body: JSON.stringify({
           items,
           customer,
-          discount: discount / totalPrice, // Converter para porcentagem
+          discount,
           shipping,
-          appliedCoupon
+          appliedCoupon,
+          totalPrice: totalAmount // ✅ aqui vai o valor total calculado
         }),
       });
 

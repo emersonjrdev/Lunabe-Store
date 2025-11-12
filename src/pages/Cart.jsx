@@ -92,13 +92,14 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
     try {
       // Criar pedido no backend
       const orderData = await PaymentService.createOrder(
-        cart, 
-        user, 
-        discount, 
-        shipping,
-        appliedCoupon,
-        totalPrice 
-      )
+  cart,
+  user,
+  discount,
+  shipping,
+  appliedCoupon,
+  totalAmount // ✅ envia o valor total final do pedido
+)
+
       
       // Redirecionar para o checkout do Stripe
       window.location.href = orderData.checkoutUrl
