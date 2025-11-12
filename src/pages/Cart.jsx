@@ -96,7 +96,8 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
         user, 
         discount, 
         shipping,
-        appliedCoupon
+        appliedCoupon,
+        totalPrice 
       )
       
       // Redirecionar para o checkout do Stripe
