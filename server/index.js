@@ -1,41 +1,66 @@
-import express from 'express';
-import dotenv from 'dotenv';
-dotenv.config();
-import mongoose from 'mongoose';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import authRoutes from './routes/auth.js';
-import productRoutes from './routes/products.js';
-import orderRoutes from './routes/orders.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import express from "express";
+import dotenv from "dotenv";
+import mongoose from "mongoose";
+import cors from "cors";
+import bodyParser from "body-parser";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import authRoutes from "./routes/auth.js";
+import productRoutes from "./routes/products.js";
+import orderRoutes from "./routes/orders.js"; // rota Stripe + pedidos
+
+dotenv.config();
 
 const app = express();
 
-// Configurações básicas
-app.use(cors());
+// Para usar "__dirname" em módulos ES
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// CORS — libera acesso do frontend hospedado na Vercel
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "*",
+  credentials: true,
+}));
+
+// Middleware principal
 app.use(express.json());
-app.use(bodyParser.json({ verify: (req, res, buf) => { req.rawBody = buf } }));
+app.use(bodyParser.json());
 
-// Webhook Stripe (precisa vir ANTES do express.json normal)
-app.use("/api/orders/webhook", orderRoutes);
+// Servir uploads (caso use imagens locais)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Rotas principais
-app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes);
+// 🔹 Rotas principais
+app.use("/api/auth", authRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/orders", orderRoutes);
 
-// Health check (Render usa pra ver se o servidor está online)
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+// 🔹 Rota para testar saúde do servidor
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, message: "Servidor funcionando! 🚀" });
+});
 
-// Conexão com MongoDB
+// Tratamento 404 para rotas não encontradas
+app.use((req, res) => {
+  res.status(404).json({ error: "Rota não encontrada" });
+});
+
+// 🔹 Conexão com o MongoDB
 const PORT = process.env.PORT || 4000;
-mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error("❌ ERRO: MONGODB_URI não foi definida no .env");
+  process.exit(1);
+}
+
+mongoose
+  .connect(MONGODB_URI)
   .then(() => {
-    console.log('✅ MongoDB conectado');
+    console.log("✅ MongoDB conectado com sucesso");
     app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
   })
-  .catch(err => console.error('❌ Erro na conexão MongoDB:', err));
+  .catch((err) => {
+    console.error("❌ Erro ao conectar ao MongoDB:", err);
+  });

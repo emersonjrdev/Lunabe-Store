@@ -3,11 +3,11 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 class PaymentService {
   // Criar pedido e sessão de checkout (Stripe)
-  static async createOrder(cart, user) {
+static async createOrder(cart, user) {
   try {
     const response = await fetch(`${API_URL}/api/orders/create-checkout-session`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         items: cart.map(item => ({
           name: item.title,
@@ -18,20 +18,24 @@ class PaymentService {
       }),
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Erro ao criar sessão');
-    }
-
     const data = await response.json();
 
-    // 🔥 Redirecionar diretamente para o Stripe
-    window.location.href = data.url;
+    if (!response.ok) {
+      throw new Error(data.error || "Erro ao criar sessão de pagamento");
+    }
+
+    if (!data.checkoutUrl) {
+      throw new Error("checkoutUrl não retornado pelo servidor");
+    }
+
+    // 🔥 Redireciona pro Stripe
+    window.location.href = data.checkoutUrl;
   } catch (error) {
     console.error("Erro no checkout:", error);
-    alert("Erro ao processar pagamento. Tente novamente.");
+    alert(error.message || "Erro ao processar o pagamento.");
   }
 }
+
 
 
   // Buscar pedido por session ID

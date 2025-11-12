@@ -1,31 +1,29 @@
 import express from "express";
 import Stripe from "stripe";
 import dotenv from "dotenv";
-dotenv.config();
 
+dotenv.config();
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// 👉 Rota que cria a sessão de checkout no Stripe
+// Criar sessão de checkout
 router.post("/create-checkout-session", async (req, res) => {
   try {
     const { items, customerEmail } = req.body;
 
-    if (!items || !items.length) {
+    if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "Carrinho vazio" });
     }
 
-    // Converte os produtos no formato que o Stripe entende
-    const line_items = items.map((item) => ({
+    const line_items = items.map(item => ({
       price_data: {
         currency: "brl",
-        product_data: { name: item.name },
-        unit_amount: Math.round(item.price * 100), // em centavos
+        product_data: { name: item.name || "Produto" },
+        unit_amount: Math.round(item.price * 100), // preço em centavos
       },
-      quantity: item.quantity,
+      quantity: item.quantity || 1,
     }));
 
-    // Cria a sessão de pagamento
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
@@ -35,10 +33,10 @@ router.post("/create-checkout-session", async (req, res) => {
       cancel_url: `${process.env.FRONTEND_URL}/cancel`,
     });
 
-    // Retorna a URL pro frontend redirecionar
-    res.json({ url: session.url });
+    console.log("✅ Sessão criada:", session.id);
+    res.json({ checkoutUrl: session.url }); // retorna a URL pro frontend
   } catch (error) {
-    console.error("Erro ao criar sessão Stripe:", error);
+    console.error("❌ Erro Stripe:", error.message);
     res.status(500).json({ error: "Erro ao criar sessão de pagamento" });
   }
 });
