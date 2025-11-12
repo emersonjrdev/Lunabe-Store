@@ -25,13 +25,23 @@ router.post("/create-checkout-session", async (req, res) => {
     }));
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      line_items,
-      customer_email: customerEmail,
-      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
-    });
+  payment_method_types: ['card'],
+  mode: 'payment',
+  line_items: items.map(item => ({
+    price_data: {
+      currency: 'brl',
+      product_data: {
+        name: item.name, // 👈 nome do produto (obrigatório)
+         description: item.description,
+      },
+      unit_amount: Math.round(item.price * 100),
+    },
+    quantity: item.quantity,
+  })),
+  success_url: `${process.env.FRONT_URL}/success`,
+  cancel_url: `${process.env.FRONT_URL}/cancel`,
+});
+
 
     console.log("✅ Sessão criada:", session.id);
     res.json({ checkoutUrl: session.url }); // retorna a URL pro frontend
