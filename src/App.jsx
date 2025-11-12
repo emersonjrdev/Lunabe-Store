@@ -181,6 +181,8 @@ function AppContent() {
             <Route path="/admin" element={<Admin />} />
 
             <Route path="/minhas-compras" element={<MinhasCompras />} />
+            <Route path="/success" element={<Success />} />
+
           </Routes>
         </main>
 
