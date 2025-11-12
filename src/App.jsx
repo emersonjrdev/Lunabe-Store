@@ -5,6 +5,7 @@ import Home from "./pages/Home";
 import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
 import MinhasCompras from "./pages/MinhasCompras";
+import Success from "./pages/Success";
 import ProductDetail from "./pages/ProductDetail";
 import Header from "./components/Header";
 import LoginModal from "./components/LoginModal";
