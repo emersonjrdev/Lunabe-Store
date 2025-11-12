@@ -1,5 +1,6 @@
 // frontend/src/services/paymentService.js
-const API_URL = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
 
 class PaymentService {
   // Criar pedido e sessão de checkout
