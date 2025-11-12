@@ -1,56 +1,41 @@
 import express from 'express';
 import dotenv from 'dotenv';
+dotenv.config();
 import mongoose from 'mongoose';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
 import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import orderRoutes from './routes/orders.js';
-
-dotenv.config();
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// ===== MIDDLEWARES =====
+// Configurações básicas
 app.use(cors());
 app.use(express.json());
+app.use(bodyParser.json({ verify: (req, res, buf) => { req.rawBody = buf } }));
 
-// Apenas para Stripe webhook (caso use)
-app.use(
-  '/api/orders/webhook',
-  bodyParser.raw({ type: 'application/json', verify: (req, res, buf) => { req.rawBody = buf } }),
-  orderRoutes
-);
+// Webhook Stripe (precisa vir ANTES do express.json normal)
+app.use("/api/orders/webhook", orderRoutes);
 
-// ===== ROTAS PRINCIPAIS =====
+// Rotas principais
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 
-// ===== SERVIR UPLOADS =====
-app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')));
-
-// ===== ROTA DE TESTE =====
+// Health check (Render usa pra ver se o servidor está online)
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-// ===== CONEXÃO COM O MONGODB =====
+// Conexão com MongoDB
 const PORT = process.env.PORT || 4000;
-
-mongoose
-  .connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => {
-    console.log('✅ MongoDB conectado com sucesso');
+    console.log('✅ MongoDB conectado');
     app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
   })
-  .catch((err) => {
-    console.error('❌ Erro ao conectar no MongoDB:', err);
-  });
+  .catch(err => console.error('❌ Erro na conexão MongoDB:', err));

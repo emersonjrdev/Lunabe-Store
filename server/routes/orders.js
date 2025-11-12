@@ -8,7 +8,7 @@ dotenv.config();
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// === CRIAR SESSÃO DE PAGAMENTO ===
+// Criar sessão de checkout Stripe
 router.post("/create-checkout-session", async (req, res) => {
   try {
     const { items, customerEmail } = req.body;
@@ -37,52 +37,43 @@ router.post("/create-checkout-session", async (req, res) => {
 
     res.json({ id: session.id, url: session.url });
   } catch (error) {
-    console.error("❌ Erro ao criar sessão:", error);
+    console.error("Erro ao criar sessão:", error);
     res.status(500).json({ error: "Erro ao criar sessão de pagamento" });
   }
 });
 
-// === WEBHOOK DO STRIPE ===
-router.post(
-  "/webhook",
-  express.raw({ type: "application/json" }),
-  async (req, res) => {
-    const sig = req.headers["stripe-signature"];
+// Webhook Stripe
+router.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  const sig = req.headers["stripe-signature"];
 
-    try {
-      const event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
+  try {
+    const event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
 
-      if (event.type === "checkout.session.completed") {
-        const session = event.data.object;
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
 
-        const orderData = {
-          userEmail: session.customer_email,
-          totalAmount: (session.amount_total || 0) / 100,
-          status: "paid",
-          stripeSessionId: session.id,
-          createdAt: new Date(),
-        };
+      const orderData = {
+        userEmail: session.customer_email,
+        totalAmount: (session.amount_total || 0) / 100,
+        status: "paid",
+        stripeSessionId: session.id,
+        createdAt: new Date(),
+      };
 
-        const order = await Order.create(orderData);
-        await sendOrderEmail(order.userEmail, order);
-        console.log("✅ Pedido salvo:", order._id);
-      }
-
-      res.json({ received: true });
-    } catch (err) {
-      console.error("❌ Erro no webhook:", err.message);
-      res.status(400).send(`Webhook Error: ${err.message}`);
+      const order = await Order.create(orderData);
+      await sendOrderEmail(order.userEmail, order);
+      console.log("✅ Pedido salvo:", order._id);
     }
-  }
-);
 
-// === ROTA PADRÃO PARA TESTE ===
-router.get("/", (req, res) => {
-  res.json({ message: "Rota de pedidos ativa ✅" });
+    res.json({ received: true });
+  } catch (err) {
+    console.error("Erro no webhook:", err.message);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+  }
 });
 
 export default router;
