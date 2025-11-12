@@ -1,0 +1,436 @@
+import React, { useState, useEffect } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import ProductCard from '../components/ProductCard'
+import LazyImage from '../components/LazyImage'
+import { useToast } from '../hooks/useToast'
+
+// Mover o array de produtos para um arquivo separado ou usar o mesmo da Home
+const products = [
+  {
+    id: 1,
+    name: 'Pijama de Seda Premium',
+    description: 'Confortável e elegante para noites especiais',
+    fullDescription: 'Pijama de seda natural 100%, extremamente confortável e elegante. Ideal para noites de sono tranquilo. Feito com materiais de alta qualidade que proporcionam suavidade e durabilidade. Perfeito para presentear ou para momentos especiais.',
+    price: 129.90,
+    originalPrice: 159.90,
+    image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500',
+    images: [
+      'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500',
+      'https://images.unsplash.com/photo-1581259097746-85d9c3d5f3e7?w=500',
+      'https://images.unsplash.com/photo-1577906096429-f73c2c312435?w=500'
+    ],
+    sizes: ['P', 'M', 'G', 'GG'],
+    colors: ['Rosa', 'Azul', 'Preto', 'Branco'],
+    rating: 5,
+    reviews: 128,
+    isNew: true,
+    category: 'premium',
+    tags: ['seda', 'elegante', 'premium'],
+    features: [
+      '100% seda natural',
+      'Conforto máximo',
+      'Lavável na máquina',
+      'Não desbota',
+      'Secagem rápida'
+    ],
+    specifications: {
+      material: 'Seda 100%',
+      care: 'Lavar à mão ou máquina delicado',
+      origin: 'Brasil'
+    }
+  },
+  {
+    id: 2,
+    name: 'Pijama Algodão Estampado',
+    description: 'Suave, respirável e com estampas divertidas',
+    fullDescription: 'Pijama 100% algodão egípcio com estampas exclusivas. Perfeito para o dia a dia, oferecendo conforto máximo e estilo. Material respirável que se adapta à temperatura corporal.',
+    price: 79.90,
+    image: 'https://images.unsplash.com/photo-1581259097746-85d9c3d5f3e7?w=500',
+    images: [
+      'https://images.unsplash.com/photo-1581259097746-85d9c3d5f3e7?w=500',
+      'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500'
+    ],
+    sizes: ['P', 'M', 'G'],
+    colors: ['Branco', 'Azul', 'Verde', 'Amarelo'],
+    rating: 4,
+    reviews: 89,
+    isNew: false,
+    category: 'algodao',
+    tags: ['algodão', 'estampado', 'conforto'],
+    features: [
+      '100% algodão egípcio',
+      'Respirável',
+      'Lavagem fácil',
+      'Cores vibrantes'
+    ]
+  },
+  {
+    id: 3,
+    name: 'Conjunto Pijama Inverno',
+    description: 'Aconchegante e quentinho para o frio',
+    fullDescription: 'Conjunto de pijama especialmente desenvolvido para o inverno, com tecido fleece super aconchegante. Mantém o calor corporal durante as noites mais frias sem perder o estilo.',
+    price: 149.90,
+    image: 'https://images.unsplash.com/photo-1577906096429-f73c2c312435?w=500',
+    images: [
+      'https://images.unsplash.com/photo-1577906096429-f73c2c312435?w=500',
+      'https://images.unsplash.com/photo-1581259097746-85d9c3d5f3e7?w=500'
+    ],
+    sizes: ['M', 'G', 'GG', 'XG'],
+    colors: ['Cinza', 'Vermelho', 'Azul Marinho', 'Verde Escuro'],
+    rating: 5,
+    reviews: 156,
+    isNew: true,
+    category: 'inverno',
+    tags: ['inverno', 'aconchegante', 'frio'],
+    features: [
+      'Tecido fleece',
+      'Super aconchegante',
+      'Ideal para inverno',
+      'Mantém o calor'
+    ]
+  },
+  // ... adicione os outros produtos aqui com a mesma estrutura
+]
+
+const ProductDetail = ({ onAddToCart, user, onLoginClick }) => {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [product, setProduct] = useState(null)
+  const [selectedSize, setSelectedSize] = useState('')
+  const [selectedColor, setSelectedColor] = useState('')
+  const [quantity, setQuantity] = useState(1)
+  const [selectedImage, setSelectedImage] = useState(0)
+  const [relatedProducts, setRelatedProducts] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const { addToast } = useToast()
+
+  useEffect(() => {
+    const productId = parseInt(id)
+    const foundProduct = products.find(p => p.id === productId)
+    
+    if (foundProduct) {
+      setProduct(foundProduct)
+      setSelectedSize(foundProduct.sizes[0])
+      setSelectedColor(foundProduct.colors[0])
+      
+      // Simular produtos relacionados
+      const related = products
+        .filter(p => p.id !== foundProduct.id && p.category === foundProduct.category)
+        .slice(0, 3)
+      setRelatedProducts(related)
+    } else {
+      addToast('Produto não encontrado', 'error')
+    }
+    
+    setIsLoading(false)
+  }, [id, addToast])
+
+  const handleAddToCart = () => {
+    if (!user) {
+      onLoginClick()
+      addToast('Faça login para adicionar produtos ao carrinho!', 'error')
+      return
+    }
+
+    const productWithOptions = {
+      ...product,
+      selectedSize,
+      selectedColor,
+      quantity
+    }
+    
+    onAddToCart(productWithOptions)
+    addToast(`${product.name} adicionado ao carrinho!`, 'success')
+  }
+
+  const handleBuyNow = () => {
+    handleAddToCart()
+    // Redirecionar para o carrinho
+    navigate('/carrinho')
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <div className="max-w-md mx-auto">
+          <i className="fas fa-spinner fa-spin text-6xl text-gray-300 dark:text-gray-600 mb-6"></i>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Carregando...</h2>
+        </div>
+      </div>
+    )
+  }
+
+  if (!product) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <div className="max-w-md mx-auto">
+          <i className="fas fa-exclamation-triangle text-6xl text-gray-300 dark:text-gray-600 mb-6"></i>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Produto não encontrado</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-8">O produto que você está procurando não existe ou foi removido.</p>
+          <Link to="/" className="btn-primary">
+            <i className="fas fa-home mr-2"></i>
+            Voltar à Loja
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const discountPercentage = product.originalPrice 
+    ? Math.round((1 - product.price / product.originalPrice) * 100)
+    : 0
+
+  return (
+    <div className="animate-fade-in">
+      <div className="container mx-auto px-4 py-8">
+        {/* Breadcrumb */}
+        <nav className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mb-8">
+          <Link to="/" className="hover:text-gray-800 dark:hover:text-white transition-colors">
+            Início
+          </Link>
+          <i className="fas fa-chevron-right text-xs"></i>
+          <span className="text-gray-800 dark:text-white">{product.name}</span>
+        </nav>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
+          {/* Product Images */}
+          <div className="space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700">
+              <LazyImage 
+                src={product.images?.[selectedImage] || product.image}
+                alt={product.name}
+                className="w-full h-96 object-cover rounded-xl"
+              />
+            </div>
+            
+            {product.images && product.images.length > 1 && (
+              <div className="flex space-x-2 overflow-x-auto">
+                {product.images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImage(index)}
+                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                      selectedImage === index 
+                        ? 'border-lunabe-pink' 
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <LazyImage 
+                      src={image}
+                      alt={`${product.name} ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Product Info */}
+          <div className="space-y-6">
+            <div>
+              {product.isNew && (
+                <span className="bg-lunabe-pink text-white px-3 py-1 rounded-full text-sm font-semibold mb-3 inline-block">
+                  Novo
+                </span>
+              )}
+              <h1 className="text-3xl lg:text-4xl font-bold text-gray-800 dark:text-white mb-4">
+                {product.name}
+              </h1>
+              <p className="text-xl text-gray-600 dark:text-gray-400 leading-relaxed">
+                {product.description}
+              </p>
+            </div>
+
+            {/* Rating */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-1">
+                {[...Array(5)].map((_, i) => (
+                  <i
+                    key={i}
+                    className={`fas fa-star ${
+                      i < product.rating 
+                        ? 'text-yellow-400' 
+                        : 'text-gray-300 dark:text-gray-600'
+                    }`}
+                  ></i>
+                ))}
+              </div>
+              <span className="text-gray-600 dark:text-gray-400">
+                {product.rating} ({product.reviews} avaliações)
+              </span>
+            </div>
+
+            {/* Price */}
+            <div className="flex items-center space-x-4">
+              <span className="text-4xl font-bold text-gray-800 dark:text-white">
+                R$ {product.price.toFixed(2)}
+              </span>
+              {product.originalPrice && (
+                <>
+                  <span className="text-2xl text-gray-500 dark:text-gray-400 line-through">
+                    R$ {product.originalPrice.toFixed(2)}
+                  </span>
+                  <span className="bg-red-500 text-white px-2 py-1 rounded-lg text-sm font-bold">
+                    -{discountPercentage}%
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Description */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
+                Descrição
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+                {product.fullDescription}
+              </p>
+            </div>
+
+            {/* Features */}
+            {product.features && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
+                  Características
+                </h3>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {product.features.map((feature, index) => (
+                    <li key={index} className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
+                      <i className="fas fa-check text-green-500 text-sm"></i>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Size Selection */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">
+                Tamanho: <span className="text-lunabe-pink">{selectedSize}</span>
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {product.sizes.map(size => (
+                  <button
+                    key={size}
+                    onClick={() => setSelectedSize(size)}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                      selectedSize === size
+                        ? 'bg-gray-800 dark:bg-gray-300 text-white dark:text-gray-900'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Color Selection */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">
+                Cor: <span className="text-lunabe-pink">{selectedColor}</span>
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {product.colors.map(color => (
+                  <button
+                    key={color}
+                    onClick={() => setSelectedColor(color)}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                      selectedColor === color
+                        ? 'bg-gray-800 dark:bg-gray-300 text-white dark:text-gray-900'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {color}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quantity and Actions */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3 bg-gray-100 dark:bg-gray-800 rounded-lg p-2">
+                <button 
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white transition-colors"
+                >
+                  <i className="fas fa-minus"></i>
+                </button>
+                <span className="text-lg font-semibold text-gray-800 dark:text-white w-8 text-center">
+                  {quantity}
+                </span>
+                <button 
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="w-8 h-8 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white transition-colors"
+                >
+                  <i className="fas fa-plus"></i>
+                </button>
+              </div>
+
+              <div className="flex space-x-3 flex-1">
+                <button
+                  onClick={handleAddToCart}
+                  className="flex-1 bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-6 py-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
+                >
+                  <i className="fas fa-shopping-cart"></i>
+                  <span>Adicionar ao Carrinho</span>
+                </button>
+                
+                <button
+                  onClick={handleBuyNow}
+                  className="flex-1 bg-lunabe-pink text-white px-6 py-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
+                >
+                  <i className="fas fa-bolt"></i>
+                  <span>Comprar Agora</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Additional Info */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="text-center">
+                <i className="fas fa-truck text-lunabe-pink text-xl mb-2"></i>
+                <p className="text-sm font-semibold text-gray-800 dark:text-white">Entrega Rápida</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">2-3 dias úteis</p>
+              </div>
+              <div className="text-center">
+                <i className="fas fa-shield-alt text-lunabe-pink text-xl mb-2"></i>
+                <p className="text-sm font-semibold text-gray-800 dark:text-white">Garantia</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">30 dias</p>
+              </div>
+              <div className="text-center">
+                <i className="fas fa-credit-card text-lunabe-pink text-xl mb-2"></i>
+                <p className="text-sm font-semibold text-gray-800 dark:text-white">Parcele</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Em até 12x</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Related Products */}
+        {relatedProducts.length > 0 && (
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-16">
+            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-8 text-center">
+              Produtos Relacionados
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {relatedProducts.map(relatedProduct => (
+                <ProductCard
+                  key={relatedProduct.id}
+                  product={relatedProduct}
+                  onAddToCart={onAddToCart}
+                  user={user}
+                  onLoginClick={onLoginClick}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default ProductDetail
