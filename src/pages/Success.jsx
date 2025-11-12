@@ -1,29 +1,60 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 const Success = () => {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get("session_id");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const sessionId = searchParams.get("session_id");
+    const fetchOrder = async () => {
+      try {
+        const response = await fetch(
+          `https://lunabe-store.onrender.com/api/orders/session/${sessionId}`
+        );
+        const data = await response.json();
 
-    if (sessionId) {
-      console.log("💳 Pagamento confirmado! Session ID:", sessionId);
+        if (data) {
+          // limpa o carrinho
+          localStorage.removeItem("lunabe-cart");
+          // salva a compra
+          localStorage.setItem("ultima-compra", JSON.stringify(data));
+        }
 
-      // Redireciona automaticamente para Minhas Compras
-      const timer = setTimeout(() => {
-        navigate("/minhas-compras");
-      }, 2000);
+        setTimeout(() => navigate("/minhas-compras"), 3000);
+      } catch (error) {
+        console.error("Erro ao buscar pedido:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      return () => clearTimeout(timer);
-    }
-  }, [searchParams, navigate]);
+    if (sessionId) fetchOrder();
+  }, [sessionId, navigate]);
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-white">
-      <h1 className="text-3xl font-bold mb-4">✅ Pagamento confirmado!</h1>
-      <p className="text-lg">Aguarde um momento, estamos redirecionando...</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
+      {loading ? (
+        <h1 className="text-2xl text-gray-700 dark:text-gray-300">
+          Processando pagamento...
+        </h1>
+      ) : (
+        <>
+          <h1 className="text-3xl font-bold text-green-600 dark:text-green-400 mb-4">
+            ✅ Pagamento confirmado!
+          </h1>
+          <p className="text-gray-700 dark:text-gray-300 mb-6">
+            Você será redirecionado para suas compras.
+          </p>
+          <button
+            onClick={() => navigate("/minhas-compras")}
+            className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow"
+          >
+            Ir agora
+          </button>
+        </>
+      )}
     </div>
   );
 };

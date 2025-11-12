@@ -1,5 +1,7 @@
+// routes/orders.js
 import express from "express";
 import Stripe from "stripe";
+import Order from "../models/Order.js"; // modelo do pedido
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -7,55 +9,43 @@ dotenv.config();
 const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// rota para criar sessão de pagamento
+// Criar sessão de checkout
 router.post("/create-checkout-session", async (req, res) => {
   try {
-    const { items } = req.body;
+    const { items, customerEmail } = req.body;
 
-    // se não houver produtos, retorna erro
-    if (!items || items.length === 0) {
-      return res.status(400).json({ error: "Nenhum item no carrinho." });
-    }
-
-    console.log("🛍️ Itens recebidos:", items);
-
-
-    // montar itens no formato do Stripe
-    const line_items = items.map((item) => ({
+    const lineItems = items.map((item) => ({
       price_data: {
         currency: "brl",
-        product_data: {
-          name: item.name,
-          images: [item.image],
-        },
-        unit_amount: Math.round(item.price * 100), // em centavos
+        product_data: { name: item.name },
+        unit_amount: Math.round(item.price * 100),
       },
       quantity: item.quantity,
     }));
 
-    // --- 🔍 LOG PARA DEPURAÇÃO ---
-    console.log("✅ FRONTEND_URL:", process.env.FRONTEND_URL);
-    const frontendUrl =
-      process.env.FRONTEND_URL?.startsWith("http")
-        ? process.env.FRONTEND_URL
-        : `https://${process.env.FRONTEND_URL || "www.lunabe.com.br"}`;
-
-    console.log("✅ Success URL:", `${frontendUrl}/success`);
-    console.log("✅ Cancel URL:", `${frontendUrl}/cancel`);
-
-    // criar sessão de checkout no Stripe
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
-      line_items,
+      line_items: lineItems,
       mode: "payment",
-      success_url: `${frontendUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/cancel`,
+      success_url: `https://www.lunabe.com.br/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `https://www.lunabe.com.br/cancel`,
+      customer_email: customerEmail,
     });
 
+    // 🔹 Salva o pedido "pendente" no banco
+    const order = new Order({
+      email: customerEmail,
+      stripeSessionId: session.id,
+      items,
+      total: items.reduce((acc, i) => acc + i.price * i.quantity, 0),
+      status: "Aguardando pagamento",
+    });
+    await order.save();
+
     res.json({ checkoutUrl: session.url });
-  } catch (error) {
-    console.error("❌ Erro Stripe:", error.message);
-    res.status(500).json({ error: "Erro ao criar sessão de pagamento" });
+  } catch (err) {
+    console.error("Erro Stripe:", err.message);
+    res.status(400).json({ error: err.message });
   }
 });
 
