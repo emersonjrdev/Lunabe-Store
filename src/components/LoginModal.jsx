@@ -218,10 +218,14 @@ const LoginModal = ({ onLogin, onClose }) => {
             </div>
 
             <div className="mt-3 md:mt-4 grid grid-cols-1 gap-2 md:gap-3">
-             <button onClick={() => signInWithRedirect(auth, googleProvider)}>
-  Google Login TESTE
-</button>
-
+              <button
+                onClick={handleGoogleLogin}
+                disabled={isLoading}
+                className="w-full inline-flex justify-center py-2 md:py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg md:rounded-xl shadow-sm bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium transition-all duration-300 hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:transform-none text-sm md:text-base"
+              >
+                <i className="fab fa-google text-red-500 mr-2"></i> 
+                {isLoading ? 'Conectando...' : 'Entrar com Google'}
+              </button>
             </div>
           </div>
 
