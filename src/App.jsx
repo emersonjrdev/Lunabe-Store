@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
-import { auth } from "./firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { auth, googleProvider } from "./firebase";
+import { signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
 import Home from "./pages/Home";
 import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
@@ -19,33 +19,69 @@ function AppContent() {
   const [user, setUser] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const { addToast, ToastContainer } = useToast();
   const { isDark } = useTheme();
 
-  // Escutar mudanças de autenticação do Firebase
+  // Configurar persistência e verificar autenticação
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        // Usuário está logado no Firebase
-        const userData = {
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
-          email: firebaseUser.email,
-          photo: firebaseUser.photoURL
-        };
-        setUser(userData);
-        localStorage.setItem("lunabe-user", JSON.stringify(userData));
-        console.log('Usuário autenticado via Firebase:', userData);
-      } else {
-        // Usuário não está logado
-        setUser(null);
-        localStorage.removeItem("lunabe-user");
-        console.log('Usuário não autenticado');
-      }
-    });
+    const initializeAuth = async () => {
+      try {
+        // Configurar persistência local
+        await setPersistence(auth, browserLocalPersistence);
+        console.log('Persistência configurada');
 
-    return () => unsubscribe();
-  }, []);
+        // Verificar resultado de redirect primeiro
+        try {
+          const result = await getRedirectResult(auth);
+          if (result?.user) {
+            console.log('Usuário logado via redirect:', result.user);
+            const userData = {
+              id: result.user.uid,
+              name: result.user.displayName || result.user.email.split('@')[0],
+              email: result.user.email,
+              photo: result.user.photoURL
+            };
+            setUser(userData);
+            localStorage.setItem("lunabe-user", JSON.stringify(userData));
+            addToast(`Bem-vindo(a), ${userData.name}!`, "success");
+          }
+        } catch (redirectError) {
+          console.log('Nenhum redirect result ou erro:', redirectError);
+        }
+
+        // Escutar mudanças de autenticação
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+          console.log('onAuthStateChanged chamado:', firebaseUser);
+          
+          if (firebaseUser) {
+            const userData = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+              email: firebaseUser.email,
+              photo: firebaseUser.photoURL
+            };
+            setUser(userData);
+            localStorage.setItem("lunabe-user", JSON.stringify(userData));
+            console.log('Usuário definido via onAuthStateChanged:', userData);
+          } else {
+            setUser(null);
+            localStorage.removeItem("lunabe-user");
+            console.log('Usuário não autenticado');
+          }
+          
+          setIsCheckingAuth(false);
+        });
+
+        return unsubscribe;
+      } catch (error) {
+        console.error('Erro ao inicializar auth:', error);
+        setIsCheckingAuth(false);
+      }
+    };
+
+    initializeAuth();
+  }, [addToast]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -62,15 +98,24 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Carregar carrinho do localStorage
   useEffect(() => {
     const savedCart = localStorage.getItem("lunabe-cart");
-    const savedUser = localStorage.getItem("lunabe-user");
-    if (savedCart) setCart(JSON.parse(savedCart));
-    // Não carregar usuário do localStorage aqui - o Firebase vai gerenciar
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (error) {
+        console.error('Erro ao carregar carrinho:', error);
+        setCart([]);
+      }
+    }
   }, []);
 
+  // Salvar carrinho no localStorage
   useEffect(() => {
-    localStorage.setItem("lunabe-cart", JSON.stringify(cart));
+    if (cart.length > 0) {
+      localStorage.setItem("lunabe-cart", JSON.stringify(cart));
+    }
   }, [cart]);
 
   const handleAddToCart = (product) => {
@@ -129,25 +174,24 @@ function AppContent() {
   };
 
   const handleLogin = (userData) => {
-    // Esta função agora é usada apenas para login manual (email/senha)
-    // O login com Google é gerenciado pelo Firebase automaticamente
+    // Para login manual (email/senha)
     setUser(userData);
     setShowLoginModal(false);
     addToast(`Bem-vindo(a), ${userData.name}!`, "success");
   };
 
-  const handleLogout = () => {
-    // Fazer logout do Firebase também
-    auth.signOut().then(() => {
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
       setUser(null);
       setCart([]);
       localStorage.removeItem("lunabe-user");
       localStorage.removeItem("lunabe-cart");
       addToast("Você saiu da sua conta", "info");
-    }).catch((error) => {
+    } catch (error) {
       console.error("Erro ao fazer logout:", error);
       addToast("Erro ao sair da conta", "error");
-    });
+    }
   };
 
   const handleClearCart = () => {
@@ -160,7 +204,8 @@ function AppContent() {
   const getTotalPrice = () =>
     cart.reduce((total, item) => total + item.price * item.quantity, 0);
 
-  if (isLoading) {
+  // Mostrar loading enquanto verifica autenticação
+  if (isLoading || isCheckingAuth) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
         <div className="text-center flex flex-col items-center space-y-4">
@@ -175,6 +220,9 @@ function AppContent() {
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white animate-pulse">
             Lunabê
           </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            {isCheckingAuth ? "Verificando autenticação..." : "Carregando..."}
+          </p>
         </div>
       </div>
     );
