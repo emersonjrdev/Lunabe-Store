@@ -1,12 +1,79 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { auth, googleProvider } from '../firebase'
-import { signInWithPopup } from 'firebase/auth'
+import { signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth'
 
 const LoginModal = ({ onLogin, onClose }) => {
   const [isLogin, setIsLogin] = useState(true)
   const [formData, setFormData] = useState({ email: '', password: '', name: '', confirmPassword: '' })
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
+
+  // Detectar se é mobile
+  const isMobile = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+
+  // Verificar resultado do redirect quando o componente carrega
+  useEffect(() => {
+    const checkRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result?.user) {
+          const user = result.user
+          onLogin({
+            id: user.uid,
+            name: user.displayName || user.email.split('@')[0],
+            email: user.email,
+            photo: user.photoURL
+          })
+          onClose()
+        }
+      } catch (error) {
+        console.error("Erro no redirect result:", error)
+      }
+    }
+
+    checkRedirectResult()
+  }, [onLogin, onClose])
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsLoading(true)
+      
+      if (isMobile()) {
+        // No mobile, usar redirect
+        console.log('Usando redirect para mobile...')
+        await signInWithRedirect(auth, googleProvider)
+        // O redirecionamento vai acontecer, então não chamamos onClose aqui
+        return
+      } else {
+        // No desktop, usar popup
+        const result = await signInWithPopup(auth, googleProvider)
+        const user = result.user
+        
+        onLogin({
+          id: user.uid,
+          name: user.displayName || user.email.split('@')[0],
+          email: user.email,
+          photo: user.photoURL
+        })
+        
+        setIsLoading(false)
+        onClose()
+      }
+    } catch (error) {
+      console.error("Erro ao logar com Google:", error)
+      setIsLoading(false)
+      
+      // Se popup for bloqueado no desktop, tentar redirect
+      if (error.code === 'auth/popup-blocked') {
+        alert('Popup bloqueado! Usando redirecionamento...')
+        await signInWithRedirect(auth, googleProvider)
+      } else {
+        alert('Erro ao fazer login com Google: ' + error.message)
+      }
+    }
+  }
 
   const validateForm = () => {
     const newErrors = {}
@@ -35,28 +102,6 @@ const LoginModal = ({ onLogin, onClose }) => {
       onLogin({ email: formData.email, name: formData.name, id: Date.now() })
     }
     setIsLoading(false)
-  }
-
-  const handleGoogleLogin = async () => {
-    try {
-      setIsLoading(true)
-      const result = await signInWithPopup(auth, googleProvider)
-      const user = result.user
-
-      onLogin({
-        id: user.uid,
-        name: user.displayName || user.email.split('@')[0],
-        email: user.email,
-        photo: user.photoURL
-      })
-
-      setIsLoading(false)
-      onClose()
-    } catch (error) {
-      console.error("Erro ao logar com Google:", error)
-      setIsLoading(false)
-      alert("Erro ao tentar login com Google.")
-    }
   }
 
   const handleInputChange = (field, value) => {
@@ -207,6 +252,16 @@ const LoginModal = ({ onLogin, onClose }) => {
               {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Faça login'}
             </button>
           </div>
+
+          {/* Aviso para mobile */}
+          {isMobile() && (
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-blue-700 dark:text-blue-300 text-center">
+                <i className="fas fa-info-circle mr-1"></i>
+                No mobile, você será redirecionado para fazer login com Google
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
