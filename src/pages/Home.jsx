@@ -14,7 +14,6 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // 🔹 Carregar produtos do Firestore
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -34,13 +33,11 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
     fetchProducts()
   }, [])
 
-  // 🔹 Pegar busca da URL (ex: ?q=pijama)
   useEffect(() => {
     const query = searchParams.get('q')
     if (query) setSearchQuery(query)
   }, [searchParams])
 
-  // 🔹 Filtros + busca
   const filteredProducts = products
     .filter(product => {
       if (filter === 'new' && !product.isNew) return false
@@ -83,44 +80,45 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
 
   const activeFiltersCount = [filter !== 'all', sort !== 'name', searchQuery].filter(Boolean).length
 
-  // 🔹 Abaixo: TODO o mesmo layout da sua Home original
   return (
     <div className="animate-fade-in">
       {/* HERO */}
-      <section className="relative bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-24 overflow-hidden">
-        <div className="container mx-auto px-4 text-center relative z-10">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-            Conforto que <span className="bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 bg-clip-text text-transparent">Transforma</span> suas Noites
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400 mb-10 leading-relaxed max-w-3xl mx-auto">
-            Descubra pijamas premium que combinam <span className="font-semibold text-gray-800 dark:text-white">elegância, conforto</span> e qualidade excepcional.
-          </p>
-          <button className="group bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-12 py-5 rounded-2xl text-lg font-semibold hover:shadow-2xl transform hover:scale-105 transition-all duration-300">
-            Descobrir Coleção
-          </button>
-        </div>
+      <section className="relative bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-12 md:py-24 overflow-hidden">
+        <div className="container-responsive text-center relative z-10">
+  <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-4 md:mb-6 leading-tight">
+    <span className="text-gray-800 dark:text-white">Conforto que </span>
+    <span className="bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 bg-clip-text text-transparent">Transforma</span>
+    <span className="text-gray-800 dark:text-white"> suas Noites</span>
+  </h1>
+  <p className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-400 mb-6 md:mb-10 leading-relaxed max-w-3xl mx-auto px-4">
+    Descubra pijamas premium que combinam <span className="font-semibold text-gray-800 dark:text-white">elegância, conforto</span> e qualidade excepcional.
+  </p>
+  <button className="group bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-6 py-4 md:px-12 md:py-5 rounded-xl md:rounded-2xl text-base md:text-lg font-semibold hover:shadow-2xl transform hover:scale-105 transition-all duration-300">
+    Descobrir Coleção
+  </button>
+</div>
       </section>
 
       {/* PRODUTOS */}
-      <section className="py-16 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-4">Coleção Exclusiva</h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+      <section className="py-12 md:py-16 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="container-responsive">
+          <div className="text-center mb-8 md:mb-12">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 dark:text-white mb-3 md:mb-4">Coleção Exclusiva</h2>
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto px-4">
               Descubra pijamas que combinam estilo, conforto e qualidade premium em cada detalhe
             </p>
           </div>
 
           {/* Search + Filters */}
-          <div className="mb-8 space-y-4">
+          <div className="mb-6 md:mb-8 space-y-4">
             <ProductSearch onSearch={handleSearch} initialQuery={searchQuery} />
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                 {['all', 'new', 'sale', 'premium'].map(f => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                    className={`px-3 py-2 text-sm md:px-4 md:py-2 md:text-base rounded-lg font-semibold transition-all ${
                       filter === f
                         ? 'bg-gray-800 dark:bg-gray-300 text-white dark:text-gray-900'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -133,7 +131,7 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
                 ))}
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 justify-center md:justify-start w-full md:w-auto">
                 {activeFiltersCount > 0 && (
                   <button onClick={clearFilters} className="text-sm text-red-600 dark:text-red-400 hover:text-red-800">
                     Limpar ({activeFiltersCount})
@@ -142,7 +140,7 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
                 <select
                   value={sort}
                   onChange={(e) => setSort(e.target.value)}
-                  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300"
+                  className="px-3 py-2 text-sm md:px-4 md:py-2 md:text-base bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300"
                 >
                   <option value="name">Ordenar: Nome</option>
                   <option value="price">Menor Preço</option>
@@ -153,7 +151,7 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
               </div>
             </div>
 
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-gray-600 dark:text-gray-400 text-center md:text-left">
               {filteredProducts.length} {filteredProducts.length === 1 ? 'produto encontrado' : 'produtos encontrados'}
               {searchQuery && ` para "${searchQuery}"`}
             </div>
@@ -163,20 +161,20 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
           {isLoading ? (
             <ProductGridSkeleton count={6} />
           ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-12">
-              <i className="fas fa-search text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
-              <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
+            <div className="text-center py-8 md:py-12">
+              <i className="fas fa-search text-4xl md:text-6xl text-gray-300 dark:text-gray-600 mb-3 md:mb-4"></i>
+              <h3 className="text-lg md:text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
                 Nenhum produto encontrado
               </h3>
-              <p className="text-gray-500 dark:text-gray-500 mb-4">
+              <p className="text-gray-500 dark:text-gray-500 mb-4 text-sm md:text-base">
                 {searchQuery ? `Não encontramos resultados para "${searchQuery}"` : 'Tente ajustar os filtros'}
               </p>
-              <button onClick={clearFilters} className="btn-primary">
+              <button onClick={clearFilters} className="btn-primary text-sm md:text-base">
                 <i className="fas fa-times mr-2"></i> Limpar Filtros
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
               {filteredProducts.map((product, index) => (
                 <div key={product.id} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
                   <ProductCard

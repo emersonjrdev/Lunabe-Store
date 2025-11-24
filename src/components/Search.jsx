@@ -46,7 +46,7 @@ const ProductSearch = ({ onSearch, initialQuery = '' }) => {
   }
 
   return (
-    <div className="relative max-w-2xl mx-auto">
+    <div className="relative w-full max-w-2xl mx-auto">
       <form onSubmit={handleSubmit} className="relative">
         <input
           type="text"
@@ -54,35 +54,35 @@ const ProductSearch = ({ onSearch, initialQuery = '' }) => {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query.length > 2 && setShowSuggestions(true)}
-          className="w-full px-6 py-4 pl-12 pr-12 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-800 dark:focus:ring-gray-300 transition-all duration-300 text-gray-700 dark:text-gray-300 placeholder-gray-500 dark:placeholder-gray-400"
+          className="w-full px-4 py-3 pl-10 pr-10 sm:pl-12 sm:pr-12 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-800 dark:focus:ring-gray-300 transition-all duration-300 text-gray-700 dark:text-gray-300 placeholder-gray-500 dark:placeholder-gray-400 text-sm sm:text-base"
         />
-        <i className="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+        <i className="fas fa-search absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm sm:text-base"></i>
         
         {query && (
           <button
             type="button"
             onClick={clearSearch}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
-            <i className="fas fa-times"></i>
+            <i className="fas fa-times text-sm sm:text-base"></i>
           </button>
         )}
       </form>
 
       {/* Suggestions Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl mt-2 z-50 max-h-60 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl sm:rounded-2xl shadow-2xl mt-2 z-50 max-h-48 sm:max-h-60 overflow-y-auto">
           <div className="p-2">
-            <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-3 py-2">
+            <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-2 sm:px-3 py-1 sm:py-2">
               Sugestões de busca
             </div>
             {suggestions.map((suggestion, index) => (
               <button
                 key={index}
                 onClick={() => handleSuggestionClick(suggestion)}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300 flex items-center space-x-3"
+                className="w-full text-left px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300 flex items-center space-x-2 sm:space-x-3 text-sm sm:text-base"
               >
-                <i className="fas fa-search text-gray-400 text-sm"></i>
+                <i className="fas fa-search text-gray-400 text-xs sm:text-sm"></i>
                 <span>{suggestion}</span>
               </button>
             ))}
@@ -92,16 +92,16 @@ const ProductSearch = ({ onSearch, initialQuery = '' }) => {
 
       {/* Popular Searches */}
       {!query && (
-        <div className="mt-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2 text-center">
+        <div className="mt-3 sm:mt-4">
+          <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2 text-center">
             Buscas populares:
           </div>
-          <div className="flex flex-wrap justify-center gap-2">
+          <div className="flex flex-wrap justify-center gap-1 sm:gap-2">
             {popularSearches.map((search, index) => (
               <button
                 key={index}
                 onClick={() => handleSuggestionClick(search)}
-                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                className="px-2 py-1 sm:px-3 sm:py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs sm:text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
               >
                 {search}
               </button>

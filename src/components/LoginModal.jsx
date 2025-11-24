@@ -70,122 +70,142 @@ const LoginModal = ({ onLogin, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full animate-slide-up border border-gray-200 dark:border-gray-700">
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+      <div className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl max-w-md w-full animate-slide-up border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div className="p-4 md:p-8">
+          <div className="flex justify-between items-center mb-4 md:mb-6">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">
               {isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta'}
             </h2>
-            <button onClick={handleClose} disabled={isLoading} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-xl transition-colors disabled:opacity-50">
+            <button onClick={handleClose} disabled={isLoading} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-lg md:text-xl transition-colors disabled:opacity-50">
               <i className="fas fa-times"></i>
             </button>
           </div>
 
           {/* Formulário padrão */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
             {!isLogin && (
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                   Nome completo
                 </label>
                 <input
                   type="text"
                   placeholder="Seu nome completo"
                   disabled={isLoading}
-                  className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-lunabe-pink ${
+                  className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700 border-2 rounded-lg md:rounded-xl focus:outline-none focus:ring-2 focus:ring-lunabe-pink text-sm md:text-base ${
                     errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                 />
-                {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+                {errors.name && <p className="text-red-500 text-xs md:text-sm mt-1">{errors.name}</p>}
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                 E-mail
               </label>
               <input
                 type="email"
                 placeholder="seu@email.com"
                 disabled={isLoading}
-                className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 rounded-xl ${
+                className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700 border-2 rounded-lg md:rounded-xl text-sm md:text-base ${
                   errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
               />
-              {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+              {errors.email && <p className="text-red-500 text-xs md:text-sm mt-1">{errors.email}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                 Senha
               </label>
               <input
                 type="password"
                 placeholder="Sua senha"
                 disabled={isLoading}
-                className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 rounded-xl ${
+                className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700 border-2 rounded-lg md:rounded-xl text-sm md:text-base ${
                   errors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
                 value={formData.password}
                 onChange={(e) => handleInputChange('password', e.target.value)}
               />
-              {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
+              {errors.password && <p className="text-red-500 text-xs md:text-sm mt-1">{errors.password}</p>}
             </div>
 
             {!isLogin && (
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 md:mb-2">
                   Confirmar Senha
                 </label>
                 <input
                   type="password"
                   placeholder="Confirme sua senha"
                   disabled={isLoading}
-                  className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 rounded-xl ${
+                  className={`w-full px-3 md:px-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-700 border-2 rounded-lg md:rounded-xl text-sm md:text-base ${
                     errors.confirmPassword ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
                   value={formData.confirmPassword}
                   onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
                 />
-                {errors.confirmPassword && <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>}
+                {errors.confirmPassword && <p className="text-red-500 text-xs md:text-sm mt-1">{errors.confirmPassword}</p>}
               </div>
             )}
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-6 py-4 rounded-xl font-semibold"
+              className="w-full bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold text-sm md:text-base"
             >
-              {isLogin ? 'Entrar' : 'Cadastrar'}
+              {isLoading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <i className="fas fa-spinner fa-spin"></i>
+                  <span>Processando...</span>
+                </div>
+              ) : (
+                isLogin ? 'Entrar' : 'Cadastrar'
+              )}
             </button>
           </form>
 
           {/* Social Login */}
-          <div className="mt-6">
+          <div className="mt-4 md:mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs md:text-sm">
                   Ou continue com
                 </span>
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3">
+            <div className="mt-3 md:mt-4 grid grid-cols-1 gap-2 md:gap-3">
               <button
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium transition-all"
+                className="w-full inline-flex justify-center py-2 md:py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg md:rounded-xl shadow-sm bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium transition-all text-sm md:text-base"
               >
-                <i className="fab fa-google text-red-500 mr-2"></i> Entrar com Google
+                <i className="fab fa-google text-red-500 mr-2"></i> 
+                {isLoading ? 'Conectando...' : 'Entrar com Google'}
               </button>
             </div>
+          </div>
+
+          {/* Toggle entre Login e Cadastro */}
+          <div className="mt-4 md:mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => setIsLogin(!isLogin)}
+              disabled={isLoading}
+              className="text-lunabe-pink hover:text-pink-600 dark:hover:text-pink-400 transition-colors text-sm md:text-base"
+            >
+              {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Faça login'}
+            </button>
           </div>
         </div>
       </div>

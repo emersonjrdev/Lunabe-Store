@@ -14,13 +14,13 @@ const LazyImage = ({ src, alt, className, ...props }) => {
   }
 
   return (
-    <div className="relative">
+    <div className="relative w-full h-full">
       {isLoading && (
-        <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg shimmer"></div>
+        <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg md:rounded-xl shimmer"></div>
       )}
       {hasError ? (
-        <div className="w-full h-full bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-          <i className="fas fa-image text-gray-400 dark:text-gray-600 text-2xl"></i>
+        <div className="w-full h-full bg-gray-100 dark:bg-gray-800 rounded-lg md:rounded-xl flex items-center justify-center">
+          <i className="fas fa-image text-gray-400 dark:text-gray-600 text-xl md:text-2xl"></i>
         </div>
       ) : (
         <img

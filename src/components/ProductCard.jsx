@@ -7,7 +7,7 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   const [selectedColor, setSelectedColor] = useState(product.colors?.[0] || 'Padrão')
   const [isAdding, setIsAdding] = useState(false)
 
-  if (!product) return null // garante que não quebre
+  if (!product) return null
 
   const handleAddToCart = async () => {
     if (!user) {
@@ -30,42 +30,42 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
     : 0
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden card-hover border border-gray-100 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg overflow-hidden card-hover border border-gray-100 dark:border-gray-700">
       <Link to={`/produto/${product.id}`} className="block relative group">
         <LazyImage 
           src={product.image || '/placeholder.jpg'}
           alt={product.name}
-          className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
+          className="w-full h-48 sm:h-56 md:h-64 object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300"></div>
 
-        <div className="absolute top-3 left-3 flex flex-col space-y-2">
+        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col space-y-1 sm:space-y-2">
           {product.isNew && (
-            <span className="bg-lunabe-pink text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">Novo</span>
+            <span className="bg-lunabe-pink text-white px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-semibold shadow-lg">Novo</span>
           )}
           {product.originalPrice && (
-            <span className="bg-red-500 text-white px-2 py-1 rounded-lg text-sm font-bold shadow-lg">
+            <span className="bg-red-500 text-white px-2 py-1 rounded-lg text-xs sm:text-sm font-bold shadow-lg">
               -{discountPercentage}%
             </span>
           )}
         </div>
       </Link>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <Link to={`/produto/${product.id}`}>
-          <h3 className="font-bold text-xl text-gray-800 dark:text-white mb-2 hover:text-lunabe-pink dark:hover:text-lunabe-pink transition-colors line-clamp-2">
+          <h3 className="font-bold text-lg sm:text-xl text-gray-800 dark:text-white mb-2 hover:text-lunabe-pink dark:hover:text-lunabe-pink transition-colors line-clamp-2">
             {product.name}
           </h3>
         </Link>
 
-        <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
+        <p className="text-gray-600 dark:text-gray-400 mb-3 sm:mb-4 line-clamp-2 text-sm sm:text-base">
           {product.description || 'Produto incrível da Lunabê'}
         </p>
 
         {/* Tamanhos */}
         {product.sizes?.length > 0 && (
-          <div className="mb-3">
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Tamanho:</label>
+          <div className="mb-2 sm:mb-3">
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Tamanho:</label>
             <div className="flex flex-wrap gap-1">
               {product.sizes.map(size => (
                 <button
@@ -86,8 +86,8 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
 
         {/* Cores */}
         {product.colors?.length > 0 && (
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Cor:</label>
+          <div className="mb-3 sm:mb-4">
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Cor:</label>
             <div className="flex flex-wrap gap-1">
               {product.colors.map(color => (
                 <button
@@ -107,13 +107,13 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
         )}
 
         {/* Preço e botão */}
-        <div className="flex justify-between items-center">
-          <div>
-            <span className="text-2xl font-bold text-gray-800 dark:text-white">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
+          <div className="flex items-center space-x-2">
+            <span className="text-lg sm:text-xl font-bold text-gray-800 dark:text-white">
               R$ {product.price?.toFixed(2) || '0,00'}
             </span>
             {product.originalPrice && (
-              <span className="text-lg text-gray-500 dark:text-gray-400 line-through ml-2">
+              <span className="text-sm sm:text-base text-gray-500 dark:text-gray-400 line-through">
                 R$ {product.originalPrice.toFixed(2)}
               </span>
             )}
@@ -121,19 +121,19 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
           <button
             onClick={handleAddToCart}
             disabled={isAdding}
-            className={`bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-4 py-3 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105 font-semibold flex items-center space-x-2 ${
+            className={`bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-3 py-2 sm:px-4 sm:py-3 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105 font-semibold flex items-center justify-center space-x-2 text-sm sm:text-base ${
               isAdding ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
             {isAdding ? (
               <>
-                <i className="fas fa-spinner fa-spin"></i>
-                <span>Adicionando...</span>
+                <i className="fas fa-spinner fa-spin text-xs sm:text-sm"></i>
+                <span className="text-xs sm:text-sm">Adicionando...</span>
               </>
             ) : (
               <>
-                <i className="fas fa-shopping-cart"></i>
-                <span>Add</span>
+                <i className="fas fa-shopping-cart text-xs sm:text-sm"></i>
+                <span className="text-xs sm:text-sm">Adicionar</span>
               </>
             )}
           </button>
