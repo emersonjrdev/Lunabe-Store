@@ -1,74 +1,106 @@
 import React, { useState, useEffect } from 'react'
 import { auth, googleProvider } from '../firebase'
-import { signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth'
+import { signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged } from 'firebase/auth'
 
 const LoginModal = ({ onLogin, onClose }) => {
   const [isLogin, setIsLogin] = useState(true)
   const [formData, setFormData] = useState({ email: '', password: '', name: '', confirmPassword: '' })
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
   // Detectar se é mobile
   const isMobile = () => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
 
-  // Verificar resultado do redirect quando o componente carrega
+  // Verificar se há um redirect em andamento
   useEffect(() => {
-    const checkRedirectResult = async () => {
+    const redirectPending = localStorage.getItem('googleRedirectPending')
+    if (redirectPending) {
+      setIsRedirecting(true)
+      console.log('Redirect pendente detectado')
+    }
+  }, [])
+
+  // Escutar mudanças de autenticação para detectar login bem-sucedido
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && isRedirecting) {
+        console.log('Usuário autenticado via onAuthStateChanged:', user)
+        // O Firebase já cuida do estado, então apenas fechamos o modal
+        localStorage.removeItem('googleRedirectPending')
+        setIsRedirecting(false)
+        onClose()
+      }
+    })
+
+    return () => unsubscribe()
+  }, [onClose, isRedirecting])
+
+  // Processar resultado do redirect quando o componente monta
+  useEffect(() => {
+    const processRedirectResult = async () => {
       try {
+        console.log('Verificando resultado do redirect...')
         const result = await getRedirectResult(auth)
+        
         if (result?.user) {
-          const user = result.user
-          onLogin({
-            id: user.uid,
-            name: user.displayName || user.email.split('@')[0],
-            email: user.email,
-            photo: user.photoURL
-          })
+          console.log('Redirect result encontrado:', result.user)
+          // O usuário já está logado no Firebase, apenas fechar o modal
+          localStorage.removeItem('googleRedirectPending')
+          setIsRedirecting(false)
           onClose()
+        } else {
+          console.log('Nenhum resultado de redirect encontrado')
+          localStorage.removeItem('googleRedirectPending')
+          setIsRedirecting(false)
         }
       } catch (error) {
-        console.error("Erro no redirect result:", error)
+        console.error("Erro ao processar redirect:", error)
+        localStorage.removeItem('googleRedirectPending')
+        setIsRedirecting(false)
+        alert('Erro ao processar login: ' + error.message)
       }
     }
 
-    checkRedirectResult()
-  }, [onLogin, onClose])
+    processRedirectResult()
+  }, [onClose])
 
   const handleGoogleLogin = async () => {
     try {
       setIsLoading(true)
       
       if (isMobile()) {
-        // No mobile, usar redirect
-        console.log('Usando redirect para mobile...')
+        // No mobile, usar redirect e marcar como pendente
+        console.log('Iniciando redirect para mobile...')
+        localStorage.setItem('googleRedirectPending', 'true')
+        setIsRedirecting(true)
         await signInWithRedirect(auth, googleProvider)
-        // O redirecionamento vai acontecer, então não chamamos onClose aqui
-        return
+        // Não chamar onClose aqui - o redirect vai acontecer
       } else {
         // No desktop, usar popup
         const result = await signInWithPopup(auth, googleProvider)
         const user = result.user
         
-        onLogin({
-          id: user.uid,
-          name: user.displayName || user.email.split('@')[0],
-          email: user.email,
-          photo: user.photoURL
-        })
-        
+        console.log('Login com popup bem-sucedido:', user)
+        // O Firebase já atualizou o estado, então apenas fechamos
         setIsLoading(false)
         onClose()
       }
     } catch (error) {
       console.error("Erro ao logar com Google:", error)
       setIsLoading(false)
+      setIsRedirecting(false)
+      localStorage.removeItem('googleRedirectPending')
       
-      // Se popup for bloqueado no desktop, tentar redirect
       if (error.code === 'auth/popup-blocked') {
         alert('Popup bloqueado! Usando redirecionamento...')
+        localStorage.setItem('googleRedirectPending', 'true')
+        setIsRedirecting(true)
         await signInWithRedirect(auth, googleProvider)
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        console.log('Popup fechado pelo usuário')
       } else {
         alert('Erro ao fazer login com Google: ' + error.message)
       }
@@ -94,14 +126,27 @@ const LoginModal = ({ onLogin, onClose }) => {
     e.preventDefault()
     if (!validateForm()) return
     setIsLoading(true)
+    
+    // Simular login manual (sem Firebase)
     await new Promise((resolve) => setTimeout(resolve, 1200))
 
     if (isLogin) {
-      onLogin({ email: formData.email, name: formData.email.split('@')[0], id: Date.now() })
+      onLogin({ 
+        email: formData.email, 
+        name: formData.email.split('@')[0], 
+        id: Date.now().toString() 
+      })
     } else {
-      onLogin({ email: formData.email, name: formData.name, id: Date.now() })
+      onLogin({ 
+        email: formData.email, 
+        name: formData.name, 
+        id: Date.now().toString() 
+      })
     }
+    
     setIsLoading(false)
+    // Limpar formulário
+    setFormData({ email: '', password: '', name: '', confirmPassword: '' })
   }
 
   const handleInputChange = (field, value) => {
@@ -110,7 +155,29 @@ const LoginModal = ({ onLogin, onClose }) => {
   }
 
   const handleClose = () => {
-    if (!isLoading) onClose()
+    if (!isLoading && !isRedirecting) {
+      onClose()
+    }
+  }
+
+  // Se estiver processando redirect, mostrar loading
+  if (isRedirecting) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
+        <div className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl max-w-md w-full animate-slide-up border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-lunabe-pink mx-auto mb-4"></div>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
+            Processando Login...
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            Aguarde enquanto finalizamos seu login com Google.
+          </p>
+          <p className="text-gray-500 dark:text-gray-500 text-xs mt-2">
+            Você será redirecionado de volta automaticamente.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -121,7 +188,11 @@ const LoginModal = ({ onLogin, onClose }) => {
             <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">
               {isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta'}
             </h2>
-            <button onClick={handleClose} disabled={isLoading} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-lg md:text-xl transition-colors disabled:opacity-50">
+            <button 
+              onClick={handleClose} 
+              disabled={isLoading} 
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-lg md:text-xl transition-colors disabled:opacity-50"
+            >
               <i className="fas fa-times"></i>
             </button>
           </div>
@@ -203,7 +274,7 @@ const LoginModal = ({ onLogin, onClose }) => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold text-sm md:text-base"
+              className="w-full bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-4 md:px-6 py-3 md:py-4 rounded-lg md:rounded-xl font-semibold text-sm md:text-base transition-all duration-300 hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center space-x-2">
@@ -233,7 +304,7 @@ const LoginModal = ({ onLogin, onClose }) => {
               <button
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="w-full inline-flex justify-center py-2 md:py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg md:rounded-xl shadow-sm bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium transition-all text-sm md:text-base"
+                className="w-full inline-flex justify-center py-2 md:py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg md:rounded-xl shadow-sm bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium transition-all duration-300 hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:transform-none text-sm md:text-base"
               >
                 <i className="fab fa-google text-red-500 mr-2"></i> 
                 {isLoading ? 'Conectando...' : 'Entrar com Google'}
@@ -247,7 +318,7 @@ const LoginModal = ({ onLogin, onClose }) => {
               type="button"
               onClick={() => setIsLogin(!isLogin)}
               disabled={isLoading}
-              className="text-lunabe-pink hover:text-pink-600 dark:hover:text-pink-400 transition-colors text-sm md:text-base"
+              className="text-lunabe-pink hover:text-pink-600 dark:hover:text-pink-400 transition-colors text-sm md:text-base disabled:opacity-50"
             >
               {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Faça login'}
             </button>

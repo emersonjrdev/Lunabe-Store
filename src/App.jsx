@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
+import { auth } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import Home from "./pages/Home";
 import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
@@ -20,16 +22,40 @@ function AppContent() {
   const { addToast, ToastContainer } = useToast();
   const { isDark } = useTheme();
 
+  // Escutar mudanças de autenticação do Firebase
   useEffect(() => {
-  const handleStorageChange = () => {
-    const savedCart = localStorage.getItem("lunabe-cart");
-    setCart(savedCart ? JSON.parse(savedCart) : []);
-  };
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        // Usuário está logado no Firebase
+        const userData = {
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+          email: firebaseUser.email,
+          photo: firebaseUser.photoURL
+        };
+        setUser(userData);
+        localStorage.setItem("lunabe-user", JSON.stringify(userData));
+        console.log('Usuário autenticado via Firebase:', userData);
+      } else {
+        // Usuário não está logado
+        setUser(null);
+        localStorage.removeItem("lunabe-user");
+        console.log('Usuário não autenticado');
+      }
+    });
 
-  window.addEventListener("storage", handleStorageChange);
-  return () => window.removeEventListener("storage", handleStorageChange);
-}, []);
+    return () => unsubscribe();
+  }, []);
 
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const savedCart = localStorage.getItem("lunabe-cart");
+      setCart(savedCart ? JSON.parse(savedCart) : []);
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1200);
@@ -40,16 +66,12 @@ function AppContent() {
     const savedCart = localStorage.getItem("lunabe-cart");
     const savedUser = localStorage.getItem("lunabe-user");
     if (savedCart) setCart(JSON.parse(savedCart));
-    if (savedUser) setUser(JSON.parse(savedUser));
+    // Não carregar usuário do localStorage aqui - o Firebase vai gerenciar
   }, []);
 
   useEffect(() => {
     localStorage.setItem("lunabe-cart", JSON.stringify(cart));
   }, [cart]);
-
-  useEffect(() => {
-    localStorage.setItem("lunabe-user", JSON.stringify(user));
-  }, [user]);
 
   const handleAddToCart = (product) => {
     if (!user) {
@@ -107,17 +129,30 @@ function AppContent() {
   };
 
   const handleLogin = (userData) => {
+    // Esta função agora é usada apenas para login manual (email/senha)
+    // O login com Google é gerenciado pelo Firebase automaticamente
     setUser(userData);
     setShowLoginModal(false);
     addToast(`Bem-vindo(a), ${userData.name}!`, "success");
   };
 
   const handleLogout = () => {
-    setUser(null);
+    // Fazer logout do Firebase também
+    auth.signOut().then(() => {
+      setUser(null);
+      setCart([]);
+      localStorage.removeItem("lunabe-user");
+      localStorage.removeItem("lunabe-cart");
+      addToast("Você saiu da sua conta", "info");
+    }).catch((error) => {
+      console.error("Erro ao fazer logout:", error);
+      addToast("Erro ao sair da conta", "error");
+    });
+  };
+
+  const handleClearCart = () => {
     setCart([]);
-    localStorage.removeItem("lunabe-user");
     localStorage.removeItem("lunabe-cart");
-    addToast("Você saiu da sua conta", "error");
   };
 
   const getTotalItems = () =>
@@ -174,6 +209,7 @@ function AppContent() {
                   cart={cart}
                   onUpdateQuantity={handleUpdateQuantity}
                   onRemoveFromCart={handleRemoveFromCart}
+                  onClearCart={handleClearCart}
                   totalPrice={getTotalPrice()}
                   user={user}
                 />
