@@ -1,3 +1,8 @@
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+
+const API_URL = "https://lunabe-store.onrender.com/products";
+
 const Admin = () => {
   const [loggedIn, setLoggedIn] = useState(false);
   const [password, setPassword] = useState("");
