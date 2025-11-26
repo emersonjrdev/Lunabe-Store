@@ -1,18 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { db, storage } from "../firebase";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc,
-} from "firebase/firestore";
-
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from "firebase/storage";
 
 const Admin = () => {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -21,10 +7,9 @@ const Admin = () => {
   const [form, setForm] = useState({
     name: "",
     description: "",
-    price: "",
+    price_cents: "",
+    stock: "",
     image: null,
-    sizes: "",
-    colors: "",
   });
 
   const adminPassword = "lunabe25";
@@ -37,9 +22,11 @@ const Admin = () => {
     }
   };
 
+  // GET PRODUCTS DO SEU BACKEND
   const fetchProducts = async () => {
-    const snapshot = await getDocs(collection(db, "products"));
-    setProducts(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    const res = await fetch("https://api.lunabe.com.br/products");
+    const data = await res.json();
+    setProducts(data);
   };
 
   useEffect(() => {
@@ -50,44 +37,49 @@ const Admin = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // CREATE PRODUCT (ENVIO DA IMAGEM LOCAL)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    let imageURL = "";
+    const fd = new FormData();
+    fd.append("name", form.name);
+    fd.append("description", form.description);
+    fd.append("price_cents", form.price_cents);
+    fd.append("stock", form.stock);
 
-    // Se tiver imagem, faz upload
     if (form.image) {
-      const imageRef = ref(storage, `products/${Date.now()}-${form.image.name}`);
-      const upload = await uploadBytes(imageRef, form.image);
-      imageURL = await getDownloadURL(upload.ref);
+      fd.append("image", form.image);
     }
 
-    await addDoc(collection(db, "products"), {
-      ...form,
-      price: parseFloat(form.price),
-      sizes: form.sizes.split(",").map((s) => s.trim()),
-      colors: form.colors.split(",").map((c) => c.trim()),
-      image: imageURL,
-      createdAt: new Date(),
+    const res = await fetch("https://api.lunabe.com.br/products", {
+      method: "POST",
+      body: fd,
     });
 
-    alert("✅ Produto adicionado!");
+    if (!res.ok) {
+      alert("Erro ao criar produto");
+      return;
+    }
+
+    alert("Produto criado com sucesso!");
 
     setForm({
       name: "",
       description: "",
-      price: "",
+      price_cents: "",
+      stock: "",
       image: null,
-      sizes: "",
-      colors: "",
     });
 
     fetchProducts();
   };
 
+  // DELETE PRODUCT
   const handleDelete = async (id) => {
     if (window.confirm("Deseja remover este produto?")) {
-      await deleteDoc(doc(db, "products", id));
+      await fetch(`https://api.lunabe.com.br/products/${id}`, {
+        method: "DELETE",
+      });
       fetchProducts();
     }
   };
@@ -144,9 +136,19 @@ const Admin = () => {
 
           <input
             type="number"
-            name="price"
-            placeholder="Preço"
-            value={form.price}
+            name="price_cents"
+            placeholder="Preço (centavos)"
+            value={form.price_cents}
+            onChange={handleChange}
+            required
+            className="w-full p-3 border rounded-lg"
+          />
+
+          <input
+            type="number"
+            name="stock"
+            placeholder="Estoque"
+            value={form.stock}
             onChange={handleChange}
             required
             className="w-full p-3 border rounded-lg"
@@ -159,24 +161,6 @@ const Admin = () => {
               setForm({ ...form, image: e.target.files[0] })
             }
             className="w-full"
-          />
-
-          <input
-            type="text"
-            name="sizes"
-            placeholder="Tamanhos separados por vírgula"
-            value={form.sizes}
-            onChange={handleChange}
-            className="w-full p-3 border rounded-lg"
-          />
-
-          <input
-            type="text"
-            name="colors"
-            placeholder="Cores separadas por vírgula"
-            value={form.colors}
-            onChange={handleChange}
-            className="w-full p-3 border rounded-lg"
           />
 
           <button
@@ -195,20 +179,24 @@ const Admin = () => {
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
             {products.map((p) => (
-              <div key={p.id} className="p-4 border rounded-lg bg-gray-50">
-                <img
-                  src={p.image}
-                  alt={p.name}
-                  className="w-full h-48 object-cover rounded-lg mb-2"
-                />
+              <div key={p._id} className="p-4 border rounded-lg bg-gray-50">
+                {p.images?.[0] && (
+                  <img
+                    src={p.images[0]}
+                    alt={p.name}
+                    className="w-full h-48 object-cover rounded-lg mb-2"
+                  />
+                )}
                 <h3 className="font-bold">{p.name}</h3>
                 <p className="text-gray-600 text-sm line-clamp-2">
                   {p.description}
                 </p>
-                <p className="text-lg font-semibold mt-2">R$ {p.price.toFixed(2)}</p>
+                <p className="text-lg font-semibold mt-2">
+                  R$ {(p.price_cents / 100).toFixed(2)}
+                </p>
 
                 <button
-                  onClick={() => handleDelete(p.id)}
+                  onClick={() => handleDelete(p._id)}
                   className="w-full mt-3 bg-red-500 text-white py-2 rounded-lg"
                 >
                   Excluir
