@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { collection, getDocs } from 'firebase/firestore'
-import { db } from '../firebase'
-import ProductCard from '../components/ProductCard'
-import { ProductGridSkeleton } from '../components/ProductSkeleton'
-import ProductSearch from '../components/Search'
+import axios from "axios"
+
+const API_URL = "https://lunabe-store.onrender.com/api/products" // << seu backend com /api
 
 const Home = ({ onAddToCart, user, onLoginClick }) => {
   const [isLoading, setIsLoading] = useState(true)
@@ -17,14 +15,10 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const snapshot = await getDocs(collection(db, 'products'))
-        const productList = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }))
-        setProducts(productList)
+        const res = await axios.get(API_URL)
+        setProducts(res.data)
       } catch (error) {
-        console.error('Erro ao buscar produtos:', error)
+        console.error("Erro ao buscar produtos:", error)
       } finally {
         setIsLoading(false)
       }
@@ -58,8 +52,8 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
       return true
     })
     .sort((a, b) => {
-      if (sort === 'price') return a.price - b.price
-      if (sort === 'price-desc') return b.price - a.price
+      if (sort === 'price') return a.price_cents - b.price_cents
+      if (sort === 'price-desc') return b.price_cents - a.price_cents
       if (sort === 'rating') return b.rating - a.rating
       if (sort === 'new') return b.isNew - a.isNew
       return a.name.localeCompare(b.name)
@@ -82,26 +76,25 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
 
   return (
     <div className="animate-fade-in">
-      {/* HERO */}
       <section className="relative bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-12 md:py-24 overflow-hidden">
         <div className="container-responsive text-center relative z-10">
-  <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-4 md:mb-6 leading-tight">
-    <span className="text-gray-800 dark:text-white">Conforto que </span>
-    <span className="bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 bg-clip-text text-transparent">Transforma</span>
-    <span className="text-gray-800 dark:text-white"> suas Noites</span>
-  </h1>
-  <p className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-400 mb-6 md:mb-10 leading-relaxed max-w-3xl mx-auto px-4">
-    Descubra pijamas premium que combinam <span className="font-semibold text-gray-800 dark:text-white">elegância, conforto</span> e qualidade excepcional.
-  </p>
-  <button className="group bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-6 py-4 md:px-12 md:py-5 rounded-xl md:rounded-2xl text-base md:text-lg font-semibold hover:shadow-2xl transform hover:scale-105 transition-all duration-300">
-    Descobrir Coleção
-  </button>
-</div>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-4 md:mb-6 leading-tight">
+            <span className="text-gray-800 dark:text-white">Conforto que </span>
+            <span className="bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 bg-clip-text text-transparent">Transforma</span>
+            <span className="text-gray-800 dark:text-white"> suas Noites</span>
+          </h1>
+          <p className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-400 mb-6 md:mb-10 leading-relaxed max-w-3xl mx-auto px-4">
+            Descubra pijamas premium que combinam <span className="font-semibold text-gray-800 dark:text-white">elegância, conforto</span> e qualidade excepcional.
+          </p>
+          <button className="group bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-6 py-4 md:px-12 md:py-5 rounded-xl md:rounded-2xl text-base md:text-lg font-semibold hover:shadow-2xl transform hover:scale-105 transition-all duration-300">
+            Descobrir Coleção
+          </button>
+        </div>
       </section>
 
-      {/* PRODUTOS */}
       <section className="py-12 md:py-16 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
         <div className="container-responsive">
+
           <div className="text-center mb-8 md:mb-12">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 dark:text-white mb-3 md:mb-4">Coleção Exclusiva</h2>
             <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto px-4">
@@ -112,6 +105,7 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
           {/* Search + Filters */}
           <div className="mb-6 md:mb-8 space-y-4">
             <ProductSearch onSearch={handleSearch} initialQuery={searchQuery} />
+
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                 {['all', 'new', 'sale', 'premium'].map(f => (
@@ -176,7 +170,7 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
               {filteredProducts.map((product, index) => (
-                <div key={product.id} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                <div key={product._id} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
                   <ProductCard
                     product={product}
                     onAddToCart={onAddToCart}
