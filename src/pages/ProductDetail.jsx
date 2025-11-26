@@ -17,28 +17,25 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        const docRef = doc(db, "products", id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setProduct({ id: docSnap.id, ...data });
-          setSelectedSize(data.sizes?.[0] || "Único");
-          setSelectedColor(data.colors?.[0] || "Padrão");
-        } else {
-          addToast("Produto não encontrado!", "error");
-        }
-      } catch (err) {
-        console.error("Erro ao buscar produto:", err);
-        addToast("Erro ao carregar o produto.", "error");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchProduct();
-  }, [id]);
+useEffect(() => {
+  const fetchProduct = async () => {
+    try {
+      const response = await fetch(`https://lunabe-store.onrender.com/api/products/${id}`);
+      const data = await response.json();
+      setProduct(data);
+      setSelectedSize(data.sizes?.[0] || "Único");
+      setSelectedColor(data.colors?.[0] || "Padrão");
+    } catch (err) {
+      console.error("Erro ao buscar produto:", err);
+      addToast("Erro ao carregar o produto.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchProduct();
+}, [id]);
+
 
   const handleAddToCart = () => {
     if (!user) {

@@ -32,11 +32,11 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg overflow-hidden card-hover border border-gray-100 dark:border-gray-700">
       <Link to={`/produto/${product.id}`} className="block relative group">
-        <LazyImage 
-          src={product.image || '/placeholder.jpg'}
-          alt={product.name}
-          className="w-full h-48 sm:h-56 md:h-64 object-cover group-hover:scale-110 transition-transform duration-500"
-        />
+       <LazyImage 
+    src={product.images?.[0] || '/placeholder.jpg'}
+    alt={product.name}
+    className="w-full h-48 sm:h-56 md:h-64 object-cover group-hover:scale-110 transition-transform duration-500"
+  />
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300"></div>
 
         <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col space-y-1 sm:space-y-2">
