@@ -13,6 +13,8 @@ import Header from "./components/Header";
 import LoginModal from "./components/LoginModal";
 import Footer from "./components/Footer";
 import { useToast } from "./hooks/useToast";
+import { checkRedirectLogin } from "./firebase";
+
 
 function AppContent() {
   const [cart, setCart] = useState([]);
@@ -22,6 +24,17 @@ function AppContent() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const { addToast, ToastContainer } = useToast();
   const { isDark } = useTheme();
+
+  useEffect(() => {
+  checkRedirectLogin(); // recupera login no mobile
+
+  const unsub = onAuthStateChanged(auth, (user) => {
+    setUser(user || null);
+  });
+
+  return () => unsub();
+}, []);
+
 
   // Configurar persistência e verificar autenticação
   useEffect(() => {
@@ -81,7 +94,7 @@ function AppContent() {
     };
 
     initializeAuth();
-  }, [addToast]);
+  }, []);
 
   useEffect(() => {
     const handleStorageChange = () => {
