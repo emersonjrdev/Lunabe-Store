@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_URL = "https://lunabe-store.onrender.com/products"; // seu backend no Render
+const API_URL = "https://lunabe-store.onrender.com/products";
 
 const Admin = () => {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -122,6 +122,7 @@ const Admin = () => {
           </button>
         </form>
 
+
         <h2 className="text-xl font-bold mb-4">Produtos cadastrados</h2>
 
         {products.length === 0 ? (
@@ -145,5 +146,7 @@ const Admin = () => {
     </div>
   );
 };
+
+// teste
 
 export default Admin;
