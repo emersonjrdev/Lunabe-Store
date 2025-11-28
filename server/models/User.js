@@ -7,7 +7,8 @@ const AddressSchema = new mongoose.Schema({
 const UserSchema = new mongoose.Schema({
   name: { type: String },
   email: { type: String, required: true, unique: true },
-  passwordHash: { type: String, required: true },
+  // passwordHash is optional now to support social logins (Google)
+  passwordHash: { type: String },
   createdAt: { type: Date, default: Date.now },
   address: AddressSchema
 });

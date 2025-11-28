@@ -1,4 +1,5 @@
-export const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+// Normalize API_BASE and remove trailing slash to avoid accidental double slashes
+export const API_BASE = (import.meta.env.VITE_API_BASE || 'http://localhost:4000').replace(/\/$/, '');
 
 export async function fetchProducts() {
   const res = await fetch(`${API_BASE}/api/products`);

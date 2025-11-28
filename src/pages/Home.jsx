@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import axios from "axios"
+import { API_BASE } from '../api'
 import ProductCard from '../components/ProductCard'
 import { ProductGridSkeleton } from '../components/ProductSkeleton'
 import ProductSearch from '../components/Search'
 
-const API_URL = "https://lunabe-store.onrender.com/api/products" // << seu backend com /api
+const API_URL = `${API_BASE}/api/products` // << seu backend com /api
 
 const Home = ({ onAddToCart, user, onLoginClick }) => {
   const [isLoading, setIsLoading] = useState(true)

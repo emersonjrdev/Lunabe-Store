@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useToast } from '../hooks/useToast'
+import { getFullImageUrl } from '../utils/image'
 import PaymentService from '../services/paymentService'
 
 const CheckoutSuccess = ({ onClearCart }) => {
@@ -121,7 +122,7 @@ const CheckoutSuccess = ({ onClearCart }) => {
               {order.items.map((item, index) => (
                 <div key={index} className="flex items-center space-x-3">
                   <img 
-                    src={item.image} 
+                    src={getFullImageUrl(item.image) || '/placeholder.jpg'} 
                     alt={item.name}
                     className="w-12 h-12 object-cover rounded-lg"
                   />

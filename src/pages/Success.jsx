@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { API_BASE } from '../api'
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 const Success = () => {
@@ -11,7 +12,7 @@ const Success = () => {
     const fetchOrder = async () => {
       try {
         const response = await fetch(
-          `https://lunabe-store.onrender.com/api/orders/session/${sessionId}`
+          `${API_BASE}/api/orders/session/${sessionId}`
         );
         const data = await response.json();
 

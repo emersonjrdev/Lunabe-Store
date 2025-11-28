@@ -1,23 +1,43 @@
 import React, { useEffect, useState } from "react";
+import PaymentService from '../services/paymentService'
+import { Link } from 'react-router-dom'
 
-const MinhasCompras = () => {
+const MinhasCompras = ({ user }) => {
   const [compras, setCompras] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const ultimaCompra = localStorage.getItem("ultima-compra");
+    const fetchOrders = async () => {
+      // try backend orders first
+      const savedUser = user || JSON.parse(localStorage.getItem('lunabe-user') || 'null');
+      if (!savedUser) {
+        setLoading(false);
+        return;
+      }
+      // user already an object when passed via props
 
-    if (ultimaCompra) {
       try {
-        const compraData = JSON.parse(ultimaCompra);
-        // se o backend retorna só uma compra, transformamos em array
-        setCompras(Array.isArray(compraData) ? compraData : [compraData]);
-      } catch (e) {
-        console.error("Erro ao ler compra salva:", e);
+        const orders = await PaymentService.getUserOrders(savedUser.email);
+        setCompras(Array.isArray(orders) ? orders : [orders]);
+      } catch (err) {
+        console.error('Erro ao buscar pedidos do usuário:', err);
+
+        // fallback — keep reading ultima-compra
+                const ultimaCompra = localStorage.getItem("ultima-compra");
+        if (ultimaCompra) {
+          try {
+            const compraData = JSON.parse(ultimaCompra);
+            setCompras(Array.isArray(compraData) ? compraData : [compraData]);
+          } catch (e) {
+            console.error("Erro ao ler compra salva:", e);
+          }
+        }
+      } finally {
+        setLoading(false);
       }
     }
 
-    setLoading(false);
+    fetchOrders();
   }, []);
 
   if (loading) {
@@ -29,6 +49,16 @@ const MinhasCompras = () => {
   }
 
   if (!compras.length) {
+    if (!user && !localStorage.getItem('lunabe-user')) {
+      return (
+        <div className="text-center py-20 text-gray-600 dark:text-gray-400">
+          <p>Você não está logado — faça login para ver seus pedidos.</p>
+          <div className="mt-4">
+            <a href="#login" className="btn-primary">Fazer login</a>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="text-center py-20 text-gray-600 dark:text-gray-400">
         <p>Você ainda não realizou nenhuma compra.</p>
@@ -69,6 +99,16 @@ const MinhasCompras = () => {
               </span>
             </div>
 
+            {/* Endereço */}
+            {compra.address && (
+              <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                <p className="font-semibold">Endereço de entrega</p>
+                <p>{compra.address.name} — {compra.address.phone}</p>
+                <p>{compra.address.street}</p>
+                <p>{compra.address.city} • {compra.address.state} — {compra.address.zip} ({compra.address.country})</p>
+              </div>
+            )}
+
             {/* Produtos */}
             <div className="space-y-4">
               {compra.produtos?.map((produto, index) => (
@@ -92,13 +132,16 @@ const MinhasCompras = () => {
             </div>
 
             {/* Total */}
-            <div className="mt-6 flex justify-end">
+              <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <p className="text-lg font-semibold text-gray-800 dark:text-white">
                 Total:{" "}
                 <span className="text-gray-900 dark:text-gray-300">
                   R$ {compra.total?.toFixed(2) || "0.00"}
                 </span>
               </p>
+                <div className="flex items-center space-x-3">
+                  <Link to={`/orders/${compra._id || compra.id}`} className="btn-primary text-sm">Acompanhar pedido</Link>
+                </div>
             </div>
           </div>
         ))}

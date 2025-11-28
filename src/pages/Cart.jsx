@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useToast } from '../hooks/useToast'
+import { getFullImageUrl } from '../utils/image'
 import PaymentService from '../services/paymentService'
 
 const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onClearCart }) => {
@@ -8,6 +9,42 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   const [discount, setDiscount] = useState(0)
   const [appliedCoupon, setAppliedCoupon] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [address, setAddress] = useState({ name: '', street: '', city: '', state: '', zip: '', country: '', phone: '' })
+
+  useEffect(() => {
+    // prefills address from user or saved profile
+    if (user?.address) {
+      setAddress({
+        name: user.name || '',
+        street: user.address.street || '',
+        city: user.address.city || '',
+        state: user.address.state || '',
+        zip: user.address.zip || '',
+        country: user.address.country || '',
+        phone: user.address.phone || ''
+      })
+    } else {
+      const savedUser = localStorage.getItem('lunabe-user')
+      if (savedUser) {
+        try {
+          const u = JSON.parse(savedUser)
+          if (u?.address) {
+            setAddress({
+              name: u.name || '',
+              street: u.address.street || '',
+              city: u.address.city || '',
+              state: u.address.state || '',
+              zip: u.address.zip || '',
+              country: u.address.country || '',
+              phone: u.address.phone || ''
+            })
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  }, [user])
   const { addToast } = useToast()
   const navigate = useNavigate()
 
@@ -100,16 +137,15 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
       const shipping = finalPrice > 150 ? 0 : 15.90
       const totalAmount = finalPrice + shipping
 
-      // Criar pedido no backend
-      const orderData = await PaymentService.createOrder(
-        cart,
-        user,
-        discount,
-        shipping,
-        appliedCoupon,
-        totalAmount
-      )
-      
+      // Criar pedido no backend (inclui endereço)
+      if (!address || !address.street || !address.city || !address.zip) {
+        addToast('Por favor, forneça o endereço de entrega completo', 'error')
+        setIsProcessing(false)
+        return
+      }
+
+      const orderData = await PaymentService.createOrder(cart, user, address)
+
       // Redirecionar para o checkout do Stripe
       window.location.href = orderData.checkoutUrl
       
@@ -157,7 +193,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
               <div key={item.uniqueId || item.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 md:p-6 animate-slide-up border border-gray-100 dark:border-gray-700">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
                   <img 
-                    src={item.image} 
+                    src={getFullImageUrl(item.image) || '/placeholder.jpg'} 
                     alt={item.name} 
                     className="w-full sm:w-24 h-48 sm:h-24 object-cover rounded-lg mx-auto sm:mx-0"
                   />
@@ -268,6 +304,22 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                   </div>
                 </div>
               )}
+
+              {/* Shipping address */}
+              <div className="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Endereço para entrega</label>
+                <input value={address.name} onChange={e=>setAddress({...address, name:e.target.value})} placeholder="Nome" className="w-full p-2 mb-2 border rounded" />
+                <input value={address.street} onChange={e=>setAddress({...address, street:e.target.value})} placeholder="Rua, número, complemento" className="w-full p-2 mb-2 border rounded" />
+                <div className="flex gap-2">
+                  <input value={address.city} onChange={e=>setAddress({...address, city:e.target.value})} placeholder="Cidade" className="flex-1 p-2 mb-2 border rounded" />
+                  <input value={address.state} onChange={e=>setAddress({...address, state:e.target.value})} placeholder="Estado" className="w-24 p-2 mb-2 border rounded" />
+                  <input value={address.zip} onChange={e=>setAddress({...address, zip:e.target.value})} placeholder="CEP" className="w-32 p-2 mb-2 border rounded" />
+                </div>
+                <div className="flex gap-2">
+                  <input value={address.country} onChange={e=>setAddress({...address, country:e.target.value})} placeholder="País" className="flex-1 p-2 mb-2 border rounded" />
+                  <input value={address.phone} onChange={e=>setAddress({...address, phone:e.target.value})} placeholder="Telefone" className="w-40 p-2 mb-2 border rounded" />
+                </div>
+              </div>
               
               {/* Detalhes do Pedido */}
               <div className="space-y-3 mb-6">

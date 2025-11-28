@@ -17,7 +17,7 @@ router.post('/register', async (req, res) => {
     const hash = await bcrypt.hash(password, salt);
     const user = await User.create({ name, email, passwordHash: hash });
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user._id, email: user.email, name: user.name } });
+    res.json({ token, user: { id: user._id, email: user.email, name: user.name, address: user.address || null } });
   } catch (err) {
     console.error(err); res.status(500).json({error:'Server error'});
   }
@@ -32,8 +32,28 @@ router.post('/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.passwordHash);
     if (!match) return res.status(400).json({error:'Invalid credentials'});
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user._id, email: user.email, name: user.name } });
+    res.json({ token, user: { id: user._id, email: user.email, name: user.name, address: user.address || null } });
   } catch (err) { console.error(err); res.status(500).json({error:'Server error'}); }
+});
+
+// Social (Google) login — frontend (Firebase) can call this after successful OAuth
+router.post('/google', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    if (!email) return res.status(400).json({ error: 'Missing email' });
+
+    // find or create user — no password required for social accounts
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({ email, name, passwordHash: '' });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: { id: user._id, email: user.email, name: user.name, address: user.address || null } });
+  } catch (err) {
+    console.error('Social login error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 router.get('/me', async (req, res) => {

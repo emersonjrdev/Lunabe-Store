@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { auth, googleProvider } from "./firebase";
+import { API_BASE } from './api'
 import { signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
 import Home from "./pages/Home";
 import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
 import MinhasCompras from "./pages/MinhasCompras";
 import Success from "./pages/Success";
+import OrderDetail from './pages/OrderDetail'
 import ProductDetail from "./pages/ProductDetail";
 import Header from "./components/Header";
 import LoginModal from "./components/LoginModal";
@@ -26,14 +28,27 @@ function AppContent() {
   const { isDark } = useTheme();
 
   useEffect(() => {
-  checkRedirectLogin(); // recupera login no mobile
+    checkRedirectLogin(); // recupera login no mobile
 
-  const unsub = onAuthStateChanged(auth, (user) => {
-    setUser(user || null);
-  });
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      // normalize the firebase user into a small plain object used across the app
+      if (!firebaseUser) {
+        setUser(null);
+        return;
+      }
 
-  return () => unsub();
-}, []);
+      const userData = {
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName || firebaseUser.email?.split('@')?.[0] || null,
+        email: firebaseUser.email || null,
+        photo: firebaseUser.photoURL || null
+      };
+
+      setUser(userData);
+    });
+
+    return () => unsub();
+  }, []);
 
 
   // Configurar persistência e verificar autenticação
@@ -47,7 +62,7 @@ function AppContent() {
         // Verificar resultado de redirect primeiro
         try {
           const result = await getRedirectResult(auth);
-          if (result?.user) {
+            if (result?.user) {
             console.log('Usuário logado via redirect:', result.user);
             const userData = {
               id: result.user.uid,
@@ -55,8 +70,29 @@ function AppContent() {
               email: result.user.email,
               photo: result.user.photoURL
             };
-            setUser(userData);
-            localStorage.setItem("lunabe-user", JSON.stringify(userData));
+            // Sync with backend (create or find server user & return server JWT)
+            try {
+              const res = await fetch(`${API_BASE}/api/auth/google`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: userData.email, name: userData.name }) });
+              const json = await res.json();
+              if (res.ok) {
+                // store server token and server-side user
+                localStorage.setItem('lunabe-token', json.token);
+                const merged = { ...userData, serverId: json.user?.id, address: json.user?.address || null };
+                setUser(merged);
+                localStorage.setItem("lunabe-user", JSON.stringify(merged));
+                addToast(`Bem-vindo(a), ${userData.name}!`, "success");
+              } else {
+                // fallback to client-only user
+                setUser(userData);
+                localStorage.setItem("lunabe-user", JSON.stringify(userData));
+                console.warn('Backend social login failed:', json);
+              }
+            } catch (err) {
+              // network error — keep client side user
+              setUser(userData);
+              localStorage.setItem("lunabe-user", JSON.stringify(userData));
+              console.error('Erro ao sincronizar usuário no backend:', err);
+            }
             addToast(`Bem-vindo(a), ${userData.name}!`, "success");
           }
         } catch (redirectError) {
@@ -74,8 +110,27 @@ function AppContent() {
               email: firebaseUser.email,
               photo: firebaseUser.photoURL
             };
-            setUser(userData);
-            localStorage.setItem("lunabe-user", JSON.stringify(userData));
+            // perform async backend sync without making the callback async
+            (async () => {
+              try {
+                const res = await fetch(`${API_BASE}/api/auth/google`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: userData.email, name: userData.name }) });
+                const json = await res.json();
+                if (res.ok) {
+                  localStorage.setItem('lunabe-token', json.token);
+                  const merged = { ...userData, serverId: json.user?.id, address: json.user?.address || null };
+                  setUser(merged);
+                  localStorage.setItem('lunabe-user', JSON.stringify(merged));
+                } else {
+                  setUser(userData);
+                  localStorage.setItem('lunabe-user', JSON.stringify(userData));
+                  console.warn('Backend social login failed:', json);
+                }
+              } catch (err) {
+                setUser(userData);
+                localStorage.setItem('lunabe-user', JSON.stringify(userData));
+                console.error('Erro ao sincronizar usuário no backend:', err);
+              }
+            })();
             console.log('Usuário definido via onAuthStateChanged:', userData);
           } else {
             setUser(null);
@@ -199,6 +254,7 @@ function AppContent() {
       setUser(null);
       setCart([]);
       localStorage.removeItem("lunabe-user");
+      localStorage.removeItem("lunabe-token");
       localStorage.removeItem("lunabe-cart");
       addToast("Você saiu da sua conta", "info");
     } catch (error) {
@@ -289,7 +345,8 @@ function AppContent() {
 
             <Route path="/admin" element={<Admin />} />
 
-            <Route path="/minhas-compras" element={<MinhasCompras />} />
+            <Route path="/minhas-compras" element={<MinhasCompras user={user} />} />
+            <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/success" element={<Success />} />
 
           </Routes>

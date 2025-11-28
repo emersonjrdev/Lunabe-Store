@@ -18,9 +18,24 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// CORS — libera acesso do frontend hospedado na Vercel
+// CORS — permitir múltiplos origins (produção + desenvolvimento local)
+const allowedOrigins = [
+  process.env.FRONTEND_URL, // produção (ex: https://www.lunabe.com.br)
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "*",
+  origin: function (origin, callback) {
+    // allow non-browser requests like curl or server-to-server
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+    // optionally allow all in development
+    if (process.env.NODE_ENV !== 'production') return callback(null, true);
+    return callback(new Error('CORS policy: Origin not allowed'), false);
+  },
   credentials: true,
 }));
 

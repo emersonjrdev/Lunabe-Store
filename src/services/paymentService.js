@@ -1,13 +1,18 @@
 // frontend/src/services/paymentService.js
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import { API_BASE } from '../api'
+const API_URL = API_BASE || 'http://localhost:4000';
 
 class PaymentService {
   // Criar pedido e sessão de checkout (Stripe)
-  static async createOrder(cart, user) {
+  static async createOrder(cart, user, address = null) {
     try {
+      const token = localStorage.getItem('lunabe-token');
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
       const response = await fetch(`${API_URL}/api/orders/create-checkout-session`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           items: cart.map(item => ({
             name: item.name || item.title || "Produto sem nome",
@@ -16,6 +21,7 @@ class PaymentService {
             quantity: item.quantity || 1,
           })),
           customerEmail: user.email,
+          address,
         }),
       });
 
@@ -29,8 +35,7 @@ class PaymentService {
         throw new Error("checkoutUrl não retornado pelo servidor");
       }
 
-      // 🔥 Redireciona pro Stripe
-      window.location.href = data.checkoutUrl;
+      return data; // caller should redirect
     } catch (error) {
       console.error("Erro no checkout:", error);
       alert(error.message || "Erro ao processar o pagamento.");
@@ -40,7 +45,9 @@ class PaymentService {
   // Buscar pedido por session ID
   static async getOrderBySession(sessionId) {
     try {
-      const response = await fetch(`${API_URL}/api/orders/session/${sessionId}`);
+      const token = localStorage.getItem('lunabe-token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      const response = await fetch(`${API_URL}/api/orders/session/${sessionId}`, { headers });
       if (!response.ok) throw new Error('Erro ao buscar pedido');
       return await response.json();
     } catch (error) {
@@ -52,7 +59,9 @@ class PaymentService {
   // Buscar pedidos do usuário
   static async getUserOrders(email) {
     try {
-      const response = await fetch(`${API_URL}/api/orders?email=${encodeURIComponent(email)}`);
+      const token = localStorage.getItem('lunabe-token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      const response = await fetch(`${API_URL}/api/orders?email=${encodeURIComponent(email)}`, { headers });
       if (!response.ok) throw new Error('Erro ao buscar pedidos');
       return await response.json();
     } catch (error) {
@@ -64,7 +73,9 @@ class PaymentService {
   // Buscar pedido por ID
   static async getOrderById(orderId) {
     try {
-      const response = await fetch(`${API_URL}/api/orders/${orderId}`);
+      const token = localStorage.getItem('lunabe-token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      const response = await fetch(`${API_URL}/api/orders/${orderId}`, { headers });
       if (!response.ok) throw new Error('Erro ao buscar pedido');
       return await response.json();
     } catch (error) {

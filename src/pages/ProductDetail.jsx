@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import LazyImage from "../components/LazyImage";
+import { API_BASE } from '../api'
+import { getFullImageUrl } from '../utils/image'
 import { useToast } from "../hooks/useToast";
 
 export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
@@ -20,7 +22,7 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
 useEffect(() => {
   const fetchProduct = async () => {
     try {
-      const response = await fetch(`https://lunabe-store.onrender.com/api/products/${id}`);
+      const response = await fetch(`${API_BASE}/api/products/${id}`);
       const data = await response.json();
       setProduct(data);
       setSelectedSize(data.sizes?.[0] || "Único");
@@ -103,7 +105,7 @@ useEffect(() => {
         <div className="space-y-3 md:space-y-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl p-3 md:p-4">
             <LazyImage
-              src={product.images?.[selectedImage] || product.image}
+              src={getFullImageUrl(product.images?.[selectedImage] || product.image) || '/placeholder.jpg'}
               alt={product.name}
               className="w-full h-64 sm:h-80 md:h-96 object-cover rounded-lg md:rounded-xl"
             />
@@ -121,7 +123,7 @@ useEffect(() => {
                   }`}
                 >
                   <LazyImage 
-                    src={image} 
+                    src={getFullImageUrl(image) || '/placeholder.jpg'} 
                     alt={product.name} 
                     className="w-full h-full object-cover"
                   />

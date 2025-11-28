@@ -11,6 +11,17 @@ const orderSchema = new mongoose.Schema({
     },
   ],
   total: Number,
+  // shipping address captured at checkout
+  address: {
+    street: String,
+    city: String,
+    state: String,
+    zip: String,
+    country: String,
+    name: String,
+    phone: String
+  },
+  trackingCode: { type: String, default: null },
   status: { type: String, default: "Aguardando pagamento" },
   createdAt: { type: Date, default: Date.now },
 });

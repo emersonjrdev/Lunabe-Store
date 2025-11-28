@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import LazyImage from './LazyImage'
+import { getFullImageUrl } from '../utils/image'
 
 const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0] || 'Único')
@@ -33,7 +34,7 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
     <div className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg overflow-hidden card-hover border border-gray-100 dark:border-gray-700">
       <Link to={`/produto/${product.id}`} className="block relative group">
        <LazyImage 
-    src={product.images?.[0] || '/placeholder.jpg'}
+     src={getFullImageUrl(product.images?.[0]) || '/placeholder.jpg'}
     alt={product.name}
     className="w-full h-48 sm:h-56 md:h-64 object-cover group-hover:scale-110 transition-transform duration-500"
   />
