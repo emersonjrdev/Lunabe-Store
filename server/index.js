@@ -5,10 +5,12 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import path from "path";
 import { fileURLToPath } from "url";
+import rateLimit from "express-rate-limit";
 
 import authRoutes from "./routes/auth.js";
 import productRoutes from "./routes/products.js";
-import orderRoutes from "./routes/orders.js"; // rota Stripe + pedidos
+import orderRoutes from "./routes/orders.js"; // rota de pedidos / checkout (AbacatePay)
+import webhookRoutes from "./routes/webhook.js"; // webhooks do AbacatePay
 
 dotenv.config();
 
@@ -39,6 +41,31 @@ app.use(cors({
   credentials: true,
 }));
 
+// Rate Limiting - Proteção contra abuso
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // máximo 100 requisições por IP a cada 15 minutos
+  message: { error: 'Muitas requisições deste IP, tente novamente em alguns minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // máximo 5 tentativas de login por IP a cada 15 minutos
+  message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
+  skipSuccessfulRequests: true,
+});
+
+const checkoutLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 10, // máximo 10 tentativas de checkout por IP a cada hora
+  message: { error: 'Muitas tentativas de checkout. Tente novamente em 1 hora.' },
+});
+
+// Aplicar rate limiting geral
+app.use('/api/', generalLimiter);
+
 // Middleware principal
 app.use(express.json());
 app.use(bodyParser.json());
@@ -47,9 +74,10 @@ app.use(bodyParser.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // 🔹 Rotas principais
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes); // Rate limiting específico para auth
 app.use("/api/products", productRoutes);
-app.use("/api/orders", orderRoutes);
+app.use("/api/orders", checkoutLimiter, orderRoutes); // Rate limiting específico para checkout
+app.use("/api/webhooks", webhookRoutes); // webhooks do AbacatePay (sem rate limit - são chamadas externas)
 
 // 🔹 Rota para testar saúde do servidor
 app.get("/api/health", (req, res) => {
@@ -62,7 +90,7 @@ app.use((req, res) => {
 });
 
 // 🔹 Conexão com o MongoDB
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4001;
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
@@ -74,7 +102,22 @@ mongoose
   .connect(MONGODB_URI)
   .then(() => {
     console.log("✅ MongoDB conectado com sucesso");
-    app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
+    
+    // Função para tentar iniciar o servidor em uma porta
+    const startServer = (port) => {
+      const server = app.listen(port, () => {
+        console.log(`🚀 Servidor rodando na porta ${port}`);
+      }).on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          console.log(`⚠️  Porta ${port} está ocupada, tentando porta ${port + 1}...`);
+          startServer(port + 1);
+        } else {
+          console.error("❌ Erro ao iniciar servidor:", err);
+        }
+      });
+    };
+    
+    startServer(PORT);
   })
   .catch((err) => {
     console.error("❌ Erro ao conectar ao MongoDB:", err);

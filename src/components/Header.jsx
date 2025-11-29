@@ -112,11 +112,11 @@ const Header = ({ cartCount, user, onLogout, onLoginClick }) => {
             <i className={`fas ${isDark ? 'fa-sun' : 'fa-moon'} text-lg md:text-xl`}></i>
           </button>
 
-          {/* Cart */}
+          {/* Cart - só mostrar contador se usuário estiver logado */}
           <Link to="/carrinho" className="relative p-2 md:p-3 group">
             <div className="relative">
               <i className="fas fa-shopping-cart text-lg md:text-xl text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-white transition-all duration-300 group-hover:scale-110"></i>
-              {cartCount > 0 && (
+              {user && cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 md:-top-2 md:-right-2 bg-gradient-to-br from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 text-xs rounded-full w-4 h-4 md:w-6 md:h-6 flex items-center justify-center font-bold shadow-lg animate-bounce text-[10px] md:text-xs">
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>

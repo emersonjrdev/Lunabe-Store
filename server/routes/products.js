@@ -23,6 +23,14 @@ router.get("/:id", async (req, res) => {
 router.post("/", upload.single("image"), async (req, res) => {
   try {
     const { name, description, price_cents, stock } = req.body;
+    // sizes and colors can be sent as comma-separated strings from the admin UI
+    const parseCsv = (val) => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      return String(val).split(',').map(s => s.trim()).filter(Boolean);
+    };
+    const sizes = parseCsv(req.body.sizes);
+    const colors = parseCsv(req.body.colors);
 
     let images = [];
 
@@ -39,6 +47,8 @@ router.post("/", upload.single("image"), async (req, res) => {
       price_cents: Number(price_cents),
       stock: Number(stock),
       images,
+      sizes,
+      colors,
       createdAt: new Date(),
     });
 

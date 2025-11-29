@@ -233,7 +233,30 @@ const Admin = () => {
 
         {showOrders && (
           <div>
-            <h2 className="text-2xl font-semibold mb-4">Pedidos</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-semibold">Pedidos ({orders.length})</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (window.confirm('Deseja limpar todos os pedidos de teste? Isso vai deletar pedidos com emails de teste ou sem pagamento real.')) {
+                      try {
+                        const res = await axios.delete(`${API_BASE}/api/orders/test/cleanup`, {
+                          headers: { 'x-admin-key': adminPassword }
+                        });
+                        alert(`✅ ${res.data.deleted || res.data.message} pedidos deletados`);
+                        fetchOrders();
+                      } catch (err) {
+                        console.error(err);
+                        alert('Erro ao limpar pedidos de teste');
+                      }
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                >
+                  🗑️ Limpar Pedidos de Teste
+                </button>
+              </div>
+            </div>
             {orders.length === 0 ? (
               <p className="text-center text-gray-500">Nenhum pedido encontrado.</p>
             ) : (
@@ -297,6 +320,26 @@ const Admin = () => {
                           alert('Tracking salvo')
                         } catch (err) { console.error(err); alert('Erro ao salvar tracking') }
                       }} className="px-3 py-1 bg-green-600 text-white rounded">Salvar tracking</button>
+                      
+                      <button 
+                        onClick={async () => {
+                          if (window.confirm(`Deseja deletar o pedido #${o._id.slice(-8)}?`)) {
+                            try {
+                              await axios.delete(`${API_BASE}/api/orders/${o._id}`, {
+                                headers: { 'x-admin-key': adminPassword }
+                              });
+                              alert('Pedido deletado');
+                              fetchOrders();
+                            } catch (err) {
+                              console.error(err);
+                              alert('Erro ao deletar pedido');
+                            }
+                          }
+                        }}
+                        className="px-3 py-1 bg-red-600 text-white rounded"
+                      >
+                        🗑️ Deletar
+                      </button>
                     </div>
                   </div>
                 ))}

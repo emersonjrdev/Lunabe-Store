@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useToast } from '../hooks/useToast'
 import { getFullImageUrl } from '../utils/image'
@@ -146,7 +146,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
 
       const orderData = await PaymentService.createOrder(cart, user, address)
 
-      // Redirecionar para o checkout do Stripe
+      // Redirecionar para o checkout do provedor (AbacatePay)
       window.location.href = orderData.checkoutUrl
       
     } catch (error) {
@@ -199,9 +199,18 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                   />
                   
                   <div className="flex-grow w-full sm:w-auto space-y-3">
-                    <Link to={`/produto/${item.id}`} className="block">
+                    <Link 
+                      to={`/produto/${item.id || item._id || ''}`} 
+                      className="block"
+                      onClick={(e) => {
+                        if (!item.id && !item._id) {
+                          e.preventDefault();
+                          addToast('Erro: produto sem ID válido', 'error');
+                        }
+                      }}
+                    >
                       <h3 className="font-semibold text-lg text-gray-800 dark:text-white hover:text-lunabe-pink dark:hover:text-lunabe-pink transition-colors text-center sm:text-left">
-                        {item.name}
+                        {item.name || 'Produto sem nome'}
                       </h3>
                     </Link>
                     

@@ -15,6 +15,12 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
       onLoginClick()
       return
     }
+    
+    // Verificar estoque
+    if (product.stock !== undefined && product.stock === 0) {
+      return // Produto esgotado, não adicionar
+    }
+    
     setIsAdding(true)
     const productWithOptions = {
       ...product,
@@ -25,14 +31,27 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
     onAddToCart(productWithOptions)
     setIsAdding(false)
   }
+  
+  const isOutOfStock = product.stock !== undefined && product.stock === 0
 
-  const discountPercentage = product.originalPrice 
-    ? Math.round((1 - product.price / product.originalPrice) * 100)
+  const priceValue = product.price_cents ? (product.price_cents / 100) : (product.price || 0);
+  const originalPriceValue = product.originalPrice_cents ? (product.originalPrice_cents / 100) : product.originalPrice;
+
+  const discountPercentage = originalPriceValue && originalPriceValue > priceValue
+    ? Math.round((1 - priceValue / originalPriceValue) * 100)
     : 0
+
+  // Garantir que tem ID (usar _id se id não existir)
+  const productId = product.id || product._id;
+  
+  if (!productId) {
+    console.error("Produto sem ID:", product);
+    return null;
+  }
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg overflow-hidden card-hover border border-gray-100 dark:border-gray-700">
-      <Link to={`/produto/${product.id}`} className="block relative group">
+      <Link to={`/produto/${productId}`} className="block relative group">
        <LazyImage 
      src={getFullImageUrl(product.images?.[0]) || '/placeholder.jpg'}
     alt={product.name}
@@ -41,10 +60,15 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300"></div>
 
         <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col space-y-1 sm:space-y-2">
-          {product.isNew && (
+          {isOutOfStock && (
+            <span className="bg-red-600 text-white px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-semibold shadow-lg">
+              Esgotado
+            </span>
+          )}
+          {!isOutOfStock && product.isNew && (
             <span className="bg-lunabe-pink text-white px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-semibold shadow-lg">Novo</span>
           )}
-          {product.originalPrice && (
+          {!isOutOfStock && product.originalPrice && (
             <span className="bg-red-500 text-white px-2 py-1 rounded-lg text-xs sm:text-sm font-bold shadow-lg">
               -{discountPercentage}%
             </span>
@@ -53,9 +77,9 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
       </Link>
 
       <div className="p-4 sm:p-6">
-        <Link to={`/produto/${product.id}`}>
+        <Link to={`/produto/${productId}`}>
           <h3 className="font-bold text-lg sm:text-xl text-gray-800 dark:text-white mb-2 hover:text-lunabe-pink dark:hover:text-lunabe-pink transition-colors line-clamp-2">
-            {product.name}
+            {product.name || 'Produto sem nome'}
           </h3>
         </Link>
 
@@ -110,26 +134,31 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
         {/* Preço e botão */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
           <div className="flex items-center space-x-2">
-            <span className="text-lg sm:text-xl font-bold text-gray-800 dark:text-white">
-              R$ {product.price?.toFixed(2) || '0,00'}
+              <span className="text-lg sm:text-xl font-bold text-gray-800 dark:text-white">
+              R$ {priceValue.toFixed(2)}
             </span>
             {product.originalPrice && (
               <span className="text-sm sm:text-base text-gray-500 dark:text-gray-400 line-through">
-                R$ {product.originalPrice.toFixed(2)}
+                R$ {(originalPriceValue || product.originalPrice).toFixed(2)}
               </span>
             )}
           </div>
           <button
             onClick={handleAddToCart}
-            disabled={isAdding}
+            disabled={isAdding || isOutOfStock}
             className={`bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-3 py-2 sm:px-4 sm:py-3 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105 font-semibold flex items-center justify-center space-x-2 text-sm sm:text-base ${
-              isAdding ? 'opacity-50 cursor-not-allowed' : ''
+              (isAdding || isOutOfStock) ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
             {isAdding ? (
               <>
                 <i className="fas fa-spinner fa-spin text-xs sm:text-sm"></i>
                 <span className="text-xs sm:text-sm">Adicionando...</span>
+              </>
+            ) : isOutOfStock ? (
+              <>
+                <i className="fas fa-times-circle text-xs sm:text-sm"></i>
+                <span className="text-xs sm:text-sm">Esgotado</span>
               </>
             ) : (
               <>
@@ -138,6 +167,11 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
               </>
             )}
           </button>
+          {product.stock !== undefined && product.stock > 0 && product.stock <= 5 && (
+            <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+              Últimas {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'}!
+            </p>
+          )}
         </div>
       </div>
     </div>

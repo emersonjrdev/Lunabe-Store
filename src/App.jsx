@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
-import { auth, googleProvider } from "./firebase";
 import { API_BASE } from './api'
-import { signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
+// using server-side token auth (Google Identity handled via GSI)
 import Home from "./pages/Home";
 import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
@@ -11,11 +10,13 @@ import MinhasCompras from "./pages/MinhasCompras";
 import Success from "./pages/Success";
 import OrderDetail from './pages/OrderDetail'
 import ProductDetail from "./pages/ProductDetail";
+import GoogleRedirect from "./pages/GoogleRedirect";
+import AbacatePayCheckout from "./pages/AbacatePayCheckout";
 import Header from "./components/Header";
 import LoginModal from "./components/LoginModal";
 import Footer from "./components/Footer";
 import { useToast } from "./hooks/useToast";
-import { checkRedirectLogin } from "./firebase";
+// removed firebase redirect handling — GSI popup/redirect used instead
 
 
 function AppContent() {
@@ -28,128 +29,48 @@ function AppContent() {
   const { isDark } = useTheme();
 
   useEffect(() => {
-    checkRedirectLogin(); // recupera login no mobile
+    // Restore user from server-side token (lunabe-token) if present
+    let cancelled = false;
 
-    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
-      // normalize the firebase user into a small plain object used across the app
-      if (!firebaseUser) {
-        setUser(null);
-        return;
-      }
-
-      const userData = {
-        id: firebaseUser.uid,
-        name: firebaseUser.displayName || firebaseUser.email?.split('@')?.[0] || null,
-        email: firebaseUser.email || null,
-        photo: firebaseUser.photoURL || null
-      };
-
-      setUser(userData);
-    });
-
-    return () => unsub();
-  }, []);
-
-
-  // Configurar persistência e verificar autenticação
-  useEffect(() => {
-    const initializeAuth = async () => {
+    (async () => {
+      setIsCheckingAuth(true);
       try {
-        // Configurar persistência local
-        await setPersistence(auth, browserLocalPersistence);
-        console.log('Persistência configurada');
-
-        // Verificar resultado de redirect primeiro
-        try {
-          const result = await getRedirectResult(auth);
-            if (result?.user) {
-            console.log('Usuário logado via redirect:', result.user);
-            const userData = {
-              id: result.user.uid,
-              name: result.user.displayName || result.user.email.split('@')[0],
-              email: result.user.email,
-              photo: result.user.photoURL
-            };
-            // Sync with backend (create or find server user & return server JWT)
-            try {
-              const res = await fetch(`${API_BASE}/api/auth/google`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: userData.email, name: userData.name }) });
-              const json = await res.json();
-              if (res.ok) {
-                // store server token and server-side user
-                localStorage.setItem('lunabe-token', json.token);
-                const merged = { ...userData, serverId: json.user?.id, address: json.user?.address || null };
-                setUser(merged);
-                localStorage.setItem("lunabe-user", JSON.stringify(merged));
-                addToast(`Bem-vindo(a), ${userData.name}!`, "success");
-              } else {
-                // fallback to client-only user
-                setUser(userData);
-                localStorage.setItem("lunabe-user", JSON.stringify(userData));
-                console.warn('Backend social login failed:', json);
-              }
-            } catch (err) {
-              // network error — keep client side user
-              setUser(userData);
-              localStorage.setItem("lunabe-user", JSON.stringify(userData));
-              console.error('Erro ao sincronizar usuário no backend:', err);
+        const token = localStorage.getItem('lunabe-token');
+        if (token) {
+          const res = await fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) {
+            const json = await res.json();
+            if (!cancelled) {
+              setUser(json.user);
+              localStorage.setItem('lunabe-user', JSON.stringify(json.user));
             }
-            addToast(`Bem-vindo(a), ${userData.name}!`, "success");
-          }
-        } catch (redirectError) {
-          console.log('Nenhum redirect result ou erro:', redirectError);
-        }
-
-        // Escutar mudanças de autenticação
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-          console.log('onAuthStateChanged chamado:', firebaseUser);
-          
-          if (firebaseUser) {
-            const userData = {
-              id: firebaseUser.uid,
-              name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
-              email: firebaseUser.email,
-              photo: firebaseUser.photoURL
-            };
-            // perform async backend sync without making the callback async
-            (async () => {
-              try {
-                const res = await fetch(`${API_BASE}/api/auth/google`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: userData.email, name: userData.name }) });
-                const json = await res.json();
-                if (res.ok) {
-                  localStorage.setItem('lunabe-token', json.token);
-                  const merged = { ...userData, serverId: json.user?.id, address: json.user?.address || null };
-                  setUser(merged);
-                  localStorage.setItem('lunabe-user', JSON.stringify(merged));
-                } else {
-                  setUser(userData);
-                  localStorage.setItem('lunabe-user', JSON.stringify(userData));
-                  console.warn('Backend social login failed:', json);
-                }
-              } catch (err) {
-                setUser(userData);
-                localStorage.setItem('lunabe-user', JSON.stringify(userData));
-                console.error('Erro ao sincronizar usuário no backend:', err);
-              }
-            })();
-            console.log('Usuário definido via onAuthStateChanged:', userData);
           } else {
+            // token invalid or expired
+            localStorage.removeItem('lunabe-token');
+            localStorage.removeItem('lunabe-user');
+            localStorage.removeItem('lunabe-cart'); // Limpar carrinho também
             setUser(null);
-            localStorage.removeItem("lunabe-user");
-            console.log('Usuário não autenticado');
+            setCart([]); // Limpar carrinho do estado
           }
-          
-          setIsCheckingAuth(false);
-        });
-
-        return unsubscribe;
-      } catch (error) {
-        console.error('Erro ao inicializar auth:', error);
-        setIsCheckingAuth(false);
+        } else {
+          // fallback to any saved client-side user data
+          try {
+            const savedUser = localStorage.getItem('lunabe-user');
+            if (savedUser && !cancelled) setUser(JSON.parse(savedUser));
+          } catch (e) { /* ignore */ }
+        }
+      } catch (err) {
+        console.error('Error restoring auth from token:', err);
+      } finally {
+        if (!cancelled) setIsCheckingAuth(false);
       }
-    };
+    })();
 
-    initializeAuth();
+    return () => { cancelled = true };
   }, []);
+
+
+  // previously used Firebase redirect & onAuthStateChanged — now handled by server token restore
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -166,25 +87,49 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Carregar carrinho do localStorage
+  // Carregar carrinho do localStorage (apenas se usuário estiver logado)
   useEffect(() => {
+    // Só carregar carrinho se houver usuário logado
+    if (!user) {
+      // Limpar carrinho se não houver usuário
+      setCart([]);
+      localStorage.removeItem("lunabe-cart");
+      return;
+    }
+
     const savedCart = localStorage.getItem("lunabe-cart");
     if (savedCart) {
       try {
-        setCart(JSON.parse(savedCart));
+        const raw = JSON.parse(savedCart);
+        // normalize saved items so each has price, price_cents and image
+        const normalized = raw.map(item => {
+          const price_cents = item.price_cents || (item.price ? Math.round(item.price * 100) : 0);
+          const price = price_cents ? price_cents / 100 : (item.price || 0);
+          const image = item.image || (item.images && item.images[0]) || null;
+          return { ...item, price_cents, price, image };
+        });
+        setCart(normalized);
       } catch (error) {
         console.error('Erro ao carregar carrinho:', error);
         setCart([]);
       }
     }
-  }, []);
+  }, [user]);
 
-  // Salvar carrinho no localStorage
+  // Salvar carrinho no localStorage (apenas se usuário estiver logado)
   useEffect(() => {
+    if (!user) {
+      // Não salvar carrinho se não houver usuário
+      return;
+    }
+    
     if (cart.length > 0) {
       localStorage.setItem("lunabe-cart", JSON.stringify(cart));
+    } else {
+      // Limpar localStorage se carrinho estiver vazio
+      localStorage.removeItem("lunabe-cart");
     }
-  }, [cart]);
+  }, [cart, user]);
 
   const handleAddToCart = (product) => {
     if (!user) {
@@ -211,12 +156,23 @@ function AppContent() {
         "success"
       );
     } else {
+      // normalize price fields for cart (frontend expects .price and .price_cents)
+      const price_cents = product.price_cents || (product.price ? Math.round(product.price * 100) : 0);
+      const price = price_cents ? price_cents / 100 : (product.price || 0);
+
       const productWithOptions = {
         ...product,
+        // ensure cart item always has a single `image` property (first image fallback)
+        image: product.image || (product.images && product.images[0]) || null,
         selectedSize: safeSize,
         selectedColor: safeColor,
         uniqueId,
         quantity: 1,
+        price_cents,
+        price,
+        // Garantir que tem ID (usar _id se id não existir)
+        id: product.id || product._id,
+        _id: product._id || product.id,
       };
       setCart([...cart, productWithOptions]);
       addToast(`${product.name} adicionado ao carrinho!`, "success");
@@ -246,21 +202,20 @@ function AppContent() {
     setUser(userData);
     setShowLoginModal(false);
     addToast(`Bem-vindo(a), ${userData.name}!`, "success");
+    if (userData?.token) {
+      localStorage.setItem('lunabe-token', userData.token);
+      localStorage.setItem('lunabe-user', JSON.stringify(userData));
+    }
   };
 
-  const handleLogout = async () => {
-    try {
-      await auth.signOut();
-      setUser(null);
-      setCart([]);
-      localStorage.removeItem("lunabe-user");
-      localStorage.removeItem("lunabe-token");
-      localStorage.removeItem("lunabe-cart");
-      addToast("Você saiu da sua conta", "info");
-    } catch (error) {
-      console.error("Erro ao fazer logout:", error);
-      addToast("Erro ao sair da conta", "error");
-    }
+  const handleLogout = () => {
+    // Clear local app auth state (server-side JWT is client-side only)
+    setUser(null);
+    setCart([]);
+    localStorage.removeItem("lunabe-user");
+    localStorage.removeItem("lunabe-token");
+    localStorage.removeItem("lunabe-cart");
+    addToast("Você saiu da sua conta", "info");
   };
 
   const handleClearCart = () => {
@@ -348,6 +303,8 @@ function AppContent() {
             <Route path="/minhas-compras" element={<MinhasCompras user={user} />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/success" element={<Success />} />
+            <Route path="/abacatepay/checkout/:sessionId" element={<AbacatePayCheckout />} />
+            <Route path="/google-redirect" element={<GoogleRedirect />} />
 
           </Routes>
         </main>

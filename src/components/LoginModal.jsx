@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
-import { auth, googleProvider } from '../firebase'
-import { signInWithPopup, signInWithRedirect } from 'firebase/auth'
+import React, { useState, useEffect, useRef } from 'react'
+import { initGoogleIdentity, promptGoogle } from '../services/googleAuth'
+import { API_BASE } from '../api'
 
 const LoginModal = ({ onLogin, onClose }) => {
   const [isLogin, setIsLogin] = useState(true)
@@ -13,29 +13,40 @@ const LoginModal = ({ onLogin, onClose }) => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   }
 
+  const fallbackTimerRef = useRef(null);
+
   const handleGoogleLogin = async () => {
     try {
       setIsLoading(true)
-      
-      if (isMobile()) {
-        // No mobile, usar redirect
-        console.log('Iniciando redirect para mobile...')
-        await signInWithRedirect(auth, googleProvider)
-        // O App.jsx vai lidar com o resultado do redirect
-      } else {
-        // No desktop, usar popup
-        const result = await signInWithPopup(auth, googleProvider)
-        console.log('Login com popup bem-sucedido')
-        // O App.jsx vai detectar a mudança via onAuthStateChanged
-        onClose()
+
+      if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+        alert('Google Client ID não configurado (VITE_GOOGLE_CLIENT_ID). Verifique .env');
+        setIsLoading(false);
+        return;
       }
+
+      // Trigger the Google Identity prompt (handles mobile & desktop)
+      try {
+        promptGoogle();
+      } catch (err) {
+        console.warn('promptGoogle falhou — usando fallback popup', err);
+        fallbackPopup(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+        return;
+      }
+
+      // If the prompt doesn't produce a credential (FedCM or prompt failed silently),
+      // open the popup fallback after a short wait. If credential arrives earlier we'll clear it.
+      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = setTimeout(() => {
+        console.warn('Google prompt did not return a credential quickly — opening fallback popup');
+        fallbackPopup(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+      }, 4000);
     } catch (error) {
       console.error("Erro ao logar com Google:", error)
       setIsLoading(false)
       
-      if (error.code === 'auth/popup-blocked') {
-        alert('Popup bloqueado! Usando redirecionamento...')
-        await signInWithRedirect(auth, googleProvider)
+      if (error.message?.includes('initialized')) {
+        // ignore
       } else if (error.code === 'auth/popup-closed-by-user') {
         console.log('Popup fechado pelo usuário')
       } else {
@@ -94,6 +105,113 @@ const LoginModal = ({ onLogin, onClose }) => {
   const handleClose = () => {
     if (!isLoading) {
       onClose()
+    }
+  }
+
+  useEffect(() => {
+    let initialized = false;
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+
+    initGoogleIdentity(clientId, async (resp) => {
+      // resp.credential é o id_token (JWT)
+      if (!resp?.credential) return;
+      // we received credential via prompt — cancel popup fallback
+      if (fallbackTimerRef.current) {
+        clearTimeout(fallbackTimerRef.current);
+        fallbackTimerRef.current = null;
+      }
+      setIsLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken: resp.credential })
+        });
+
+        const json = await res.json();
+        if (res.ok) {
+          // store server token & user
+          localStorage.setItem('lunabe-token', json.token);
+          const merged = { id: json.user.id, email: json.user.email, name: json.user.name, serverId: json.user.id };
+          localStorage.setItem('lunabe-user', JSON.stringify(merged));
+          onLogin(merged);
+          onClose();
+        } else {
+          alert('Erro ao autenticar no servidor: ' + (json.error || JSON.stringify(json)));
+        }
+      } catch (err) {
+        console.error('Erro ao chamar /api/auth/google:', err);
+        alert('Erro ao autenticar com Google');
+      } finally {
+        setIsLoading(false);
+      }
+    }).catch(err => {
+      console.error('Erro ao inicializar Google Identity:', err);
+    });
+
+    // fallback handler for popup redirect
+    const onMessage = async (evt) => {
+      try {
+        if (evt.origin !== window.location.origin) return;
+        const data = evt.data || {};
+        if (data.type !== 'google-id-token') return;
+        const idToken = data.idToken;
+        if (!idToken) return;
+
+        // clear fallback timer if set
+        if (fallbackTimerRef.current) {
+          clearTimeout(fallbackTimerRef.current);
+          fallbackTimerRef.current = null;
+        }
+
+        setIsLoading(true);
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/google`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) });
+          const json = await res.json();
+          if (res.ok) {
+            localStorage.setItem('lunabe-token', json.token);
+            const merged = { id: json.user.id, email: json.user.email, name: json.user.name, serverId: json.user.id };
+            localStorage.setItem('lunabe-user', JSON.stringify(merged));
+            onLogin(merged);
+            onClose();
+          } else {
+            alert('Erro ao autenticar no servidor: ' + (json.error || JSON.stringify(json)));
+          }
+        } catch (err) {
+          console.error('Erro no fallback auth:', err);
+          alert('Erro ao autenticar com Google (fallback)');
+        } finally {
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error('message handler error', err);
+      }
+    };
+
+    window.addEventListener('message', onMessage);
+
+    return () => {
+      initialized = false;
+      window.removeEventListener('message', onMessage);
+    };
+  }, []);
+
+  // Fallback popup route — opens Google OAuth2 endpoint which will redirect to /google-redirect
+  const fallbackPopup = (clientId) => {
+    const redirectUri = `${window.location.origin}/google-redirect`;
+    const nonce = Math.random().toString(36).slice(2);
+    const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    url.searchParams.set('client_id', clientId);
+    url.searchParams.set('response_type', 'id_token');
+    url.searchParams.set('scope', 'openid email profile');
+    url.searchParams.set('redirect_uri', redirectUri);
+    url.searchParams.set('nonce', nonce);
+    url.searchParams.set('prompt', 'select_account');
+
+    const popup = window.open(url.toString(), 'google_oauth', 'width=600,height=700');
+    if (!popup) {
+      alert('Não foi possível abrir a janela de login. Permita popups e tente novamente.');
     }
   }
 
@@ -225,6 +343,7 @@ const LoginModal = ({ onLogin, onClose }) => {
               >
                 <i className="fab fa-google text-red-500 mr-2"></i> 
                 {isLoading ? 'Conectando...' : 'Entrar com Google'}
+                {/* If you want to render the auto button uncomment below; we prefer a custom button that triggers the prompt */}
               </button>
             </div>
           </div>

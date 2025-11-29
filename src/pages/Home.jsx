@@ -173,16 +173,24 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
-              {filteredProducts.map((product, index) => (
-                <div key={product._id} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
-                  <ProductCard
-                    product={product}
-                    onAddToCart={onAddToCart}
-                    user={user}
-                    onLoginClick={onLoginClick}
-                  />
-                </div>
-              ))}
+              {filteredProducts.map((product, index) => {
+                // Garantir que produto tem ID
+                const productId = product._id || product.id;
+                if (!productId) {
+                  console.warn("Produto sem ID ignorado:", product);
+                  return null;
+                }
+                return (
+                  <div key={productId} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                    <ProductCard
+                      product={{ ...product, id: productId, _id: productId }}
+                      onAddToCart={onAddToCart}
+                      user={user}
+                      onLoginClick={onLoginClick}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

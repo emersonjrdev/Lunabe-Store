@@ -1,67 +1,249 @@
 // routes/orders.js
 import express from "express";
-import Stripe from "stripe";
+// Using AbacatePay API integration
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Order from "../models/Order.js"; // modelo do pedido
+import Product from "../models/Product.js"; // modelo do produto
 import dotenv from "dotenv";
+import abacatepayClient from '../utils/abacatepay.js';
+import { sendOrderEmail, sendPaymentConfirmationEmail, sendStatusUpdateEmail } from '../utils/mailer.js';
 
 dotenv.config();
 
 const router = express.Router();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Criar sessão de checkout
+// Função auxiliar para sanitizar strings
+function sanitizeString(str) {
+  if (typeof str !== 'string') return '';
+  return str.trim().replace(/[<>]/g, '');
+}
+
+// Função auxiliar para validar email
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+// Criar sessão de checkout via AbacatePay (API real)
 router.post("/create-checkout-session", async (req, res) => {
   try {
-    const { items, customerEmail, address } = req.body;
+    let { items, customerEmail, address, customerName, customerPhone } = req.body;
 
-    const lineItems = items.map((item) => ({
-      price_data: {
-        currency: "brl",
-        product_data: { name: item.name },
-        unit_amount: Math.round(item.price * 100),
-      },
-      quantity: item.quantity,
-    }));
+    // Validações básicas
+    if (!items || items.length === 0) {
+      return res.status(400).json({ error: 'Items são obrigatórios' });
+    }
+
+    if (!customerEmail) {
+      return res.status(400).json({ error: 'Email do cliente é obrigatório' });
+    }
+
+    // Sanitizar e validar email
+    customerEmail = sanitizeString(customerEmail).toLowerCase();
+    if (!isValidEmail(customerEmail)) {
+      return res.status(400).json({ error: 'Email inválido' });
+    }
+
+    // Sanitizar outros campos
+    customerName = customerName ? sanitizeString(customerName) : '';
+    customerPhone = customerPhone ? sanitizeString(customerPhone) : '';
+
+    // Validar e verificar estoque de cada item
+    const validatedItems = [];
+    const stockChecks = [];
+
+    for (const item of items) {
+      // Validar campos obrigatórios
+      if (!item.productId && !item.id) {
+        return res.status(400).json({ 
+          error: `Produto sem ID: ${item.name || 'Produto desconhecido'}` 
+        });
+      }
+
+      const productId = item.productId || item.id;
+      const quantity = parseInt(item.quantity) || 1;
+      const price = parseFloat(item.price) || 0;
+
+      // Validar quantidade
+      if (quantity <= 0 || quantity > 100) {
+        return res.status(400).json({ 
+          error: `Quantidade inválida para ${item.name || 'produto'}: ${quantity}` 
+        });
+      }
+
+      // Validar preço
+      if (price <= 0 || price > 100000) {
+        return res.status(400).json({ 
+          error: `Preço inválido para ${item.name || 'produto'}: R$ ${price}` 
+        });
+      }
+
+      // Buscar produto no banco para verificar estoque e preço
+      try {
+        const product = await Product.findById(productId);
+        if (!product) {
+          return res.status(404).json({ 
+            error: `Produto não encontrado: ${item.name || productId}` 
+          });
+        }
+
+        // Verificar estoque disponível
+        const availableStock = product.stock || 0;
+        if (availableStock < quantity) {
+          return res.status(400).json({ 
+            error: `Estoque insuficiente para ${product.name}. Disponível: ${availableStock}, Solicitado: ${quantity}` 
+          });
+        }
+
+        // Validar que o preço não foi alterado (tolerância de 1%)
+        const productPrice = (product.price_cents || 0) / 100;
+        const priceDifference = Math.abs(price - productPrice);
+        if (priceDifference > productPrice * 0.01) {
+          console.warn(`Aviso: Preço alterado para ${product.name}. Original: R$ ${productPrice}, Recebido: R$ ${price}`);
+        }
+
+        // Armazenar verificação de estoque (será usado apenas se pagamento for confirmado)
+        stockChecks.push({
+          productId: product._id.toString(),
+          quantity,
+          availableStock
+        });
+
+        validatedItems.push({
+          productId: product._id.toString(),
+          name: sanitizeString(item.name || product.name),
+          price: productPrice, // Usar preço do banco, não o enviado
+          quantity,
+          image: item.image || (product.images && product.images[0]) || null,
+        });
+      } catch (err) {
+        console.error(`Erro ao buscar produto ${productId}:`, err);
+        return res.status(500).json({ 
+          error: `Erro ao validar produto: ${item.name || productId}` 
+        });
+      }
+    }
+
+    // Calcular total usando preços validados do banco
+    const total = validatedItems.reduce((acc, i) => acc + (i.price || 0) * (i.quantity || 1), 0);
+    const totalInCents = Math.round(total * 100);
+
+    if (totalInCents <= 0) {
+      return res.status(400).json({ error: 'Valor total deve ser maior que zero' });
+    }
 
     const front = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: lineItems,
-      mode: "payment",
-      success_url: `${front}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${front}/cancel`,
-      customer_email: customerEmail,
-    });
+    const backend = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 4000}`;
 
-    // 🔹 Salva o pedido "pendente" no banco (guarda também o endereço)
+    // Criar pedido no banco de dados primeiro (status: Aguardando pagamento)
+    // Armazenar informações de estoque no pedido para uso posterior no webhook
     const order = new Order({
       email: customerEmail,
-      stripeSessionId: session.id,
-      items,
-      total: items.reduce((acc, i) => acc + i.price * i.quantity, 0),
+      items: validatedItems,
+      total,
       status: "Aguardando pagamento",
-      address: address || null,
+      address: address ? {
+        street: sanitizeString(address.street || ''),
+        city: sanitizeString(address.city || ''),
+        state: sanitizeString(address.state || ''),
+        zip: sanitizeString(address.zip || ''),
+        country: sanitizeString(address.country || 'Brasil'),
+        name: sanitizeString(address.name || customerName),
+        phone: sanitizeString(address.phone || customerPhone),
+      } : null,
+      paymentSessionId: "pending", // será atualizado após criar sessão no AbacatePay
+      // Armazenar informações de estoque para uso no webhook
+      stockReservations: stockChecks, // Array de {productId, quantity, availableStock}
     });
     await order.save();
 
-    // If we have a registered user with this email, save address on their profile for next time
+    // Buscar dados do usuário se existir
+    let userData = null;
     try {
-      if (address && customerEmail) {
+      if (customerEmail) {
         const user = await User.findOne({ email: customerEmail });
         if (user) {
-          user.address = address;
-          await user.save();
+          userData = {
+            name: user.name || customerName,
+            phone: user.phone || customerPhone,
+          };
+          // Salvar endereço no perfil do usuário se fornecido
+          if (address) {
+            user.address = address;
+            await user.save();
+          }
         }
       }
     } catch (err) {
-      console.warn('Could not save user address:', err.message);
+      console.warn('Erro ao buscar/salvar dados do usuário:', err.message);
     }
 
-    res.json({ checkoutUrl: session.url });
+    // Criar sessão de checkout no AbacatePay
+    try {
+      const checkoutData = await abacatepayClient.createCheckoutSession({
+        amount: totalInCents,
+        currency: 'BRL',
+        customerEmail,
+        customerName: userData?.name || customerName || 'Cliente',
+        customerPhone: userData?.phone || customerPhone,
+        items: validatedItems.map(item => ({
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        metadata: {
+          orderId: order._id.toString(),
+          customerEmail,
+        },
+        successUrl: `${front}/success?session_id={SESSION_ID}`,
+        cancelUrl: `${front}/carrinho`,
+        webhookUrl: `${backend}/api/webhooks/abacatepay`,
+      });
+
+      // Atualizar pedido com dados da sessão do AbacatePay
+      order.paymentSessionId = checkoutData.sessionId;
+      order.abacatepayPaymentId = checkoutData.paymentId;
+      order.abacatepayQrCode = checkoutData.qrCode;
+      order.abacatepayQrCodeBase64 = checkoutData.qrCodeBase64;
+      await order.save();
+
+      // Enviar email de confirmação de pedido criado (em background, não bloquear resposta)
+      sendOrderEmail(customerEmail, order).catch(err => {
+        console.error('Erro ao enviar email de confirmação (não crítico):', err);
+      });
+
+      // Retornar URL de checkout do AbacatePay
+      res.json({
+        checkoutUrl: checkoutData.checkoutUrl,
+        sessionId: checkoutData.sessionId,
+        paymentId: checkoutData.paymentId,
+        qrCode: checkoutData.qrCode, // para exibir QR Code PIX se necessário
+        qrCodeBase64: checkoutData.qrCodeBase64,
+      });
+    } catch (abacatepayError) {
+      console.error('Erro ao criar sessão no AbacatePay:', abacatepayError);
+      
+      // Se falhar, manter fallback para página simulada (modo desenvolvimento)
+      if (process.env.NODE_ENV !== 'production' && !process.env.ABACATEPAY_API_KEY) {
+        console.warn('AbacatePay não configurado - usando modo de desenvolvimento');
+        order.paymentSessionId = order._id.toString();
+        await order.save();
+        
+        res.json({
+          checkoutUrl: `${front}/abacatepay/checkout/${order.paymentSessionId}`,
+          sessionId: order.paymentSessionId,
+        });
+      } else {
+        // Em produção ou com API key configurada, retornar erro
+        res.status(500).json({
+          error: 'Erro ao criar sessão de pagamento',
+          details: abacatepayError.message,
+        });
+      }
+    }
   } catch (err) {
-    console.error("Erro Stripe:", err.message);
+    console.error("Erro ao criar sessão de checkout:", err.message);
     res.status(400).json({ error: err.message });
   }
 });
@@ -95,10 +277,11 @@ router.get('/', async (req, res) => {
 });
 
 
-// Get order by stripe session id
+// Get order by payment/session id
 router.get('/session/:sessionId', async (req, res) => {
   try {
-    const order = await Order.findOne({ stripeSessionId: req.params.sessionId });
+    // support both the new paymentSessionId and legacy stripeSessionId
+    const order = await Order.findOne({ $or: [ { paymentSessionId: req.params.sessionId }, { stripeSessionId: req.params.sessionId } ] });
     // If the request has an auth header, verify that the authenticated user is the owner
     const auth = req.headers.authorization;
     if (auth) {
@@ -185,6 +368,96 @@ router.patch('/:id/tracking', async (req, res) => {
     res.json(order);
   } catch (err) {
     console.error('Erro ao atualizar tracking:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Admin: delete order
+router.delete('/:id', async (req, res) => {
+  try {
+    const adminKey = req.headers['x-admin-key'];
+    if (!adminKey || adminKey !== process.env.ADMIN_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+    const order = await Order.findByIdAndDelete(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+    res.json({ success: true, message: 'Pedido deletado com sucesso' });
+  } catch (err) {
+    console.error('Erro ao deletar pedido:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Admin: delete test orders (pedidos de teste)
+router.delete('/test/cleanup', async (req, res) => {
+  try {
+    const adminKey = req.headers['x-admin-key'];
+    if (!adminKey || adminKey !== process.env.ADMIN_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+    
+    // Deletar pedidos de teste (emails com 'test', 'exemplo', ou sem abacatepayPaymentId)
+    const testEmails = ['test', 'exemplo', 'teste', '@test', 'fake'];
+    const testOrders = await Order.find({
+      $or: [
+        { email: { $regex: testEmails.join('|'), $options: 'i' } },
+        { abacatepayPaymentId: { $exists: false } },
+        { paymentSessionId: 'pending' },
+        { status: 'Aguardando pagamento' }
+      ]
+    });
+    
+    const deletedCount = testOrders.length;
+    await Order.deleteMany({
+      _id: { $in: testOrders.map(o => o._id) }
+    });
+    
+    res.json({ 
+      success: true, 
+      message: `${deletedCount} pedidos de teste deletados`,
+      deleted: deletedCount
+    });
+  } catch (err) {
+    console.error('Erro ao limpar pedidos de teste:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Admin: list test orders
+router.get('/test/list', async (req, res) => {
+  try {
+    const adminKey = req.headers['x-admin-key'];
+    if (!adminKey || adminKey !== process.env.ADMIN_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const testEmails = ['test', 'exemplo', 'teste', '@test', 'fake'];
+    const testOrders = await Order.find({
+      $or: [
+        { email: { $regex: testEmails.join('|'), $options: 'i' } },
+        { abacatepayPaymentId: { $exists: false } },
+        { paymentSessionId: 'pending' }
+      ]
+    }).sort({ createdAt: -1 });
+    
+    res.json({ 
+      count: testOrders.length,
+      orders: testOrders
+    });
+  } catch (err) {
+    console.error('Erro ao listar pedidos de teste:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Endpoint used by the (simulated) AbacatePay checkout page to confirm payment
+router.post('/:id/confirm-payment', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+
+    // mark as paid
+    order.status = 'Pago';
+    await order.save();
+
+    // Return the session id (paymentSessionId) so frontend can redirect to success
+    res.json({ ok: true, sessionId: order.paymentSessionId || order.stripeSessionId || order._id.toString() });
+  } catch (err) {
+    console.error('Erro ao confirmar pagamento:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
