@@ -9,6 +9,13 @@ const Header = ({ cartCount, user, onLogout, onLoginClick }) => {
   const navigate = useNavigate()
   const { isDark, toggleTheme } = useTheme()
 
+  // Debug: verificar se a foto está presente
+  useEffect(() => {
+    if (user) {
+      console.log('Header - Usuário:', user.name || user.email, 'Foto:', user.picture ? 'Sim' : 'Não', user.picture);
+    }
+  }, [user])
+
   const handleSearch = (e) => {
     e.preventDefault()
     if (searchQuery.trim()) {
@@ -130,17 +137,24 @@ const Header = ({ cartCount, user, onLogout, onLoginClick }) => {
           {user ? (
             <div className="relative group">
               <button className="flex items-center space-x-2 md:space-x-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 px-3 py-2 md:px-4 md:py-2 rounded-xl md:rounded-2xl hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600">
-                {user?.picture ? (
-                  <img 
-                    src={user.picture} 
-                    alt={user.name || 'Usuário'}
-                    className="h-8 w-8 md:h-10 md:w-10 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600 shadow-lg"
-                  />
-                ) : (
-                  <div className="h-8 w-8 md:h-10 md:w-10 bg-gradient-to-br from-gray-600 to-gray-800 dark:from-gray-400 dark:to-gray-200 rounded-full flex items-center justify-center text-white dark:text-gray-900 font-semibold shadow-lg text-sm md:text-base">
+                <div className="relative h-8 w-8 md:h-10 md:w-10">
+                  {user?.picture ? (
+                    <img 
+                      src={user.picture} 
+                      alt={user.name || 'Usuário'}
+                      className="h-8 w-8 md:h-10 md:w-10 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600 shadow-lg"
+                      onError={(e) => {
+                        console.error('Erro ao carregar foto do usuário:', user.picture);
+                        e.target.style.display = 'none';
+                        const fallback = e.target.parentElement.querySelector('.avatar-fallback');
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className={`h-8 w-8 md:h-10 md:w-10 bg-gradient-to-br from-gray-600 to-gray-800 dark:from-gray-400 dark:to-gray-200 rounded-full flex items-center justify-center text-white dark:text-gray-900 font-semibold shadow-lg text-sm md:text-base avatar-fallback ${user?.picture ? 'hidden' : ''}`}>
                     {(user?.name?.charAt(0) || user?.email?.charAt(0) || '?').toUpperCase()}
                   </div>
-                )}
+                </div>
                 <div className="hidden sm:block text-left">
                     <p className="text-sm font-semibold text-gray-800 dark:text-white truncate max-w-20 md:max-w-32">
                     {user.name || user.email || 'Usuário'}

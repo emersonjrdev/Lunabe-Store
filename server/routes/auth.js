@@ -83,6 +83,7 @@ router.post('/google', async (req, res) => {
         profileEmail = payload.email;
         profileName = payload.name || payload.email?.split('@')[0];
         userPicture = payload.picture || null; // Obter foto do Google
+        console.log('Google login - Foto recebida:', userPicture ? 'Sim' : 'Não', userPicture);
       } catch (verifyErr) {
         // Log error detail on server so you can inspect in terminal
         console.error('Google token verification failed:', verifyErr?.message || verifyErr);
@@ -104,23 +105,26 @@ router.post('/google', async (req, res) => {
         picture: userPicture
       });
     } else {
-      // Atualizar foto se não tiver e o Google forneceu
-      if (!user.picture && userPicture) {
+      // Atualizar foto se o Google forneceu (sempre atualizar para pegar foto mais recente)
+      if (userPicture) {
         user.picture = userPicture;
         await user.save();
+        console.log('Foto atualizada para usuário existente:', user.email, user.picture);
       }
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    const responseUser = {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      picture: user.picture || null,
+      address: user.address || null
+    };
+    console.log('Retornando usuário com foto:', responseUser.picture ? 'Sim' : 'Não', responseUser.picture);
     res.json({ 
       token, 
-      user: { 
-        id: user._id, 
-        email: user.email, 
-        name: user.name, 
-        picture: user.picture || null,
-        address: user.address || null 
-      } 
+      user: responseUser
     });
   } catch (err) {
     console.error('Social login error:', err);

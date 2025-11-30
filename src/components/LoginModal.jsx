@@ -174,6 +174,7 @@ const LoginModal = ({ onLogin, onClose }) => {
 
         const json = await res.json();
         if (res.ok) {
+          console.log('Resposta do servidor - Foto do usuário:', json.user.picture ? 'Sim' : 'Não', json.user.picture);
           // store server token & user
           localStorage.setItem('lunabe-token', json.token);
           const merged = { 
@@ -183,6 +184,7 @@ const LoginModal = ({ onLogin, onClose }) => {
             picture: json.user.picture || null,
             serverId: json.user.id 
           };
+          console.log('Salvando usuário no localStorage com foto:', merged.picture ? 'Sim' : 'Não', merged.picture);
           localStorage.setItem('lunabe-user', JSON.stringify(merged));
           onLogin(merged);
           onClose();
@@ -222,6 +224,7 @@ const LoginModal = ({ onLogin, onClose }) => {
           const res = await fetch(`${API_BASE}/api/auth/google`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) });
           const json = await res.json();
           if (res.ok) {
+            console.log('Resposta do servidor (fallback) - Foto do usuário:', json.user.picture ? 'Sim' : 'Não', json.user.picture);
             localStorage.setItem('lunabe-token', json.token);
             const merged = { 
               id: json.user.id, 
@@ -230,6 +233,7 @@ const LoginModal = ({ onLogin, onClose }) => {
               picture: json.user.picture || null,
               serverId: json.user.id 
             };
+            console.log('Salvando usuário no localStorage (fallback) com foto:', merged.picture ? 'Sim' : 'Não', merged.picture);
             localStorage.setItem('lunabe-user', JSON.stringify(merged));
             onLogin(merged);
             onClose();
