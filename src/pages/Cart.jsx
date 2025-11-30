@@ -163,16 +163,24 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
 
   // Finalizar compra
   const handleCheckout = async () => {
+    console.log('🔵 handleCheckout chamado');
+    console.log('🔵 user:', user);
+    console.log('🔵 cart:', cart);
+    console.log('🔵 address:', address);
+    
     if (!user) {
+      console.log('❌ Usuário não logado');
       addToast('Faça login para finalizar a compra', 'error')
       return
     }
 
     if (cart.length === 0) {
+      console.log('❌ Carrinho vazio');
       addToast('Seu carrinho está vazio', 'error')
       return
     }
 
+    console.log('✅ Iniciando processamento...');
     setIsProcessing(true)
 
     try {
@@ -180,33 +188,44 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
       const shipping = 0
       const totalAmount = finalPrice + shipping
 
+      console.log('🔵 Validando endereço...');
       // Criar pedido no backend (inclui endereço)
       if (!address || !address.street || !address.city || !address.zip) {
+        console.log('❌ Endereço incompleto:', address);
         addToast('Por favor, forneça o endereço de entrega completo', 'error')
         setIsProcessing(false)
         return
       }
 
+      console.log('🔵 Chamando PaymentService.createOrder...');
+      console.log('🔵 Dados enviados:', { cart, user: { email: user.email }, address });
+      
       const orderData = await PaymentService.createOrder(cart, user, address)
 
+      console.log('🔵 Resposta do createOrder:', orderData);
+
       if (!orderData) {
+        console.error('❌ orderData é null ou undefined');
         addToast('Erro ao criar pedido. Tente novamente.', 'error')
         setIsProcessing(false)
         return
       }
 
       if (!orderData.checkoutUrl) {
+        console.error('❌ checkoutUrl não encontrado na resposta:', orderData);
         addToast('Erro: URL de checkout não retornada. Verifique os logs.', 'error')
         console.error('Resposta do servidor:', orderData)
         setIsProcessing(false)
         return
       }
 
+      console.log('✅ Redirecionando para:', orderData.checkoutUrl);
       // Redirecionar para o checkout do provedor (AbacatePay)
       window.location.href = orderData.checkoutUrl
       
     } catch (error) {
-      console.error('Erro no checkout:', error)
+      console.error('❌ Erro no checkout:', error);
+      console.error('❌ Stack trace:', error.stack);
       addToast(error.message || 'Erro ao processar pedido. Tente novamente.', 'error')
       setIsProcessing(false)
     }

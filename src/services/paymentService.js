@@ -6,41 +6,57 @@ class PaymentService {
   // Criar pedido e sessão de checkout (AbacatePay)
   static async createOrder(cart, user, address = null) {
     try {
+      console.log('🔵 PaymentService.createOrder chamado');
+      console.log('🔵 API_URL:', API_URL);
+      
       const token = localStorage.getItem('lunabe-token');
+      console.log('🔵 Token presente:', !!token);
+      
       const headers = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
+
+      const requestBody = {
+        items: cart.map(item => ({
+          productId: item.id || item._id,
+          name: item.name || item.title || "Produto sem nome",
+          image: item.image || "https://via.placeholder.com/150",
+          price: item.price || 0,
+          quantity: item.quantity || 1,
+        })),
+        customerEmail: user.email,
+        address,
+      };
+
+      console.log('🔵 Request body:', requestBody);
+      console.log('🔵 Fazendo requisição para:', `${API_URL}/api/orders/create-checkout-session`);
 
       const response = await fetch(`${API_URL}/api/orders/create-checkout-session`, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          items: cart.map(item => ({
-            productId: item.id || item._id, // Incluir ID do produto para validação de estoque
-            name: item.name || item.title || "Produto sem nome",
-            image: item.image || "https://via.placeholder.com/150",
-            price: item.price || 0,
-            quantity: item.quantity || 1,
-          })),
-          customerEmail: user.email,
-          address,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log('🔵 Response status:', response.status);
+      console.log('🔵 Response ok:', response.ok);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+        console.error('❌ Erro na resposta:', errorData);
         throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('🔵 Dados recebidos:', data);
 
       if (!data.checkoutUrl) {
-        console.error('Resposta do servidor sem checkoutUrl:', data);
+        console.error('❌ Resposta do servidor sem checkoutUrl:', data);
         throw new Error("checkoutUrl não retornado pelo servidor");
       }
 
+      console.log('✅ checkoutUrl recebido:', data.checkoutUrl);
       return data; // caller should redirect
     } catch (error) {
-      console.error("Erro no checkout:", error);
+      console.error("❌ Erro no PaymentService.createOrder:", error);
       throw error; // Re-throw para o caller tratar
     }
   }
