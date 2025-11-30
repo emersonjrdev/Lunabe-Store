@@ -2,20 +2,19 @@
 // Cliente para integração com a API do AbacatePay
 import axios from 'axios';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 
 dotenv.config();
 
 class AbacatePayClient {
   constructor() {
-    // URLs da API do AbacatePay
+    // URL da API do AbacatePay (mesmo endpoint para dev e produção)
+    // O ambiente é determinado pela chave de API utilizada
     this.baseURL = process.env.ABACATEPAY_API_URL || 'https://api.abacatepay.com/v1';
     this.apiKey = process.env.ABACATEPAY_API_KEY;
-    this.secretKey = process.env.ABACATEPAY_SECRET_KEY;
-    this.isProduction = process.env.NODE_ENV === 'production';
     
-    // Em modo de desenvolvimento, usar URL de sandbox se disponível
-    if (!this.isProduction) {
-      this.baseURL = process.env.ABACATEPAY_SANDBOX_URL || this.baseURL;
+    if (!this.apiKey) {
+      console.warn('ABACATEPAY_API_KEY não configurada');
     }
 
     // Criar instância do axios com configurações padrão
@@ -143,23 +142,45 @@ class AbacatePayClient {
    * @returns {Boolean} - Se a assinatura é válida
    */
   verifyWebhookSignature(signature, payload) {
-    // Implementar verificação de assinatura conforme documentação do AbacatePay
-    // Por enquanto, retorna true (implementar conforme necessário)
-    if (!this.secretKey) {
-      console.warn('ABACATEPAY_SECRET_KEY não configurada - webhook não verificado');
-      return true; // em desenvolvimento, permitir sem verificação
+    const webhookSecret = process.env.ABACATEPAY_WEBHOOK_SECRET;
+    
+    if (!webhookSecret) {
+      console.warn('ABACATEPAY_WEBHOOK_SECRET não configurada - webhook não verificado');
+      // Em desenvolvimento, pode permitir sem verificação
+      // Em produção, rejeitar se não tiver secret configurado
+      return process.env.NODE_ENV !== 'production';
     }
     
-    // TODO: Implementar verificação real conforme documentação
-    // Exemplo genérico:
-    // const crypto = require('crypto');
-    // const expectedSignature = crypto
-    //   .createHmac('sha256', this.secretKey)
-    //   .update(JSON.stringify(payload))
-    //   .digest('hex');
-    // return signature === expectedSignature;
+    if (!signature) {
+      console.warn('Webhook sem assinatura - rejeitando');
+      return false;
+    }
     
-    return true;
+    // Verificar assinatura usando HMAC SHA256
+    // A AbacatePay envia a assinatura no header, precisamos verificar
+    try {
+      const payloadString = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      const expectedSignature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(payloadString)
+        .digest('hex');
+      
+      // A assinatura pode vir em diferentes formatos (hex, base64, etc)
+      // Verificar se corresponde (comparação segura)
+      const isValid = crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expectedSignature)
+      );
+      
+      if (!isValid) {
+        console.warn('Webhook AbacatePay: assinatura inválida');
+      }
+      
+      return isValid;
+    } catch (error) {
+      console.error('Erro ao verificar assinatura do webhook:', error);
+      return false;
+    }
   }
 
   /**
@@ -185,4 +206,6 @@ class AbacatePayClient {
 }
 
 export default new AbacatePayClient();
+
+
 
