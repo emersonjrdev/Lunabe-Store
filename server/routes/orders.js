@@ -30,12 +30,12 @@ router.post("/create-checkout-session", async (req, res) => {
   console.log('🔵 Recebida requisição para /create-checkout-session');
   try {
     let { items, customerEmail, address, customerName, customerPhone, cpf, deliveryType, shipping } = req.body;
-    console.log('🔵 Recebendo requisição de checkout');
-    let { items, customerEmail, address, customerName, customerPhone } = req.body;
     console.log('🔵 Dados recebidos:', { 
       itemsCount: items?.length, 
       customerEmail, 
       hasAddress: !!address,
+      hasCpf: !!cpf,
+      cpfLength: cpf?.length,
       address: address ? { street: address.street, city: address.city, zip: address.zip } : null
     });
 
@@ -209,7 +209,7 @@ router.post("/create-checkout-session", async (req, res) => {
         metadata: {
           orderId: order._id.toString(),
           customerEmail,
-          customerTaxId: cpf || null, // CPF do cliente
+          customerTaxId: cpf ? cpf.replace(/\D/g, '') : null, // CPF do cliente (apenas números)
           deliveryType: deliveryType || 'delivery',
         },
         // URLs devem ser válidas sem placeholders

@@ -106,9 +106,12 @@ class AbacatePayClient {
           email: payload.customer.email,
           name: payload.customer.name || 'Cliente',
           cellphone: payload.customer.phone || '',
-          // taxId é obrigatório no AbacatePay - usar CPF do metadata ou genérico
+          // taxId é obrigatório no AbacatePay - usar CPF do metadata
           // Formato esperado: apenas números (11 dígitos para CPF)
-          taxId: (payload.metadata && payload.metadata.customerTaxId) || '00000000000',
+          // Se não houver CPF válido, usar um CPF genérico válido (11111111111)
+          taxId: (payload.metadata && payload.metadata.customerTaxId && payload.metadata.customerTaxId.length === 11) 
+            ? payload.metadata.customerTaxId 
+            : '11111111111', // CPF genérico válido (não é um CPF real)
         },
         // Garantir que as URLs são válidas (sem placeholders e sem trailing slash)
         // returnUrl: URL de retorno após pagamento bem-sucedido
