@@ -198,6 +198,13 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
         return
       }
 
+      // Validar agendamento se for retirada na loja
+      if (deliveryType === 'pickup' && !pickupSchedule) {
+        addToast('Por favor, selecione um horário para retirada na loja', 'error')
+        setIsProcessing(false)
+        return
+      }
+
       // Validar endereço apenas se for entrega
       if (deliveryType === 'delivery') {
         console.log('🔵 Validando endereço...');
