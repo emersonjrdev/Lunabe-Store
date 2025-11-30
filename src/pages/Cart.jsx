@@ -235,18 +235,30 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
 
       const finalShipping = deliveryType === 'pickup' ? 0 : shipping
       
-      // Se for pagamento via Itaú, redirecionar para o link do Itaú
+      // Se for pagamento via Itaú, criar pedido e redirecionar
       if (paymentMethod === 'itau') {
-        const itauLink = process.env.REACT_APP_ITAU_PAYMENT_LINK || 'https://www.itau.com.br/empresas/pagamentos-recebimentos/link-de-pagamento';
-        // Criar pedido primeiro e depois redirecionar
         try {
           const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping, 'itau')
-          // Redirecionar para o link do Itaú com informações do pedido
-          const itauUrl = new URL(itauLink);
-          itauUrl.searchParams.set('orderId', orderData.orderId || '');
-          itauUrl.searchParams.set('amount', totalAmount.toFixed(2));
-          window.location.href = itauUrl.toString();
-          return;
+          
+          // Obter link do Itaú (pode ser configurado via variável de ambiente ou usar link padrão)
+          const itauLink = import.meta.env.VITE_ITAU_PAYMENT_LINK || 'https://www.itau.com.br/empresas/pagamentos-recebimentos/link-de-pagamento';
+          
+          // Se o link do Itaú for uma URL completa, redirecionar diretamente
+          if (itauLink.startsWith('http')) {
+            addToast('Redirecionando para o pagamento Itaú...', 'info');
+            // Adicionar informações do pedido como parâmetros na URL
+            const itauUrl = new URL(itauLink);
+            itauUrl.searchParams.set('orderId', orderData.orderId || '');
+            itauUrl.searchParams.set('amount', totalAmount.toFixed(2));
+            itauUrl.searchParams.set('email', user.email);
+            window.location.href = itauUrl.toString();
+            return;
+          } else {
+            // Se for apenas um ID ou código, mostrar mensagem
+            addToast('Pedido criado! Use o link de pagamento do Itaú para finalizar.', 'success');
+            setIsProcessing(false);
+            return;
+          }
         } catch (error) {
           console.error('Erro ao criar pedido para Itaú:', error);
           addToast('Erro ao processar pedido. Tente novamente.', 'error');
