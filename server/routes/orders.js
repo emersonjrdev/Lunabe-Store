@@ -398,6 +398,7 @@ router.get('/:id', async (req, res) => {
 
 // Admin: list all orders (requires X-Admin-Key header)
 router.get('/all', async (req, res) => {
+  let errorOccurred = false;
   try {
     const adminKey = req.headers['x-admin-key'];
     const expectedKey = process.env.ADMIN_SECRET || 'lunabe25'; // Fallback para compatibilidade
@@ -424,6 +425,7 @@ router.get('/all', async (req, res) => {
     
     if (mongoState !== 1) {
       console.error('❌ MongoDB não está conectado. Estado:', mongoState);
+      errorOccurred = true;
       return res.status(500).json({ 
         error: 'Database not connected', 
         details: `MongoDB connection state: ${mongoState}` 
@@ -432,21 +434,39 @@ router.get('/all', async (req, res) => {
     
     console.log('✅ MongoDB conectado, executando query...');
     
-    // Usar a mesma abordagem que funciona na rota GET /
-    const orders = await Order.find().sort({ createdAt: -1 });
-    console.log(`✅ ${orders.length} pedidos encontrados`);
+    // Tentar buscar pedidos de forma mais simples
+    let orders;
+    try {
+      orders = await Order.find({}).sort({ createdAt: -1 }).limit(1000);
+      console.log(`✅ ${orders.length} pedidos encontrados`);
+    } catch (queryError) {
+      console.error('❌ Erro na query Order.find():', queryError);
+      console.error('❌ Stack trace da query:', queryError.stack);
+      errorOccurred = true;
+      throw queryError;
+    }
     
-    // Converter para JSON simples (remove métodos do Mongoose)
-    const ordersData = JSON.parse(JSON.stringify(orders));
+    // Converter para JSON simples de forma segura
+    let ordersData;
+    try {
+      ordersData = orders.map(order => order.toObject ? order.toObject() : order);
+      console.log(`✅ ${ordersData.length} pedidos convertidos`);
+    } catch (convertError) {
+      console.error('❌ Erro ao converter pedidos:', convertError);
+      // Se falhar a conversão, tentar enviar direto
+      ordersData = orders;
+    }
     
-    console.log(`✅ ${ordersData.length} pedidos formatados e prontos para envio`);
+    console.log(`✅ Enviando ${ordersData.length} pedidos`);
     res.json(ordersData);
   } catch (err) {
-    console.error('❌ Erro ao buscar todos os pedidos:', err);
-    console.error('❌ Tipo do erro:', err.constructor?.name || typeof err);
-    console.error('❌ Mensagem:', err.message);
-    if (err.stack) {
-      console.error('❌ Stack trace:', err.stack);
+    if (!errorOccurred) {
+      console.error('❌ Erro geral ao buscar todos os pedidos:', err);
+      console.error('❌ Tipo do erro:', err.constructor?.name || typeof err);
+      console.error('❌ Mensagem:', err.message);
+      if (err.stack) {
+        console.error('❌ Stack trace:', err.stack);
+      }
     }
     res.status(500).json({ 
       error: 'Server error', 
