@@ -396,6 +396,20 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Test endpoint para verificar se a rota está funcionando
+router.get('/all/test', async (req, res) => {
+  try {
+    res.json({ 
+      message: 'Rota de teste funcionando',
+      mongoState: mongoose.connection.readyState,
+      hasOrderModel: !!Order,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin: list all orders (requires X-Admin-Key header)
 router.get('/all', async (req, res) => {
   let errorOccurred = false;
