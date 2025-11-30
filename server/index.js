@@ -27,6 +27,7 @@ const __dirname = path.dirname(__filename);
 // CORS — permitir múltiplos origins (produção + desenvolvimento local)
 const allowedOrigins = [
   process.env.FRONTEND_URL, // produção (ex: https://www.lunabe.com.br)
+  'https://www.lunabe.com.br', // garantir que está na lista
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
@@ -37,9 +38,25 @@ app.use(cors({
   origin: function (origin, callback) {
     // allow non-browser requests like curl or server-to-server
     if (!origin) return callback(null, true);
+    
+    // Log para debug em produção
+    if (process.env.NODE_ENV === 'production') {
+      console.log('🔵 CORS check - Origin:', origin);
+      console.log('🔵 Allowed origins:', allowedOrigins);
+    }
+    
     if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
-    // optionally allow all in development
+    
+    // Permitir qualquer origem em desenvolvimento
     if (process.env.NODE_ENV !== 'production') return callback(null, true);
+    
+    // Em produção, ser mais permissivo se FRONTEND_URL não estiver configurado
+    if (!process.env.FRONTEND_URL) {
+      console.warn('⚠️ FRONTEND_URL não configurado - permitindo origem:', origin);
+      return callback(null, true);
+    }
+    
+    console.error('❌ CORS bloqueado - Origin não permitida:', origin);
     return callback(new Error('CORS policy: Origin not allowed'), false);
   },
   credentials: true,
