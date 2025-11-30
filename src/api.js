@@ -1,5 +1,12 @@
 // Normalize API_BASE and remove trailing slash to avoid accidental double slashes
-export const API_BASE = (import.meta.env.VITE_API_BASE || 'http://localhost:4001').replace(/\/$/, '');
+const envApiBase = import.meta.env.VITE_API_BASE;
+export const API_BASE = (envApiBase || 'http://localhost:4001').replace(/\/$/, '');
+
+// Debug: Log API_BASE in development (helps diagnose Vercel/Render issues)
+if (import.meta.env.DEV || !envApiBase) {
+  console.log('🔍 API_BASE configurado:', API_BASE);
+  console.log('🔍 VITE_API_BASE da env:', envApiBase || 'NÃO CONFIGURADO');
+}
 
 export async function fetchProducts() {
   const res = await fetch(`${API_BASE}/api/products`);

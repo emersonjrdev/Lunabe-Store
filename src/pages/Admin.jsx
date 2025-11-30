@@ -22,11 +22,14 @@ const Admin = () => {
 
   const adminPassword = "lunabe25";
 
-  const handleLogin = () => {
+  const handleLogin = (e) => {
+    if (e) e.preventDefault();
     if (password === adminPassword) {
       setLoggedIn(true);
+      setPassword(""); // Limpar senha após login
     } else {
       alert("Senha incorreta!");
+      setPassword(""); // Limpar campo
     }
   };
 
@@ -98,137 +101,314 @@ const Admin = () => {
 
   if (!loggedIn) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-200">
-        <div className="bg-white shadow-xl rounded-xl p-10 w-full max-w-sm text-center">
-          <h2 className="text-3xl font-bold mb-4">Painel Administrativo</h2>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Senha do admin"
-            className="w-full p-3 mb-4 border rounded-lg"
-          />
-          <button
-            onClick={handleLogin}
-            className="w-full bg-black text-white py-3 rounded-lg"
-          >
-            Entrar
-          </button>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4">
+        <div className="bg-white dark:bg-gray-800 shadow-2xl rounded-2xl p-8 md:p-10 w-full max-w-md animate-slide-up border border-gray-200 dark:border-gray-700">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-gray-900 to-gray-700 rounded-full mb-4">
+              <i className="fas fa-lock text-white text-2xl"></i>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white mb-2">
+              Painel Administrativo
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
+              Digite sua senha para continuar
+            </p>
+          </div>
+          
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <i className="fas fa-key text-gray-400"></i>
+              </div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleLogin(e);
+                  }
+                }}
+                placeholder="Digite sua senha"
+                className="w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400"
+                autoFocus
+              />
+            </div>
+            
+            <button
+              type="submit"
+              className="w-full bg-gradient-to-r from-gray-900 to-gray-700 hover:from-gray-800 hover:to-gray-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+            >
+              <i className="fas fa-sign-in-alt mr-2"></i>
+              Entrar
+            </button>
+          </form>
+          
+          <div className="mt-6 text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              <i className="fas fa-shield-alt mr-1"></i>
+              Acesso restrito a administradores
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-5xl mx-auto bg-white shadow-xl rounded-xl p-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-left">🛍️ Painel Administrativo</h1>
-          <div className="flex items-center space-x-2">
-            <button onClick={()=>setShowOrders(false)} className={`px-3 py-1 rounded ${!showOrders? 'bg-black text-white' : 'bg-gray-200'}`}>Produtos</button>
-            <button onClick={()=>setShowOrders(true)} className={`px-3 py-1 rounded ${showOrders? 'bg-black text-white' : 'bg-gray-200'}`}>Pedidos ({orders.length})</button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-800 shadow-xl rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white mb-2">
+                <i className="fas fa-store mr-3 text-gray-900 dark:text-white"></i>
+                Painel Administrativo
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                Gerencie produtos e pedidos da loja
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={()=>setShowOrders(false)} 
+                className={`px-4 py-2 rounded-xl font-semibold transition-all ${
+                  !showOrders 
+                    ? 'bg-gray-900 dark:bg-gray-700 text-white shadow-lg' 
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                <i className="fas fa-box mr-2"></i>
+                Produtos
+              </button>
+              <button 
+                onClick={()=>setShowOrders(true)} 
+                className={`px-4 py-2 rounded-xl font-semibold transition-all ${
+                  showOrders 
+                    ? 'bg-gray-900 dark:bg-gray-700 text-white shadow-lg' 
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                <i className="fas fa-shopping-cart mr-2"></i>
+                Pedidos ({orders.length})
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm("Deseja sair do painel administrativo?")) {
+                    setLoggedIn(false);
+                  }
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-all"
+              >
+                <i className="fas fa-sign-out-alt mr-2"></i>
+                Sair
+              </button>
+            </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mb-10">
-          <input
-            type="text"
-            name="name"
-            placeholder="Nome do produto"
-            value={form.name}
-            onChange={handleChange}
-            required
-            className="w-full p-3 border rounded-lg"
-          />
+        {/* Formulário de Cadastro de Produtos */}
+        {!showOrders && (
+          <div className="bg-white dark:bg-gray-800 shadow-xl rounded-2xl p-6 md:p-8 mb-6 border border-gray-200 dark:border-gray-700">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center">
+              <i className="fas fa-plus-circle mr-3 text-gray-900 dark:text-white"></i>
+              Cadastrar Novo Produto
+            </h2>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <i className="fas fa-tag mr-2"></i>
+                    Nome do Produto *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Ex: Pijama Floral"
+                    value={form.name}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400"
+                  />
+                </div>
 
-          <textarea
-            name="description"
-            placeholder="Descrição"
-            value={form.description}
-            onChange={handleChange}
-            required
-            className="w-full p-3 border rounded-lg"
-          />
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <i className="fas fa-dollar-sign mr-2"></i>
+                    Preço (R$) *
+                  </label>
+                  <input
+                    type="number"
+                    name="price"
+                    placeholder="Ex: 89.90"
+                    step="0.01"
+                    min="0"
+                    value={form.price}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400"
+                  />
+                </div>
+              </div>
 
-          <input
-            type="number"
-            name="price"
-            placeholder="Preço"
-            value={form.price}
-            onChange={handleChange}
-            required
-            className="w-full p-3 border rounded-lg"
-          />
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  <i className="fas fa-align-left mr-2"></i>
+                  Descrição *
+                </label>
+                <textarea
+                  name="description"
+                  placeholder="Descreva o produto em detalhes..."
+                  value={form.description}
+                  onChange={handleChange}
+                  required
+                  rows="4"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400 resize-none"
+                />
+              </div>
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) =>
-              setForm({ ...form, image: e.target.files[0] })
-            }
-            className="w-full"
-          />
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <i className="fas fa-ruler mr-2"></i>
+                    Tamanhos (separados por vírgula)
+                  </label>
+                  <input
+                    type="text"
+                    name="sizes"
+                    placeholder="Ex: P, M, G, GG"
+                    value={form.sizes}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400"
+                  />
+                </div>
 
-          <input
-            type="text"
-            name="sizes"
-            placeholder="Tamanhos separados por vírgula"
-            value={form.sizes}
-            onChange={handleChange}
-            className="w-full p-3 border rounded-lg"
-          />
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <i className="fas fa-palette mr-2"></i>
+                    Cores (separadas por vírgula)
+                  </label>
+                  <input
+                    type="text"
+                    name="colors"
+                    placeholder="Ex: Rosa, Azul, Branco"
+                    value={form.colors}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400"
+                  />
+                </div>
+              </div>
 
-          <input
-            type="text"
-            name="colors"
-            placeholder="Cores separadas por vírgula"
-            value={form.colors}
-            onChange={handleChange}
-            className="w-full p-3 border rounded-lg"
-          />
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  <i className="fas fa-image mr-2"></i>
+                  Imagem do Produto *
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) =>
+                      setForm({ ...form, image: e.target.files[0] })
+                    }
+                    required
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-900 file:text-white hover:file:bg-gray-800"
+                  />
+                </div>
+                {form.image && (
+                  <p className="mt-2 text-sm text-green-600 dark:text-green-400">
+                    <i className="fas fa-check-circle mr-1"></i>
+                    {form.image.name} selecionado
+                  </p>
+                )}
+              </div>
 
-          <button
-            type="submit"
-            className="w-full bg-black text-white py-3 rounded-lg"
-          >
-            Adicionar Produto
-          </button>
-        </form>
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-gray-900 to-gray-700 hover:from-gray-800 hover:to-gray-600 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+              >
+                <i className="fas fa-plus-circle mr-2"></i>
+                Adicionar Produto
+              </button>
+            </form>
+          </div>
+        )}
 
         {!showOrders && (
-          <>
-            <h2 className="text-2xl font-semibold mb-4">Produtos cadastrados</h2>
+          <div className="bg-white dark:bg-gray-800 shadow-xl rounded-2xl p-6 md:p-8 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center">
+                <i className="fas fa-box-open mr-3 text-gray-900 dark:text-white"></i>
+                Produtos Cadastrados
+              </h2>
+              <span className="px-4 py-2 bg-gray-900 dark:bg-gray-700 text-white rounded-xl font-semibold">
+                {products.length} {products.length === 1 ? 'produto' : 'produtos'}
+              </span>
+            </div>
 
             {products.length === 0 ? (
-          <p className="text-center text-gray-500">Nenhum produto cadastrado.</p>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-6">
-            {products.map((p) => (
-              <div key={p._id} className="p-4 border rounded-lg bg-gray-50">
-                <img
-                  src={getFullImageUrl(p.images?.[0]) || '/placeholder.jpg'}
-                  alt={p.name}
-                  className="w-full h-48 object-cover rounded-lg mb-2"
-                />
-                <h3 className="font-bold">{p.name}</h3>
-                <p className="text-gray-600 text-sm line-clamp-2">
-                  {p.description}
-                </p>
-                <p className="text-lg font-semibold mt-2">
-                  R$ {(p.price_cents / 100).toFixed(2)}
-                </p>
-
-                <button
-                  onClick={() => handleDelete(p._id)}
-                  className="w-full mt-3 bg-red-500 text-white py-2 rounded-lg"
-                >
-                  Excluir
-                </button>
+              <div className="text-center py-12">
+                <i className="fas fa-inbox text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
+                <p className="text-gray-500 dark:text-gray-400 text-lg">Nenhum produto cadastrado ainda.</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Use o formulário acima para adicionar o primeiro produto.</p>
               </div>
-            ))}
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {products.map((p) => (
+                  <div key={p._id} className="bg-gray-50 dark:bg-gray-700 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-600 hover:shadow-lg transition-all duration-300 transform hover:scale-105">
+                    <div className="relative">
+                      <img
+                        src={getFullImageUrl(p.images?.[0]) || '/placeholder.jpg'}
+                        alt={p.name}
+                        className="w-full h-56 object-cover"
+                      />
+                      <div className="absolute top-2 right-2">
+                        <span className="px-3 py-1 bg-black bg-opacity-75 text-white text-xs font-semibold rounded-full">
+                          {p.stock || 0} em estoque
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-2 line-clamp-1">
+                        {p.name}
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-300 text-sm line-clamp-2 mb-3">
+                        {p.description}
+                      </p>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xl font-bold text-gray-900 dark:text-white">
+                          R$ {(p.price_cents / 100).toFixed(2).replace('.', ',')}
+                        </p>
+                        {(p.sizes && p.sizes.length > 0) && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            <i className="fas fa-ruler mr-1"></i>
+                            {p.sizes.length} {p.sizes.length === 1 ? 'tamanho' : 'tamanhos'}
+                          </span>
+                        )}
+                      </div>
+                      {(p.colors && p.colors.length > 0) && (
+                        <div className="mb-3">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                            <i className="fas fa-palette mr-1"></i>
+                            Cores: {p.colors.join(', ')}
+                          </p>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleDelete(p._id)}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300 transform hover:scale-105"
+                      >
+                        <i className="fas fa-trash mr-2"></i>
+                        Excluir Produto
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
-          </>
+          </div>
         )}
 
         {showOrders && (

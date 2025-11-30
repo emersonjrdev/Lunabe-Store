@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { initGoogleIdentity, promptGoogle } from '../services/googleAuth'
-import { API_BASE } from '../api'
+import { API_BASE, login, register } from '../api'
 
 const LoginModal = ({ onLogin, onClose }) => {
   const [isLogin, setIsLogin] = useState(true)
@@ -14,33 +14,50 @@ const LoginModal = ({ onLogin, onClose }) => {
   }
 
   const fallbackTimerRef = useRef(null);
+  const credentialReceivedRef = useRef(false);
 
   const handleGoogleLogin = async () => {
     try {
       setIsLoading(true)
+      credentialReceivedRef.current = false; // Reset flag
 
-      if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
-        alert('Google Client ID não configurado (VITE_GOOGLE_CLIENT_ID). Verifique .env');
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      if (!clientId) {
+        console.error('VITE_GOOGLE_CLIENT_ID não está configurado');
+        alert('Google Client ID não configurado. Verifique as variáveis de ambiente no Render.');
         setIsLoading(false);
         return;
       }
+
+      // Verificar se o Client ID está no formato correto
+      if (!clientId.includes('.apps.googleusercontent.com')) {
+        console.error('Client ID inválido:', clientId);
+        alert('Google Client ID está em formato inválido. Verifique no Render.');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('Usando Google Client ID:', clientId.substring(0, 20) + '...');
 
       // Trigger the Google Identity prompt (handles mobile & desktop)
       try {
         promptGoogle();
       } catch (err) {
         console.warn('promptGoogle falhou — usando fallback popup', err);
-        fallbackPopup(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+        fallbackPopup(clientId);
         return;
       }
 
       // If the prompt doesn't produce a credential (FedCM or prompt failed silently),
-      // open the popup fallback after a short wait. If credential arrives earlier we'll clear it.
+      // open the popup fallback after a longer wait. If credential arrives earlier we'll clear it.
       if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
       fallbackTimerRef.current = setTimeout(() => {
-        console.warn('Google prompt did not return a credential quickly — opening fallback popup');
-        fallbackPopup(import.meta.env.VITE_GOOGLE_CLIENT_ID);
-      }, 4000);
+        // Only open fallback if we haven't received a credential yet
+        if (!credentialReceivedRef.current) {
+          console.log('Google prompt demorou — abrindo popup alternativo');
+          fallbackPopup(clientId);
+        }
+      }, 6000); // Aumentado de 4s para 6s
     } catch (error) {
       console.error("Erro ao logar com Google:", error)
       setIsLoading(false)
@@ -75,26 +92,59 @@ const LoginModal = ({ onLogin, onClose }) => {
     if (!validateForm()) return
     setIsLoading(true)
     
-    // Simular login manual (sem Firebase)
-    await new Promise((resolve) => setTimeout(resolve, 1200))
+    try {
+      let response;
+      
+      if (isLogin) {
+        // Fazer login real
+        response = await login({
+          email: formData.email,
+          password: formData.password
+        });
+      } else {
+        // Fazer registro real
+        response = await register({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password
+        });
+      }
 
-    if (isLogin) {
-      onLogin({ 
-        email: formData.email, 
-        name: formData.email.split('@')[0], 
-        id: Date.now().toString() 
-      })
-    } else {
-      onLogin({ 
-        email: formData.email, 
-        name: formData.name, 
-        id: Date.now().toString() 
-      })
+      if (response.error) {
+        // Erro retornado pela API
+        setErrors({ submit: response.error });
+        alert(response.error);
+        setIsLoading(false);
+        return;
+      }
+
+      if (response.token && response.user) {
+        // Login/Registro bem-sucedido
+        localStorage.setItem('lunabe-token', response.token);
+        localStorage.setItem('lunabe-user', JSON.stringify(response.user));
+        
+        onLogin({
+          id: response.user.id,
+          email: response.user.email,
+          name: response.user.name,
+          token: response.token
+        });
+        
+        // Limpar formulário
+        setFormData({ email: '', password: '', name: '', confirmPassword: '' });
+      } else {
+        // Resposta inesperada
+        setErrors({ submit: 'Erro inesperado. Tente novamente.' });
+        alert('Erro inesperado. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro ao fazer login/registro:', error);
+      const errorMessage = error.message || 'Erro ao conectar com o servidor. Verifique sua conexão.';
+      setErrors({ submit: errorMessage });
+      alert(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false)
-    // Limpar formulário
-    setFormData({ email: '', password: '', name: '', confirmPassword: '' })
   }
 
   const handleInputChange = (field, value) => {
@@ -111,18 +161,36 @@ const LoginModal = ({ onLogin, onClose }) => {
   useEffect(() => {
     let initialized = false;
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!clientId) return;
+    if (!clientId) {
+      console.warn('VITE_GOOGLE_CLIENT_ID não está configurado. Login com Google não funcionará.');
+      return;
+    }
+
+    console.log('Inicializando Google Identity com Client ID:', clientId.substring(0, 20) + '...');
+    console.log('Client ID completo (primeiros 30 chars):', clientId.substring(0, 30));
 
     initGoogleIdentity(clientId, async (resp) => {
       // resp.credential é o id_token (JWT)
-      if (!resp?.credential) return;
-      // we received credential via prompt — cancel popup fallback
+      console.log('🔐 Google Identity retornou resposta:', resp ? 'Sim' : 'Não', resp?.credential ? 'com credential' : 'sem credential');
+      
+      if (!resp?.credential) {
+        console.warn('⚠️ Google Identity não retornou credential');
+        return;
+      }
+      
+      console.log('✅ Credential recebido, enviando para backend...');
+      
+      // Mark that we received a credential
+      credentialReceivedRef.current = true;
+      
+      // Cancel popup fallback since we got the credential
       if (fallbackTimerRef.current) {
         clearTimeout(fallbackTimerRef.current);
         fallbackTimerRef.current = null;
       }
       setIsLoading(true);
       try {
+        console.log('📤 Enviando token para:', `${API_BASE}/api/auth/google`);
         const res = await fetch(`${API_BASE}/api/auth/google`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -130,24 +198,28 @@ const LoginModal = ({ onLogin, onClose }) => {
         });
 
         const json = await res.json();
+        console.log('📥 Resposta do backend:', res.ok ? 'Sucesso' : 'Erro', json);
+        
         if (res.ok) {
           // store server token & user
           localStorage.setItem('lunabe-token', json.token);
           const merged = { id: json.user.id, email: json.user.email, name: json.user.name, serverId: json.user.id };
           localStorage.setItem('lunabe-user', JSON.stringify(merged));
+          console.log('✅ Login bem-sucedido!', merged);
           onLogin(merged);
           onClose();
         } else {
+          console.error('❌ Erro do backend:', json.error || json);
           alert('Erro ao autenticar no servidor: ' + (json.error || JSON.stringify(json)));
         }
       } catch (err) {
-        console.error('Erro ao chamar /api/auth/google:', err);
-        alert('Erro ao autenticar com Google');
+        console.error('❌ Erro ao chamar /api/auth/google:', err);
+        alert('Erro ao autenticar com Google: ' + err.message);
       } finally {
         setIsLoading(false);
       }
     }).catch(err => {
-      console.error('Erro ao inicializar Google Identity:', err);
+      console.error('❌ Erro ao inicializar Google Identity:', err);
     });
 
     // fallback handler for popup redirect
@@ -159,7 +231,10 @@ const LoginModal = ({ onLogin, onClose }) => {
         const idToken = data.idToken;
         if (!idToken) return;
 
-        // clear fallback timer if set
+        // Mark that we received a credential
+        credentialReceivedRef.current = true;
+        
+        // Clear fallback timer if set
         if (fallbackTimerRef.current) {
           clearTimeout(fallbackTimerRef.current);
           fallbackTimerRef.current = null;
@@ -167,20 +242,25 @@ const LoginModal = ({ onLogin, onClose }) => {
 
         setIsLoading(true);
         try {
+          console.log('📤 Fallback: Enviando token para:', `${API_BASE}/api/auth/google`);
           const res = await fetch(`${API_BASE}/api/auth/google`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) });
           const json = await res.json();
+          console.log('📥 Fallback: Resposta do backend:', res.ok ? 'Sucesso' : 'Erro', json);
+          
           if (res.ok) {
             localStorage.setItem('lunabe-token', json.token);
             const merged = { id: json.user.id, email: json.user.email, name: json.user.name, serverId: json.user.id };
             localStorage.setItem('lunabe-user', JSON.stringify(merged));
+            console.log('✅ Fallback: Login bem-sucedido!', merged);
             onLogin(merged);
             onClose();
           } else {
+            console.error('❌ Fallback: Erro do backend:', json.error || json);
             alert('Erro ao autenticar no servidor: ' + (json.error || JSON.stringify(json)));
           }
         } catch (err) {
-          console.error('Erro no fallback auth:', err);
-          alert('Erro ao autenticar com Google (fallback)');
+          console.error('❌ Erro no fallback auth:', err);
+          alert('Erro ao autenticar com Google (fallback): ' + err.message);
         } finally {
           setIsLoading(false);
         }
