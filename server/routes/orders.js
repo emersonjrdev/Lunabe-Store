@@ -208,6 +208,16 @@ router.post("/create-checkout-session", async (req, res) => {
       console.warn('Erro ao buscar/salvar dados do usuário:', err.message);
     }
 
+    // Se for pagamento via Itaú, retornar apenas o ID do pedido
+    if (paymentMethod === 'itau') {
+      console.log('🔵 Pagamento via Itaú selecionado');
+      return res.json({
+        orderId: order._id.toString(),
+        paymentMethod: 'itau',
+        message: 'Pedido criado. Redirecione para o link de pagamento do Itaú.'
+      });
+    }
+
     // Criar sessão de checkout no AbacatePay
     console.log('🔵 Criando sessão de checkout no AbacatePay...');
     console.log('🔵 CPF recebido:', cpf);
