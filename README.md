@@ -277,5 +277,5 @@ Sistema desenvolvido para Lunabê Pijamas.
 ---
 
 **Versão:** 1.0.0  
-**Última atualização:** 2024
+**Última atualização:** 2025
 
