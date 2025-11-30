@@ -41,11 +41,23 @@ const Admin = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/orders/all`, { headers: { 'x-admin-key': adminPassword } });
-      setOrders(res.data);
+      console.log('🔵 Buscando pedidos...');
+      console.log('🔵 API_BASE:', API_BASE);
+      console.log('🔵 Admin password:', adminPassword);
+      const res = await axios.get(`${API_BASE}/api/orders/all`, { 
+        headers: { 'x-admin-key': adminPassword } 
+      });
+      console.log('✅ Pedidos recebidos:', res.data);
+      console.log('✅ Quantidade de pedidos:', res.data?.length || 0);
+      setOrders(res.data || []);
     } catch (err) {
-      console.error('Erro ao buscar pedidos (admin):', err?.response?.data || err.message);
-      alert('Não foi possível buscar os pedidos. Verifique a chave de admin no servidor.');
+      console.error('❌ Erro ao buscar pedidos (admin):', err);
+      console.error('❌ Response:', err?.response);
+      console.error('❌ Status:', err?.response?.status);
+      console.error('❌ Data:', err?.response?.data);
+      const errorMsg = err?.response?.data?.error || err.message || 'Erro desconhecido';
+      alert(`Não foi possível buscar os pedidos: ${errorMsg}`);
+      setOrders([]); // Garantir que orders seja um array vazio em caso de erro
     }
   }
 
@@ -461,6 +473,12 @@ const Admin = () => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-semibold">Pedidos ({orders.length})</h2>
               <div className="flex gap-2">
+                <button
+                  onClick={() => fetchOrders()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  🔄 Atualizar
+                </button>
                 <button
                   onClick={async () => {
                     if (window.confirm('Deseja limpar todos os pedidos de teste? Isso vai deletar pedidos com emails de teste ou sem pagamento real.')) {
