@@ -80,44 +80,46 @@ class AbacatePayClient {
       console.log('🔵 Base URL:', this.baseURL);
       console.log('🔵 Payload:', JSON.stringify(payload, null, 2));
       
-      // IMPORTANTE: O endpoint /checkout/sessions não existe na API do AbacatePay
-      // Tentando /payments que é o endpoint mais comum em APIs de pagamento
-      // Se não funcionar, verificar a documentação oficial do AbacatePay
+      // Baseado na documentação do AbacatePay (docs.abacatepay.com)
+      // O SDK Python usa client.billing.create(), então o endpoint é /billing
+      // Ajustar o payload conforme a documentação oficial
       
-      let response;
-      let endpoint = '/payments';
+      // Reformatar payload para o formato esperado pelo AbacatePay
+      const abacatepayPayload = {
+        products: payload.items.map(item => ({
+          external_id: item.name?.replace(/\s+/g, '_').toLowerCase() || 'product',
+          name: item.name,
+          quantity: item.quantity,
+          price: item.unit_price, // já está em centavos
+          description: item.name
+        })),
+        customer: payload.customer,
+        return_url: payload.success_url,
+        completion_url: payload.success_url,
+        frequency: 'ONE_TIME',
+        metadata: payload.metadata
+      };
       
-      try {
-        console.log(`🔵 Tentando endpoint: ${endpoint}`);
-        response = await this.client.post(endpoint, payload);
-        console.log('✅ Resposta recebida do AbacatePay:', {
-          status: response.status,
-          hasData: !!response.data
-        });
-      } catch (error) {
-        console.error('❌ Erro com endpoint /payments:', error.response?.data || error.message);
-        
-        // Se falhar, tentar /charges como alternativa
-        if (error.response?.status === 404) {
-          console.log('🔵 Tentando endpoint alternativo: /charges');
-          try {
-            endpoint = '/charges';
-            response = await this.client.post(endpoint, payload);
-            console.log('✅ Sucesso com endpoint /charges');
-          } catch (err2) {
-            console.error('❌ Endpoint /charges também falhou:', err2.response?.data || err2.message);
-            throw error; // Lançar o erro original
-          }
-        } else {
-          throw error;
-        }
-      }
+      console.log('🔵 Payload formatado para AbacatePay:', JSON.stringify(abacatepayPayload, null, 2));
       
+      const endpoint = '/billing';
+      console.log(`🔵 Chamando endpoint: ${this.baseURL}${endpoint}`);
+      
+      const response = await this.client.post(endpoint, abacatepayPayload);
+      
+      console.log('✅ Resposta recebida do AbacatePay:', {
+        status: response.status,
+        hasData: !!response.data,
+        dataKeys: response.data ? Object.keys(response.data) : []
+      });
+      
+      // Mapear resposta do AbacatePay para o formato esperado
+      // A resposta do billing.create() retorna um objeto com 'url' e 'id'
       return {
-        checkoutUrl: response.data.checkout_url || response.data.url,
-        sessionId: response.data.session_id || response.data.id,
-        paymentId: response.data.payment_id,
-        qrCode: response.data.qr_code, // para PIX
+        checkoutUrl: response.data.url || response.data.checkout_url,
+        sessionId: response.data.id || response.data.session_id,
+        paymentId: response.data.id || response.data.payment_id,
+        qrCode: response.data.qr_code, // para PIX (se disponível)
         qrCodeBase64: response.data.qr_code_base64,
         expiresAt: response.data.expires_at,
       };
