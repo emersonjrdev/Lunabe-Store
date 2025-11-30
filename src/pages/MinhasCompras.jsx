@@ -10,7 +10,18 @@ const MinhasCompras = ({ user }) => {
   useEffect(() => {
     const fetchOrders = async () => {
       // try backend orders first
-      const savedUser = user || JSON.parse(localStorage.getItem('lunabe-user') || 'null');
+      let savedUser = user;
+      if (!savedUser) {
+        try {
+          const userStr = localStorage.getItem('lunabe-user');
+          if (userStr) {
+            savedUser = JSON.parse(userStr);
+          }
+        } catch (e) {
+          console.error('Erro ao ler usuário do localStorage:', e);
+        }
+      }
+      
       if (!savedUser || !savedUser.email) {
         setLoading(false);
         return;
@@ -25,16 +36,21 @@ const MinhasCompras = ({ user }) => {
       } catch (err) {
         console.error('Erro ao buscar pedidos do usuário:', err);
         setError('Erro ao carregar pedidos. Tente novamente.');
+        setCompras([]); // Garantir que compras seja um array vazio em caso de erro
 
         // fallback — keep reading ultima-compra
-        const ultimaCompra = localStorage.getItem("ultima-compra");
-        if (ultimaCompra) {
-          try {
+        try {
+          const ultimaCompra = localStorage.getItem("ultima-compra");
+          if (ultimaCompra) {
             const compraData = JSON.parse(ultimaCompra);
-            setCompras(Array.isArray(compraData) ? compraData : [compraData]);
-          } catch (e) {
-            console.error("Erro ao ler compra salva:", e);
+            const fallbackOrders = Array.isArray(compraData) ? compraData : [compraData];
+            if (fallbackOrders.length > 0) {
+              setCompras(fallbackOrders);
+              setError(null); // Limpar erro se encontrou dados no fallback
+            }
           }
+        } catch (e) {
+          console.error("Erro ao ler compra salva:", e);
         }
       } finally {
         setLoading(false);
@@ -163,15 +179,22 @@ const MinhasCompras = ({ user }) => {
                 </div>
                 <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg flex items-center space-x-2 ${getStatusColor(status)}`}>
                   <i className={`fas ${
-                    statusLower.includes('pago') || statusLower.includes('paid') || statusLower.includes('aprovado')
-                      ? 'fa-check-circle'
-                      : statusLower.includes('entregue') || statusLower.includes('delivered')
-                      ? 'fa-truck'
-                      : statusLower.includes('cancelado') || statusLower.includes('cancelled')
-                      ? 'fa-times-circle'
-                      : statusLower.includes('reembolsado') || statusLower.includes('refunded')
-                      ? 'fa-undo'
-                      : 'fa-clock'
+                    (() => {
+                      const statusLower = status?.toLowerCase() || '';
+                      if (statusLower.includes('pago') || statusLower.includes('paid') || statusLower.includes('aprovado')) {
+                        return 'fa-check-circle';
+                      }
+                      if (statusLower.includes('entregue') || statusLower.includes('delivered')) {
+                        return 'fa-truck';
+                      }
+                      if (statusLower.includes('cancelado') || statusLower.includes('cancelled')) {
+                        return 'fa-times-circle';
+                      }
+                      if (statusLower.includes('reembolsado') || statusLower.includes('refunded')) {
+                        return 'fa-undo';
+                      }
+                      return 'fa-clock';
+                    })()
                   }`}></i>
                   <span>{status}</span>
                 </span>
