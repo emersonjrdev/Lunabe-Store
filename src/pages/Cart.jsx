@@ -190,12 +190,35 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
 
       console.log('🔵 Validando endereço...');
       // Criar pedido no backend (inclui endereço)
-      if (!address || !address.street || !address.city || !address.zip) {
-        console.log('❌ Endereço incompleto:', address);
-        addToast('Por favor, forneça o endereço de entrega completo', 'error')
+      if (!address) {
+        console.log('❌ Endereço não fornecido');
+        addToast('Por favor, preencha o endereço de entrega', 'error')
         setIsProcessing(false)
         return
       }
+      
+      if (!address.street || !address.street.trim()) {
+        console.log('❌ Rua não preenchida');
+        addToast('Por favor, preencha a rua do endereço', 'error')
+        setIsProcessing(false)
+        return
+      }
+      
+      if (!address.city || !address.city.trim()) {
+        console.log('❌ Cidade não preenchida');
+        addToast('Por favor, preencha a cidade do endereço', 'error')
+        setIsProcessing(false)
+        return
+      }
+      
+      if (!address.zip || !address.zip.trim()) {
+        console.log('❌ CEP não preenchido');
+        addToast('Por favor, preencha o CEP do endereço', 'error')
+        setIsProcessing(false)
+        return
+      }
+      
+      console.log('✅ Endereço validado:', address);
 
       console.log('🔵 Chamando PaymentService.createOrder...');
       console.log('🔵 Dados enviados:', { cart, user: { email: user.email }, address });

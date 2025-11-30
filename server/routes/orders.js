@@ -28,7 +28,14 @@ function isValidEmail(email) {
 // Criar sessão de checkout via AbacatePay (API real)
 router.post("/create-checkout-session", async (req, res) => {
   try {
+    console.log('🔵 Recebendo requisição de checkout');
     let { items, customerEmail, address, customerName, customerPhone } = req.body;
+    console.log('🔵 Dados recebidos:', { 
+      itemsCount: items?.length, 
+      customerEmail, 
+      hasAddress: !!address,
+      address: address ? { street: address.street, city: address.city, zip: address.zip } : null
+    });
 
     // Validações básicas
     if (!items || items.length === 0) {
@@ -222,7 +229,13 @@ router.post("/create-checkout-session", async (req, res) => {
         qrCodeBase64: checkoutData.qrCodeBase64,
       });
     } catch (abacatepayError) {
-      console.error('Erro ao criar sessão no AbacatePay:', abacatepayError);
+      console.error('❌ Erro ao criar sessão no AbacatePay:', abacatepayError);
+      console.error('❌ Stack trace:', abacatepayError.stack);
+      console.error('❌ Detalhes do erro:', {
+        message: abacatepayError.message,
+        response: abacatepayError.response?.data,
+        status: abacatepayError.response?.status,
+      });
       
       // Se falhar, manter fallback para página simulada (modo desenvolvimento)
       if (process.env.NODE_ENV !== 'production' && !process.env.ABACATEPAY_API_KEY) {
@@ -235,16 +248,25 @@ router.post("/create-checkout-session", async (req, res) => {
           sessionId: order.paymentSessionId,
         });
       } else {
-        // Em produção ou com API key configurada, retornar erro
+        // Em produção ou com API key configurada, retornar erro detalhado
+        const errorMessage = abacatepayError.response?.data?.message || 
+                            abacatepayError.response?.data?.error || 
+                            abacatepayError.message || 
+                            'Erro ao criar sessão de pagamento';
+        console.error('❌ Retornando erro 500:', errorMessage);
         res.status(500).json({
           error: 'Erro ao criar sessão de pagamento',
-          details: abacatepayError.message,
+          details: errorMessage,
         });
       }
     }
   } catch (err) {
-    console.error("Erro ao criar sessão de checkout:", err.message);
-    res.status(400).json({ error: err.message });
+    console.error("❌ Erro geral ao criar sessão de checkout:", err);
+    console.error("❌ Stack trace:", err.stack);
+    res.status(500).json({ 
+      error: err.message || 'Erro ao processar pedido',
+      details: err.stack 
+    });
   }
 });
 
