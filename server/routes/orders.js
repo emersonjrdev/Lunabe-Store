@@ -29,7 +29,7 @@ function isValidEmail(email) {
 router.post("/create-checkout-session", async (req, res) => {
   console.log('🔵 Recebida requisição para /create-checkout-session');
   try {
-    let { items, customerEmail, address, customerName, customerPhone, cpf, deliveryType, shipping } = req.body;
+    let { items, customerEmail, address, customerName, customerPhone, cpf, deliveryType, shipping, paymentMethod } = req.body;
     console.log('🔵 Dados recebidos:', { 
       itemsCount: items?.length, 
       customerEmail, 

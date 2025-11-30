@@ -3,8 +3,8 @@ import { API_BASE } from '../api'
 const API_URL = API_BASE || 'http://localhost:4001';
 
 class PaymentService {
-  // Criar pedido e sessão de checkout (AbacatePay)
-  static async createOrder(cart, user, address = null, cpf = '', deliveryType = 'delivery', shipping = 0) {
+  // Criar pedido e sessão de checkout (AbacatePay ou Itaú)
+  static async createOrder(cart, user, address = null, cpf = '', deliveryType = 'delivery', shipping = 0, paymentMethod = 'abacatepay') {
     try {
       console.log('🔵 PaymentService.createOrder chamado');
       console.log('🔵 API_URL:', API_URL);
@@ -28,6 +28,7 @@ class PaymentService {
         cpf,
         deliveryType,
         shipping,
+        paymentMethod,
       };
 
       console.log('🔵 Request body:', requestBody);

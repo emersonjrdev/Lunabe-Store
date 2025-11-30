@@ -12,6 +12,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   const [address, setAddress] = useState({ name: '', street: '', city: '', state: '', zip: '', country: '', phone: '' })
   const [cpf, setCpf] = useState('')
   const [deliveryType, setDeliveryType] = useState('delivery') // 'delivery' ou 'pickup'
+  const [paymentMethod, setPaymentMethod] = useState('abacatepay') // 'abacatepay' ou 'itau'
   const [shipping, setShipping] = useState(0)
   const [calculatingShipping, setCalculatingShipping] = useState(false)
   const [hasPreviousOrders, setHasPreviousOrders] = useState(false)
@@ -234,10 +235,30 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
 
       const finalShipping = deliveryType === 'pickup' ? 0 : shipping
       
-      console.log('🔵 Chamando PaymentService.createOrder...');
-      console.log('🔵 Dados enviados:', { cart, user: { email: user.email }, address, cpf: cleanCpf, deliveryType, shipping: finalShipping });
+      // Se for pagamento via Itaú, redirecionar para o link do Itaú
+      if (paymentMethod === 'itau') {
+        const itauLink = process.env.REACT_APP_ITAU_PAYMENT_LINK || 'https://www.itau.com.br/empresas/pagamentos-recebimentos/link-de-pagamento';
+        // Criar pedido primeiro e depois redirecionar
+        try {
+          const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping, 'itau')
+          // Redirecionar para o link do Itaú com informações do pedido
+          const itauUrl = new URL(itauLink);
+          itauUrl.searchParams.set('orderId', orderData.orderId || '');
+          itauUrl.searchParams.set('amount', totalAmount.toFixed(2));
+          window.location.href = itauUrl.toString();
+          return;
+        } catch (error) {
+          console.error('Erro ao criar pedido para Itaú:', error);
+          addToast('Erro ao processar pedido. Tente novamente.', 'error');
+          setIsProcessing(false);
+          return;
+        }
+      }
       
-      const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping)
+      console.log('🔵 Chamando PaymentService.createOrder...');
+      console.log('🔵 Dados enviados:', { cart, user: { email: user.email }, address, cpf: cleanCpf, deliveryType, shipping: finalShipping, paymentMethod });
+      
+      const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping, paymentMethod)
 
       console.log('🔵 Resposta do createOrder:', orderData);
 
@@ -499,6 +520,44 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                   required
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">CPF obrigatório para finalizar a compra</p>
+              </div>
+
+              {/* Método de Pagamento */}
+              <div className="mb-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600">
+                <div className="flex items-center mb-4">
+                  <i className="fas fa-credit-card text-lunabe-pink mr-2 text-lg"></i>
+                  <label className="text-sm font-bold text-gray-800 dark:text-white">Método de Pagamento</label>
+                </div>
+                <div className="space-y-3">
+                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'abacatepay' ? '#ec4899' : '#e5e7eb' }}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="abacatepay"
+                      checked={paymentMethod === 'abacatepay'}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="mr-3 text-lunabe-pink"
+                    />
+                    <div className="flex-grow">
+                      <span className="font-semibold text-gray-800 dark:text-white">AbacatePay</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">PIX, Cartão e Boleto</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'itau' ? '#ec4899' : '#e5e7eb' }}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="itau"
+                      checked={paymentMethod === 'itau'}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="mr-3 text-lunabe-pink"
+                    />
+                    <div className="flex-grow">
+                      <span className="font-semibold text-gray-800 dark:text-white">Itaú</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Link de Pagamento Itaú</p>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               {/* Tipo de Entrega */}
