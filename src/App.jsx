@@ -12,6 +12,10 @@ import OrderDetail from './pages/OrderDetail'
 import ProductDetail from "./pages/ProductDetail";
 import GoogleRedirect from "./pages/GoogleRedirect";
 import AbacatePayCheckout from "./pages/AbacatePayCheckout";
+import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
+import TermosUso from "./pages/TermosUso";
+import TrocasDevolucoes from "./pages/TrocasDevolucoes";
+import Contato from "./pages/Contato";
 import Header from "./components/Header";
 import LoginModal from "./components/LoginModal";
 import Footer from "./components/Footer";
@@ -319,6 +323,10 @@ function AppContent() {
             <Route path="/success" element={<Success />} />
             <Route path="/abacatepay/checkout/:sessionId" element={<AbacatePayCheckout />} />
             <Route path="/google-redirect" element={<GoogleRedirect />} />
+            <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
+            <Route path="/termos-uso" element={<TermosUso />} />
+            <Route path="/trocas-devolucoes" element={<TrocasDevolucoes />} />
+            <Route path="/contato" element={<Contato />} />
 
           </Routes>
         </main>
