@@ -76,7 +76,42 @@ class AbacatePayClient {
         webhook_url: webhookUrl,
       };
 
-      const response = await this.client.post('/checkout/sessions', payload);
+      console.log('🔵 Fazendo POST para endpoint do AbacatePay');
+      console.log('🔵 Base URL:', this.baseURL);
+      console.log('🔵 Payload:', JSON.stringify(payload, null, 2));
+      
+      // IMPORTANTE: O endpoint /checkout/sessions não existe na API do AbacatePay
+      // Tentando /payments que é o endpoint mais comum em APIs de pagamento
+      // Se não funcionar, verificar a documentação oficial do AbacatePay
+      
+      let response;
+      let endpoint = '/payments';
+      
+      try {
+        console.log(`🔵 Tentando endpoint: ${endpoint}`);
+        response = await this.client.post(endpoint, payload);
+        console.log('✅ Resposta recebida do AbacatePay:', {
+          status: response.status,
+          hasData: !!response.data
+        });
+      } catch (error) {
+        console.error('❌ Erro com endpoint /payments:', error.response?.data || error.message);
+        
+        // Se falhar, tentar /charges como alternativa
+        if (error.response?.status === 404) {
+          console.log('🔵 Tentando endpoint alternativo: /charges');
+          try {
+            endpoint = '/charges';
+            response = await this.client.post(endpoint, payload);
+            console.log('✅ Sucesso com endpoint /charges');
+          } catch (err2) {
+            console.error('❌ Endpoint /charges também falhou:', err2.response?.data || err2.message);
+            throw error; // Lançar o erro original
+          }
+        } else {
+          throw error;
+        }
+      }
       
       return {
         checkoutUrl: response.data.checkout_url || response.data.url,
