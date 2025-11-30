@@ -50,7 +50,7 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden card-hover border border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden card-hover border border-gray-200 dark:border-gray-700 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:scale-[1.02] group">
       <Link to={`/produto/${productId}`} className="block relative group overflow-hidden">
         {/* Container da imagem com aspect ratio vertical (corpo todo) */}
         <div className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-gray-900">
@@ -65,13 +65,13 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col space-y-2 z-10">
             {isOutOfStock && (
-              <span className="bg-red-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-xl backdrop-blur-sm">
+              <span className="bg-red-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-xl backdrop-blur-sm transform transition-all duration-300 group-hover:scale-110">
                 <i className="fas fa-times-circle mr-1"></i>
                 Esgotado
               </span>
             )}
             {!isOutOfStock && product.isNew && (
-              <span className="bg-gradient-to-r from-lunabe-pink to-pink-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-xl backdrop-blur-sm animate-pulse">
+              <span className="bg-gradient-to-r from-lunabe-pink to-pink-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-xl backdrop-blur-sm animate-pulse transform transition-all duration-300 group-hover:scale-110">
                 <i className="fas fa-star mr-1"></i>
                 Novo
               </span>

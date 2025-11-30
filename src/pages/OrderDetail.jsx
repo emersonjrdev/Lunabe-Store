@@ -116,8 +116,19 @@ export default function OrderDetail() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800 dark:text-white">Status do Pedido</h2>
-              <span className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(order.status)}`}>
-                {order.status || 'Aguardando pagamento'}
+              <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg flex items-center space-x-2 ${getStatusColor(order.status)}`}>
+                <i className={`fas ${
+                  order.status?.toLowerCase().includes('pago') || order.status?.toLowerCase().includes('paid') || order.status?.toLowerCase().includes('aprovado')
+                    ? 'fa-check-circle'
+                    : order.status?.toLowerCase().includes('entregue') || order.status?.toLowerCase().includes('delivered')
+                    ? 'fa-truck'
+                    : order.status?.toLowerCase().includes('cancelado') || order.status?.toLowerCase().includes('cancelled')
+                    ? 'fa-times-circle'
+                    : order.status?.toLowerCase().includes('reembolsado') || order.status?.toLowerCase().includes('refunded')
+                    ? 'fa-undo'
+                    : 'fa-clock'
+                }`}></i>
+                <span>{order.status || 'Aguardando pagamento'}</span>
               </span>
             </div>
             

@@ -5,6 +5,7 @@ import LazyImage from "../components/LazyImage";
 import { API_BASE } from '../api'
 import { getFullImageUrl } from '../utils/image'
 import { useToast } from "../hooks/useToast";
+import { ProductDetailSkeleton } from '../components/ProductSkeleton';
 
 export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
   const { id } = useParams();
@@ -129,14 +130,7 @@ useEffect(() => {
   };
 
   if (isLoading)
-    return (
-      <div className="flex justify-center items-center min-h-screen text-gray-600 dark:text-gray-400">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-lunabe-pink mx-auto mb-4"></div>
-          <p>Carregando produto...</p>
-        </div>
-      </div>
-    );
+    return <ProductDetailSkeleton />;
 
   if (!product)
     return (

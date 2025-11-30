@@ -106,12 +106,18 @@ const MinhasCompras = ({ user }) => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-20">
-      <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-10 text-center">
-        Minhas Compras
-      </h1>
+    <div className="container mx-auto px-4 py-8 md:py-12">
+      <div className="mb-8 md:mb-12 text-center">
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white mb-2">
+          <i className="fas fa-shopping-bag mr-3 text-lunabe-pink"></i>
+          Minhas Compras
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">
+          Acompanhe todos os seus pedidos em um só lugar
+        </p>
+      </div>
 
-      <div className="grid gap-6 md:gap-8">
+      <div className="grid gap-6 md:gap-8 max-w-5xl mx-auto">
         {compras.map((compra) => {
           const orderId = compra._id || compra.id;
           const orderDate = compra.createdAt ? new Date(compra.createdAt) : new Date();
@@ -155,8 +161,19 @@ const MinhasCompras = ({ user }) => {
                     })}
                   </p>
                 </div>
-                <span className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(status)}`}>
-                  {status}
+                <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg flex items-center space-x-2 ${getStatusColor(status)}`}>
+                  <i className={`fas ${
+                    statusLower.includes('pago') || statusLower.includes('paid') || statusLower.includes('aprovado')
+                      ? 'fa-check-circle'
+                      : statusLower.includes('entregue') || statusLower.includes('delivered')
+                      ? 'fa-truck'
+                      : statusLower.includes('cancelado') || statusLower.includes('cancelled')
+                      ? 'fa-times-circle'
+                      : statusLower.includes('reembolsado') || statusLower.includes('refunded')
+                      ? 'fa-undo'
+                      : 'fa-clock'
+                  }`}></i>
+                  <span>{status}</span>
                 </span>
               </div>
 

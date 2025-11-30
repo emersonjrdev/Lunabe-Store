@@ -315,18 +315,65 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
               )}
 
               {/* Shipping address */}
-              <div className="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Endereço para entrega</label>
-                <input value={address.name} onChange={e=>setAddress({...address, name:e.target.value})} placeholder="Nome" className="w-full p-2 mb-2 border rounded" />
-                <input value={address.street} onChange={e=>setAddress({...address, street:e.target.value})} placeholder="Rua, número, complemento" className="w-full p-2 mb-2 border rounded" />
-                <div className="flex gap-2">
-                  <input value={address.city} onChange={e=>setAddress({...address, city:e.target.value})} placeholder="Cidade" className="flex-1 p-2 mb-2 border rounded" />
-                  <input value={address.state} onChange={e=>setAddress({...address, state:e.target.value})} placeholder="Estado" className="w-24 p-2 mb-2 border rounded" />
-                  <input value={address.zip} onChange={e=>setAddress({...address, zip:e.target.value})} placeholder="CEP" className="w-32 p-2 mb-2 border rounded" />
+              <div className="mb-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600">
+                <div className="flex items-center mb-4">
+                  <i className="fas fa-map-marker-alt text-lunabe-pink mr-2 text-lg"></i>
+                  <label className="text-sm font-bold text-gray-800 dark:text-white">Endereço para entrega</label>
                 </div>
-                <div className="flex gap-2">
-                  <input value={address.country} onChange={e=>setAddress({...address, country:e.target.value})} placeholder="País" className="flex-1 p-2 mb-2 border rounded" />
-                  <input value={address.phone} onChange={e=>setAddress({...address, phone:e.target.value})} placeholder="Telefone" className="w-40 p-2 mb-2 border rounded" />
+                <div className="space-y-3">
+                  <div>
+                    <input 
+                      value={address.name} 
+                      onChange={e=>setAddress({...address, name:e.target.value})} 
+                      placeholder="Nome completo" 
+                      className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-lunabe-pink focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <input 
+                      value={address.street} 
+                      onChange={e=>setAddress({...address, street:e.target.value})} 
+                      placeholder="Rua, número, complemento" 
+                      className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-lunabe-pink focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400 text-sm"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input 
+                      value={address.city} 
+                      onChange={e=>setAddress({...address, city:e.target.value})} 
+                      placeholder="Cidade" 
+                      className="col-span-2 px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-lunabe-pink focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400 text-sm"
+                    />
+                    <input 
+                      value={address.state} 
+                      onChange={e=>setAddress({...address, state:e.target.value})} 
+                      placeholder="UF" 
+                      maxLength="2"
+                      className="px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-lunabe-pink focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400 text-sm uppercase"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input 
+                      value={address.zip} 
+                      onChange={e=>setAddress({...address, zip:e.target.value})} 
+                      placeholder="CEP" 
+                      className="px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-lunabe-pink focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400 text-sm"
+                    />
+                    <input 
+                      value={address.phone} 
+                      onChange={e=>setAddress({...address, phone:e.target.value})} 
+                      placeholder="Telefone" 
+                      className="px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-lunabe-pink focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <input 
+                      value={address.country} 
+                      onChange={e=>setAddress({...address, country:e.target.value})} 
+                      placeholder="País (padrão: Brasil)" 
+                      className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-lunabe-pink focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400 text-sm"
+                    />
+                  </div>
                 </div>
               </div>
               
