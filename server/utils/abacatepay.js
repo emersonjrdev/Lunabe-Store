@@ -103,7 +103,7 @@ class AbacatePayClient {
         returnUrl: payload.success_url,
         completionUrl: payload.success_url,
         frequency: 'ONE_TIME',
-        methods: ['PIX', 'CREDIT_CARD', 'BOLETO'], // métodos de pagamento
+        methods: ['PIX'], // métodos de pagamento - apenas PIX por enquanto (verificar documentação para outros valores)
         metadata: payload.metadata
       };
       
