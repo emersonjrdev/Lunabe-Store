@@ -36,7 +36,7 @@ const orderSchema = new mongoose.Schema({
   paidAt: { type: Date }, // data/hora do pagamento confirmado
   deliveryType: { type: String, default: 'delivery' }, // 'delivery' ou 'pickup'
   pickupAddress: { type: String }, // Endereço da loja para retirada
-  pickupSchedule: { type: String }, // Horário agendado para retirada
+  pickupSchedule: { type: Date }, // Horário agendado para retirada
   stockReservations: [{ // Informações de estoque reservado (usado no webhook)
     productId: { type: String },
     quantity: { type: Number },

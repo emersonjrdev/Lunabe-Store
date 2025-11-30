@@ -416,12 +416,25 @@ router.get('/all', async (req, res) => {
     }
     
     console.log('✅ Admin key válida, buscando pedidos...');
+    
+    // Verificar se o MongoDB está conectado
+    if (mongoose.connection.readyState !== 1) {
+      console.error('❌ MongoDB não está conectado. Estado:', mongoose.connection.readyState);
+      return res.status(500).json({ error: 'Database not connected', details: 'MongoDB connection is not ready' });
+    }
+    
+    console.log('✅ MongoDB conectado, executando query...');
     const orders = await Order.find().sort({ createdAt: -1 }).lean();
     console.log(`✅ ${orders.length} pedidos encontrados`);
     res.json(orders);
   } catch (err) {
     console.error('❌ Erro ao buscar todos os pedidos:', err);
-    res.status(500).json({ error: 'Server error', details: err.message });
+    console.error('❌ Stack trace:', err.stack);
+    res.status(500).json({ 
+      error: 'Server error', 
+      details: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 
