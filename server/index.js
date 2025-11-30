@@ -70,6 +70,12 @@ const generalLimiter = rateLimit({
   message: { error: 'Muitas requisições deste IP, tente novamente em alguns minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Pular rate limiting para requisições admin autenticadas
+    const adminKey = req.headers['x-admin-key'];
+    const expectedKey = process.env.ADMIN_SECRET || 'lunabe25';
+    return adminKey === expectedKey;
+  },
 });
 
 const authLimiter = rateLimit({
