@@ -711,4 +711,3 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
 }
 
 export default Cart
-export default Cart
