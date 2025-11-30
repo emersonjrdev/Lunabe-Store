@@ -498,7 +498,22 @@ const Admin = () => {
                       </div>
                     </div>
 
-                    {o.address && (
+                    {o.deliveryType === 'pickup' ? (
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded">
+                        <p className="font-medium text-blue-800 dark:text-blue-300 flex items-center gap-2">
+                          <i className="fas fa-store"></i>
+                          Retirada na Loja
+                        </p>
+                        {o.pickupAddress && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{o.pickupAddress}</p>
+                        )}
+                        {o.pickupSchedule && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            Agendado para: {new Date(o.pickupSchedule).toLocaleString('pt-BR')}
+                          </p>
+                        )}
+                      </div>
+                    ) : o.address && (
                       <div className="mt-3 p-3 bg-white dark:bg-gray-700 border border-gray-100 rounded">
                         <p className="font-medium">{o.address.name} • {o.address.phone}</p>
                         <p className="text-sm text-gray-600">{o.address.street}</p>

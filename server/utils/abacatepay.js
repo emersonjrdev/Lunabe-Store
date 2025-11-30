@@ -258,16 +258,57 @@ class AbacatePayClient {
    * @returns {Object} - Dados processados
    */
   processWebhook(webhookData) {
-    const eventType = webhookData.event || webhookData.type;
+    const eventType = webhookData.event || webhookData.type || webhookData.event_type;
     const paymentData = webhookData.data || webhookData;
 
+    // Normalizar status do AbacatePay
+    let normalizedStatus = paymentData.status;
+    if (normalizedStatus) {
+      normalizedStatus = normalizedStatus.toLowerCase();
+      // Mapear status do AbacatePay para eventos
+      if (normalizedStatus === 'paid' || normalizedStatus === 'pago' || normalizedStatus === 'approved' || normalizedStatus === 'aprovado') {
+        return {
+          eventType: 'payment.paid',
+          paymentId: paymentData.payment_id || paymentData.id || paymentData.billing_id,
+          sessionId: paymentData.session_id || paymentData.id || paymentData.billing_id,
+          status: 'Pago',
+          amount: paymentData.amount,
+          paidAt: paymentData.paid_at || paymentData.paidAt || new Date(),
+          metadata: paymentData.metadata,
+          rawData: webhookData,
+        };
+      } else if (normalizedStatus === 'pending' || normalizedStatus === 'pendente') {
+        return {
+          eventType: 'payment.pending',
+          paymentId: paymentData.payment_id || paymentData.id || paymentData.billing_id,
+          sessionId: paymentData.session_id || paymentData.id || paymentData.billing_id,
+          status: 'Aguardando pagamento',
+          amount: paymentData.amount,
+          paidAt: null,
+          metadata: paymentData.metadata,
+          rawData: webhookData,
+        };
+      } else if (normalizedStatus === 'cancelled' || normalizedStatus === 'cancelado' || normalizedStatus === 'canceled') {
+        return {
+          eventType: 'payment.cancelled',
+          paymentId: paymentData.payment_id || paymentData.id || paymentData.billing_id,
+          sessionId: paymentData.session_id || paymentData.id || paymentData.billing_id,
+          status: 'Cancelado',
+          amount: paymentData.amount,
+          paidAt: null,
+          metadata: paymentData.metadata,
+          rawData: webhookData,
+        };
+      }
+    }
+
     return {
-      eventType,
-      paymentId: paymentData.payment_id || paymentData.id,
-      sessionId: paymentData.session_id,
-      status: paymentData.status,
+      eventType: eventType || 'payment.unknown',
+      paymentId: paymentData.payment_id || paymentData.id || paymentData.billing_id,
+      sessionId: paymentData.session_id || paymentData.id || paymentData.billing_id,
+      status: paymentData.status || 'Desconhecido',
       amount: paymentData.amount,
-      paidAt: paymentData.paid_at,
+      paidAt: paymentData.paid_at || paymentData.paidAt,
       metadata: paymentData.metadata,
       rawData: webhookData,
     };

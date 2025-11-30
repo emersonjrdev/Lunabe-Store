@@ -29,7 +29,7 @@ function isValidEmail(email) {
 router.post("/create-checkout-session", async (req, res) => {
   console.log('🔵 Recebida requisição para /create-checkout-session');
   try {
-    let { items, customerEmail, address, customerName, customerPhone, cpf, deliveryType, shipping, paymentMethod } = req.body;
+    let { items, customerEmail, address, customerName, customerPhone, cpf, deliveryType, shipping, paymentMethod, pickupSchedule } = req.body;
     console.log('🔵 Dados recebidos:', { 
       itemsCount: items?.length, 
       customerEmail, 
@@ -163,7 +163,8 @@ router.post("/create-checkout-session", async (req, res) => {
         items: validatedItems,
         total: total + shippingCost, // Incluir frete no total
         status: "Aguardando pagamento",
-        address: address ? {
+        deliveryType: deliveryType || 'delivery',
+        address: deliveryType === 'delivery' && address ? {
           street: sanitizeString(address.street || ''),
           city: sanitizeString(address.city || ''),
           state: sanitizeString(address.state || ''),
@@ -172,6 +173,8 @@ router.post("/create-checkout-session", async (req, res) => {
           name: sanitizeString(address.name || customerName),
           phone: sanitizeString(address.phone || customerPhone),
         } : null,
+        // Endereço da loja para retirada
+        pickupAddress: deliveryType === 'pickup' ? 'Tv. Joaquim Soares Rodrigues - Jardim Portao Vermelho, Vargem Grande Paulista - SP, 06735-322' : null,
         paymentSessionId: "pending", // será atualizado após criar sessão no AbacatePay
         // Armazenar informações de estoque para uso no webhook
         stockReservations: stockChecks, // Array de {productId, quantity, availableStock}

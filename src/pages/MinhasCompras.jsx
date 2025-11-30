@@ -200,8 +200,33 @@ const MinhasCompras = ({ user }) => {
                 </span>
               </div>
 
-              {/* Endereço */}
-              {compra.address && (
+              {/* Endereço ou Retirada */}
+              {compra.deliveryType === 'pickup' ? (
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-gray-600 dark:text-gray-400">
+                  <p className="font-semibold mb-1 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                    <i className="fas fa-store text-blue-600"></i>
+                    Retirada na Loja
+                  </p>
+                  {compra.pickupAddress && (
+                    <div className="mb-2">
+                      <p className="font-medium text-gray-800 dark:text-gray-200">Endereço:</p>
+                      <p>{compra.pickupAddress}</p>
+                    </div>
+                  )}
+                  {compra.pickupSchedule && (
+                    <div>
+                      <p className="font-medium text-gray-800 dark:text-gray-200">Horário Agendado:</p>
+                      <p>{new Date(compra.pickupSchedule).toLocaleString('pt-BR', { 
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}</p>
+                    </div>
+                  )}
+                </div>
+              ) : compra.address && (
                 <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-400">
                   <p className="font-semibold mb-1 text-gray-800 dark:text-gray-200">Endereço de entrega</p>
                   {compra.address.name && <p className="font-medium">{compra.address.name}</p>}

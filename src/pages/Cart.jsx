@@ -13,6 +13,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   const [cpf, setCpf] = useState('')
   const [deliveryType, setDeliveryType] = useState('delivery') // 'delivery' ou 'pickup'
   const [paymentMethod, setPaymentMethod] = useState('abacatepay') // 'abacatepay' ou 'itau'
+  const [pickupSchedule, setPickupSchedule] = useState('') // Horário agendado para retirada
   const [shipping, setShipping] = useState(0)
   const [calculatingShipping, setCalculatingShipping] = useState(false)
   const [hasPreviousOrders, setHasPreviousOrders] = useState(false)
@@ -238,7 +239,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
       // Se for pagamento via Itaú, criar pedido e redirecionar
       if (paymentMethod === 'itau') {
         try {
-          const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping, 'itau')
+          const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping, 'itau', pickupSchedule)
           
           // Obter link do Itaú (pode ser configurado via variável de ambiente ou usar link padrão)
           const itauLink = import.meta.env.VITE_ITAU_PAYMENT_LINK || 'https://www.itau.com.br/empresas/pagamentos-recebimentos/link-de-pagamento';
@@ -270,7 +271,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
       console.log('🔵 Chamando PaymentService.createOrder...');
       console.log('🔵 Dados enviados:', { cart, user: { email: user.email }, address, cpf: cleanCpf, deliveryType, shipping: finalShipping, paymentMethod });
       
-      const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping, paymentMethod)
+      const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping, paymentMethod, pickupSchedule)
 
       console.log('🔵 Resposta do createOrder:', orderData);
 
@@ -670,6 +671,43 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                       placeholder="País (padrão: Brasil)" 
                       className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-lunabe-pink focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400 text-sm"
                     />
+                  </div>
+                </div>
+              </div>
+              )}
+
+              {/* Informações de Retirada na Loja */}
+              {deliveryType === 'pickup' && (
+              <div className="mb-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 p-5 rounded-xl border-2 border-blue-200 dark:border-blue-600">
+                <div className="flex items-center mb-4">
+                  <i className="fas fa-store text-blue-600 dark:text-blue-400 mr-2 text-lg"></i>
+                  <label className="text-sm font-bold text-gray-800 dark:text-white">Retirada na Loja</label>
+                </div>
+                <div className="space-y-3">
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Endereço da Loja:</p>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                      Tv. Joaquim Soares Rodrigues - Jardim Portao Vermelho
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Vargem Grande Paulista - SP, 06735-322
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Agendar Horário de Retirada <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={pickupSchedule}
+                      onChange={(e) => setPickupSchedule(e.target.value)}
+                      min={new Date().toISOString().slice(0, 16)}
+                      className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-800 dark:text-white text-sm"
+                      required={deliveryType === 'pickup'}
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Selecione o melhor horário para retirar seu pedido
+                    </p>
                   </div>
                 </div>
               </div>

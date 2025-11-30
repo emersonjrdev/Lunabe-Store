@@ -237,8 +237,36 @@ export default function OrderDetail() {
             </div>
           </div>
 
-          {/* Endereço de Entrega */}
-          {order.address && (
+          {/* Endereço de Entrega ou Retirada */}
+          {order.deliveryType === 'pickup' ? (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                <i className="fas fa-store text-lunabe-pink"></i>
+                Retirada na Loja
+              </h2>
+              <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                {order.pickupAddress && (
+                  <div>
+                    <p className="font-semibold text-gray-800 dark:text-white mb-1">Endereço da Loja:</p>
+                    <p>{order.pickupAddress}</p>
+                  </div>
+                )}
+                {order.pickupSchedule && (
+                  <div>
+                    <p className="font-semibold text-gray-800 dark:text-white mb-1">Horário Agendado:</p>
+                    <p>{new Date(order.pickupSchedule).toLocaleString('pt-BR', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : order.address && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Endereço de Entrega</h2>
               <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
