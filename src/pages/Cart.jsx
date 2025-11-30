@@ -602,6 +602,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                   </div>
                 </div>
               </div>
+              )}
               
               {/* Detalhes do Pedido */}
               <div className="space-y-3 mb-6">
