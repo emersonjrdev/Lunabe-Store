@@ -85,24 +85,32 @@ class AbacatePayClient {
       // Ajustar o payload conforme a documentação oficial
       
       // Reformatar payload para o formato esperado pelo AbacatePay
+      // Conforme documentação: https://docs.abacatepay.com/api-reference/criar-uma-nova-cobranca
       const abacatepayPayload = {
         products: payload.items.map(item => ({
-          external_id: item.name?.replace(/\s+/g, '_').toLowerCase() || 'product',
+          externalId: item.name?.replace(/\s+/g, '_').toLowerCase() || 'product',
           name: item.name,
           quantity: item.quantity,
           price: item.unit_price, // já está em centavos
-          description: item.name
+          description: item.name || 'Produto'
         })),
-        customer: payload.customer,
-        return_url: payload.success_url,
-        completion_url: payload.success_url,
+        customer: {
+          email: payload.customer.email,
+          name: payload.customer.name || 'Cliente',
+          cellphone: payload.customer.phone || '',
+          taxId: '' // CPF/CNPJ - opcional mas pode ser necessário
+        },
+        returnUrl: payload.success_url,
+        completionUrl: payload.success_url,
         frequency: 'ONE_TIME',
+        methods: ['PIX', 'CREDIT_CARD', 'BOLETO'], // métodos de pagamento
         metadata: payload.metadata
       };
       
       console.log('🔵 Payload formatado para AbacatePay:', JSON.stringify(abacatepayPayload, null, 2));
       
-      const endpoint = '/billing';
+      // Endpoint correto conforme documentação: /billing/create
+      const endpoint = '/billing/create';
       console.log(`🔵 Chamando endpoint: ${this.baseURL}${endpoint}`);
       
       const response = await this.client.post(endpoint, abacatepayPayload);
@@ -114,14 +122,18 @@ class AbacatePayClient {
       });
       
       // Mapear resposta do AbacatePay para o formato esperado
-      // A resposta do billing.create() retorna um objeto com 'url' e 'id'
+      // A resposta do billing.create() retorna: { data: { url, id, ... }, error: null }
+      const billingData = response.data?.data || response.data;
+      
+      console.log('🔵 Dados da cobrança:', billingData);
+      
       return {
-        checkoutUrl: response.data.url || response.data.checkout_url,
-        sessionId: response.data.id || response.data.session_id,
-        paymentId: response.data.id || response.data.payment_id,
-        qrCode: response.data.qr_code, // para PIX (se disponível)
-        qrCodeBase64: response.data.qr_code_base64,
-        expiresAt: response.data.expires_at,
+        checkoutUrl: billingData.url || billingData.checkout_url,
+        sessionId: billingData.id || billingData.session_id,
+        paymentId: billingData.id || billingData.payment_id,
+        qrCode: billingData.qr_code, // para PIX (se disponível)
+        qrCodeBase64: billingData.qr_code_base64,
+        expiresAt: billingData.expires_at,
       };
     } catch (error) {
       console.error('Erro ao criar sessão de checkout AbacatePay:', error.response?.data || error.message);
