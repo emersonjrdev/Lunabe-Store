@@ -24,7 +24,6 @@ router.post('/register', async (req, res) => {
         id: user._id, 
         email: user.email, 
         name: user.name, 
-        picture: user.picture || null,
         address: user.address || null 
       } 
     });
@@ -48,7 +47,6 @@ router.post('/login', async (req, res) => {
         id: user._id, 
         email: user.email, 
         name: user.name, 
-        picture: user.picture || null,
         address: user.address || null 
       } 
     });
@@ -63,7 +61,6 @@ router.post('/google', async (req, res) => {
 
     let profileEmail = email;
     let profileName = name;
-    let userPicture = null;
 
     if (idToken) {
       const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -82,8 +79,6 @@ router.post('/google', async (req, res) => {
 
         profileEmail = payload.email;
         profileName = payload.name || payload.email?.split('@')[0];
-        userPicture = payload.picture || null; // Obter foto do Google
-        console.log('Google login - Foto recebida:', userPicture ? 'Sim' : 'Não', userPicture);
       } catch (verifyErr) {
         // Log error detail on server so you can inspect in terminal
         console.error('Google token verification failed:', verifyErr?.message || verifyErr);
@@ -96,35 +91,19 @@ router.post('/google', async (req, res) => {
 
     // find or create user — no password required for social accounts
     let user = await User.findOne({ email: profileEmail });
-    
     if (!user) {
-      user = await User.create({ 
-        email: profileEmail, 
-        name: profileName || '', 
-        passwordHash: '',
-        picture: userPicture
-      });
-    } else {
-      // Atualizar foto se o Google forneceu (sempre atualizar para pegar foto mais recente)
-      if (userPicture) {
-        user.picture = userPicture;
-        await user.save();
-        console.log('Foto atualizada para usuário existente:', user.email, user.picture);
-      }
+      user = await User.create({ email: profileEmail, name: profileName || '', passwordHash: '' });
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    const responseUser = {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      picture: user.picture || null,
-      address: user.address || null
-    };
-    console.log('Retornando usuário com foto:', responseUser.picture ? 'Sim' : 'Não', responseUser.picture);
     res.json({ 
       token, 
-      user: responseUser
+      user: { 
+        id: user._id, 
+        email: user.email, 
+        name: user.name, 
+        address: user.address || null 
+      } 
     });
   } catch (err) {
     console.error('Social login error:', err);
@@ -144,7 +123,6 @@ router.get('/me', async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
-        picture: user.picture || null,
         address: user.address || null
       }
     });
