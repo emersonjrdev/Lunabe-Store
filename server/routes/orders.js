@@ -142,6 +142,10 @@ router.post("/create-checkout-session", async (req, res) => {
 
     const front = process.env.FRONTEND_URL || 'http://localhost:5173';
     const backend = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 4000}`;
+    
+    // Garantir que as URLs são válidas (sem trailing slash e sem placeholders)
+    const cleanFront = front.replace(/\/$/, '');
+    const cleanBackend = backend.replace(/\/$/, '');
 
     // Criar pedido no banco de dados primeiro (status: Aguardando pagamento)
     // Armazenar informações de estoque no pedido para uso posterior no webhook
@@ -203,9 +207,11 @@ router.post("/create-checkout-session", async (req, res) => {
           orderId: order._id.toString(),
           customerEmail,
         },
-        successUrl: `${front}/success?session_id={SESSION_ID}`,
-        cancelUrl: `${front}/carrinho`,
-        webhookUrl: `${backend}/api/webhooks/abacatepay`,
+        // URLs devem ser válidas sem placeholders
+        // URLs devem ser válidas sem placeholders - AbacatePay redireciona com parâmetros na URL
+        successUrl: `${cleanFront}/success`,
+        cancelUrl: `${cleanFront}/carrinho`,
+        webhookUrl: `${cleanBackend}/api/webhooks/abacatepay`,
       });
 
       // Atualizar pedido com dados da sessão do AbacatePay

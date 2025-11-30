@@ -55,6 +55,14 @@ class AbacatePayClient {
       if (!customerEmail) {
         throw new Error('Email do cliente é obrigatório');
       }
+      
+      // Validar URLs
+      if (!successUrl || !successUrl.startsWith('http')) {
+        throw new Error('URL de sucesso inválida');
+      }
+      if (!cancelUrl || !cancelUrl.startsWith('http')) {
+        throw new Error('URL de cancelamento inválida');
+      }
 
       const payload = {
         amount: Math.round(amount), // garantir que está em centavos
@@ -100,8 +108,11 @@ class AbacatePayClient {
           cellphone: payload.customer.phone || '',
           taxId: '' // CPF/CNPJ - opcional mas pode ser necessário
         },
-        returnUrl: payload.success_url,
-        completionUrl: payload.success_url,
+        // Garantir que as URLs são válidas (sem placeholders e sem trailing slash)
+        // returnUrl: URL de retorno após pagamento bem-sucedido
+        // completionUrl: URL de retorno após conclusão (pode ser cancelamento)
+        returnUrl: payload.success_url ? payload.success_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '') : '',
+        completionUrl: payload.cancel_url ? payload.cancel_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '') : (payload.success_url ? payload.success_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '') : ''),
         frequency: 'ONE_TIME',
         methods: ['PIX'], // métodos de pagamento - apenas PIX por enquanto (verificar documentação para outros valores)
         metadata: payload.metadata
