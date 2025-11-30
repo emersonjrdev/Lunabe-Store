@@ -152,25 +152,40 @@ router.post("/create-checkout-session", async (req, res) => {
 
     // Criar pedido no banco de dados primeiro (status: Aguardando pagamento)
     // Armazenar informações de estoque no pedido para uso posterior no webhook
-    const order = new Order({
-      email: customerEmail,
-      items: validatedItems,
-      total,
-      status: "Aguardando pagamento",
-      address: address ? {
-        street: sanitizeString(address.street || ''),
-        city: sanitizeString(address.city || ''),
-        state: sanitizeString(address.state || ''),
-        zip: sanitizeString(address.zip || ''),
-        country: sanitizeString(address.country || 'Brasil'),
-        name: sanitizeString(address.name || customerName),
-        phone: sanitizeString(address.phone || customerPhone),
-      } : null,
-      paymentSessionId: "pending", // será atualizado após criar sessão no AbacatePay
-      // Armazenar informações de estoque para uso no webhook
-      stockReservations: stockChecks, // Array de {productId, quantity, availableStock}
-    });
-    await order.save();
+    console.log('🔵 Criando pedido no banco de dados...');
+    console.log('🔵 Total calculado:', total);
+    console.log('🔵 Frete:', shippingCost);
+    console.log('🔵 Total com frete:', total + shippingCost);
+    let order;
+    try {
+      order = new Order({
+        email: customerEmail,
+        items: validatedItems,
+        total: total + shippingCost, // Incluir frete no total
+        status: "Aguardando pagamento",
+        address: address ? {
+          street: sanitizeString(address.street || ''),
+          city: sanitizeString(address.city || ''),
+          state: sanitizeString(address.state || ''),
+          zip: sanitizeString(address.zip || ''),
+          country: sanitizeString(address.country || 'Brasil'),
+          name: sanitizeString(address.name || customerName),
+          phone: sanitizeString(address.phone || customerPhone),
+        } : null,
+        paymentSessionId: "pending", // será atualizado após criar sessão no AbacatePay
+        // Armazenar informações de estoque para uso no webhook
+        stockReservations: stockChecks, // Array de {productId, quantity, availableStock}
+      });
+      await order.save();
+      console.log('✅ Pedido criado no banco:', order._id);
+    } catch (orderError) {
+      console.error('❌ Erro ao criar pedido no banco:', orderError);
+      console.error('❌ Stack trace:', orderError.stack);
+      return res.status(500).json({
+        error: 'Erro ao criar pedido',
+        details: orderError.message
+      });
+    }
 
     // Buscar dados do usuário se existir
     let userData = null;
@@ -194,7 +209,11 @@ router.post("/create-checkout-session", async (req, res) => {
     }
 
     // Criar sessão de checkout no AbacatePay
+    console.log('🔵 Criando sessão de checkout no AbacatePay...');
+    console.log('🔵 CPF recebido:', cpf);
+    console.log('🔵 CPF limpo:', cpf ? cpf.replace(/\D/g, '') : null);
     try {
+      const cleanCpf = cpf ? cpf.replace(/\D/g, '') : null;
       const checkoutData = await abacatepayClient.createCheckoutSession({
         amount: totalInCents,
         currency: 'BRL',
@@ -209,7 +228,7 @@ router.post("/create-checkout-session", async (req, res) => {
         metadata: {
           orderId: order._id.toString(),
           customerEmail,
-          customerTaxId: cpf ? cpf.replace(/\D/g, '') : null, // CPF do cliente (apenas números)
+          customerTaxId: cleanCpf && cleanCpf.length === 11 ? cleanCpf : null, // CPF do cliente (apenas números, 11 dígitos)
           deliveryType: deliveryType || 'delivery',
         },
         // URLs devem ser válidas sem placeholders
@@ -218,6 +237,7 @@ router.post("/create-checkout-session", async (req, res) => {
         cancelUrl: `${cleanFront}/carrinho`,
         webhookUrl: `${cleanBackend}/api/webhooks/abacatepay`,
       });
+      console.log('✅ Sessão de checkout criada:', checkoutData.sessionId);
 
       // Atualizar pedido com dados da sessão do AbacatePay
       order.paymentSessionId = checkoutData.sessionId;
@@ -274,9 +294,11 @@ router.post("/create-checkout-session", async (req, res) => {
   } catch (err) {
     console.error("❌ Erro geral ao criar sessão de checkout:", err);
     console.error("❌ Stack trace:", err.stack);
-    res.status(500).json({ 
+    console.error("❌ Tipo do erro:", err.constructor.name);
+    console.error("❌ Mensagem completa:", err.message);
+    return res.status(500).json({ 
       error: err.message || 'Erro ao processar pedido',
-      details: err.stack 
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
 });
