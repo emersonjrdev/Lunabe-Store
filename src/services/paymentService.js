@@ -26,20 +26,22 @@ class PaymentService {
         }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao criar sessão de pagamento");
+        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
       }
 
+      const data = await response.json();
+
       if (!data.checkoutUrl) {
+        console.error('Resposta do servidor sem checkoutUrl:', data);
         throw new Error("checkoutUrl não retornado pelo servidor");
       }
 
       return data; // caller should redirect
     } catch (error) {
       console.error("Erro no checkout:", error);
-      alert(error.message || "Erro ao processar o pagamento.");
+      throw error; // Re-throw para o caller tratar
     }
   }
 

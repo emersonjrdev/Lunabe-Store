@@ -176,7 +176,8 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
     setIsProcessing(true)
 
     try {
-      const shipping = finalPrice > 150 ? 0 : 15.90
+      // Frete desativado temporariamente para testes
+      const shipping = 0
       const totalAmount = finalPrice + shipping
 
       // Criar pedido no backend (inclui endereço)
@@ -188,20 +189,33 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
 
       const orderData = await PaymentService.createOrder(cart, user, address)
 
+      if (!orderData) {
+        addToast('Erro ao criar pedido. Tente novamente.', 'error')
+        setIsProcessing(false)
+        return
+      }
+
+      if (!orderData.checkoutUrl) {
+        addToast('Erro: URL de checkout não retornada. Verifique os logs.', 'error')
+        console.error('Resposta do servidor:', orderData)
+        setIsProcessing(false)
+        return
+      }
+
       // Redirecionar para o checkout do provedor (AbacatePay)
       window.location.href = orderData.checkoutUrl
       
     } catch (error) {
       console.error('Erro no checkout:', error)
       addToast(error.message || 'Erro ao processar pedido. Tente novamente.', 'error')
-    } finally {
       setIsProcessing(false)
     }
   }
 
   // Calcular valores
   const finalPrice = totalPrice - discount
-  const shipping = finalPrice > 150 ? 0 : 15.90
+  // Frete desativado temporariamente para testes
+  const shipping = 0
   const totalAmount = finalPrice + shipping
 
   return (

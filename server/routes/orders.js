@@ -331,12 +331,20 @@ router.get('/:id', async (req, res) => {
 router.get('/all', async (req, res) => {
   try {
     const adminKey = req.headers['x-admin-key'];
-    if (!adminKey || adminKey !== process.env.ADMIN_SECRET) return res.status(401).json({ error: 'Unauthorized' });
-    const orders = await Order.find().sort({ createdAt: -1 });
+    if (!adminKey || adminKey !== process.env.ADMIN_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    if (!process.env.ADMIN_SECRET) {
+      console.error('ADMIN_SECRET não configurado no servidor');
+      return res.status(500).json({ error: 'Configuração do servidor incompleta' });
+    }
+    
+    const orders = await Order.find().sort({ createdAt: -1 }).lean();
     res.json(orders);
   } catch (err) {
     console.error('Erro ao buscar todos os pedidos:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
 
