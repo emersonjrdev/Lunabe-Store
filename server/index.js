@@ -85,6 +85,19 @@ const checkoutLimiter = rateLimit({
   message: { error: 'Muitas tentativas de checkout. Tente novamente em 1 hora.' },
 });
 
+// Rate limiter mais permissivo para rotas admin
+const adminLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 200, // máximo 200 requisições por IP a cada minuto (muito permissivo para admin)
+  message: { error: 'Muitas requisições. Tente novamente em alguns segundos.' },
+  skip: (req) => {
+    // Pular rate limiting se tiver header de admin válido
+    const adminKey = req.headers['x-admin-key'];
+    const expectedKey = process.env.ADMIN_SECRET || 'lunabe25';
+    return adminKey === expectedKey;
+  },
+});
+
 // Aplicar rate limiting geral
 app.use('/api/', generalLimiter);
 
@@ -98,7 +111,16 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // 🔹 Rotas principais
 app.use("/api/auth", authLimiter, authRoutes); // Rate limiting específico para auth
 app.use("/api/products", productRoutes);
-app.use("/api/orders", checkoutLimiter, orderRoutes); // Rate limiting específico para checkout
+// Aplicar rate limiting específico para orders, mas com exceção para admin
+app.use("/api/orders", (req, res, next) => {
+  // Se for uma rota admin (tem header x-admin-key), usar adminLimiter mais permissivo
+  const adminKey = req.headers['x-admin-key'];
+  if (adminKey) {
+    return adminLimiter(req, res, next);
+  }
+  // Caso contrário, usar checkoutLimiter normal
+  return checkoutLimiter(req, res, next);
+}, orderRoutes);
 app.use("/api/webhooks", webhookRoutes); // webhooks do AbacatePay (sem rate limit - são chamadas externas)
 
 // 🔹 Rota para testar saúde do servidor
