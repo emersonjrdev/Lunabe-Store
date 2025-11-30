@@ -9,6 +9,7 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   // passwordHash is optional now to support social logins (Google)
   passwordHash: { type: String },
+  picture: { type: String }, // Foto de perfil (principalmente do Google)
   createdAt: { type: Date, default: Date.now },
   address: AddressSchema
 });

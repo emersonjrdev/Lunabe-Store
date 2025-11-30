@@ -18,7 +18,16 @@ router.post('/register', async (req, res) => {
     const hash = await bcrypt.hash(password, salt);
     const user = await User.create({ name, email, passwordHash: hash });
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user._id, email: user.email, name: user.name, address: user.address || null } });
+    res.json({ 
+      token, 
+      user: { 
+        id: user._id, 
+        email: user.email, 
+        name: user.name, 
+        picture: user.picture || null,
+        address: user.address || null 
+      } 
+    });
   } catch (err) {
     console.error(err); res.status(500).json({error:'Server error'});
   }
@@ -33,7 +42,16 @@ router.post('/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.passwordHash);
     if (!match) return res.status(400).json({error:'Invalid credentials'});
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user._id, email: user.email, name: user.name, address: user.address || null } });
+    res.json({ 
+      token, 
+      user: { 
+        id: user._id, 
+        email: user.email, 
+        name: user.name, 
+        picture: user.picture || null,
+        address: user.address || null 
+      } 
+    });
   } catch (err) { console.error(err); res.status(500).json({error:'Server error'}); }
 });
 
@@ -45,6 +63,7 @@ router.post('/google', async (req, res) => {
 
     let profileEmail = email;
     let profileName = name;
+    let userPicture = null;
 
     if (idToken) {
       const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -63,6 +82,7 @@ router.post('/google', async (req, res) => {
 
         profileEmail = payload.email;
         profileName = payload.name || payload.email?.split('@')[0];
+        userPicture = payload.picture || null; // Obter foto do Google
       } catch (verifyErr) {
         // Log error detail on server so you can inspect in terminal
         console.error('Google token verification failed:', verifyErr?.message || verifyErr);
@@ -75,12 +95,33 @@ router.post('/google', async (req, res) => {
 
     // find or create user — no password required for social accounts
     let user = await User.findOne({ email: profileEmail });
+    
     if (!user) {
-      user = await User.create({ email: profileEmail, name: profileName || '', passwordHash: '' });
+      user = await User.create({ 
+        email: profileEmail, 
+        name: profileName || '', 
+        passwordHash: '',
+        picture: userPicture
+      });
+    } else {
+      // Atualizar foto se não tiver e o Google forneceu
+      if (!user.picture && userPicture) {
+        user.picture = userPicture;
+        await user.save();
+      }
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user._id, email: user.email, name: user.name, address: user.address || null } });
+    res.json({ 
+      token, 
+      user: { 
+        id: user._id, 
+        email: user.email, 
+        name: user.name, 
+        picture: user.picture || null,
+        address: user.address || null 
+      } 
+    });
   } catch (err) {
     console.error('Social login error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -94,7 +135,15 @@ router.get('/me', async (req, res) => {
     const token = auth.split(' ')[1];
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(payload.id).select('-passwordHash');
-    res.json({ user });
+    res.json({ 
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture || null,
+        address: user.address || null
+      }
+    });
   } catch (err) { console.error(err); res.status(401).json({error:'Unauthorized'}); }
 });
 

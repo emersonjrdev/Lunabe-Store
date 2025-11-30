@@ -115,6 +115,7 @@ const LoginModal = ({ onLogin, onClose }) => {
           id: response.user.id,
           email: response.user.email,
           name: response.user.name,
+          picture: response.user.picture || null,
           token: response.token
         });
         
@@ -175,7 +176,13 @@ const LoginModal = ({ onLogin, onClose }) => {
         if (res.ok) {
           // store server token & user
           localStorage.setItem('lunabe-token', json.token);
-          const merged = { id: json.user.id, email: json.user.email, name: json.user.name, serverId: json.user.id };
+          const merged = { 
+            id: json.user.id, 
+            email: json.user.email, 
+            name: json.user.name, 
+            picture: json.user.picture || null,
+            serverId: json.user.id 
+          };
           localStorage.setItem('lunabe-user', JSON.stringify(merged));
           onLogin(merged);
           onClose();
@@ -216,7 +223,13 @@ const LoginModal = ({ onLogin, onClose }) => {
           const json = await res.json();
           if (res.ok) {
             localStorage.setItem('lunabe-token', json.token);
-            const merged = { id: json.user.id, email: json.user.email, name: json.user.name, serverId: json.user.id };
+            const merged = { 
+              id: json.user.id, 
+              email: json.user.email, 
+              name: json.user.name, 
+              picture: json.user.picture || null,
+              serverId: json.user.id 
+            };
             localStorage.setItem('lunabe-user', JSON.stringify(merged));
             onLogin(merged);
             onClose();
