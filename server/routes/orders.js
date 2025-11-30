@@ -27,7 +27,9 @@ function isValidEmail(email) {
 
 // Criar sessão de checkout via AbacatePay (API real)
 router.post("/create-checkout-session", async (req, res) => {
+  console.log('🔵 Recebida requisição para /create-checkout-session');
   try {
+    let { items, customerEmail, address, customerName, customerPhone, cpf, deliveryType, shipping } = req.body;
     console.log('🔵 Recebendo requisição de checkout');
     let { items, customerEmail, address, customerName, customerPhone } = req.body;
     console.log('🔵 Dados recebidos:', { 
@@ -134,7 +136,8 @@ router.post("/create-checkout-session", async (req, res) => {
 
     // Calcular total usando preços validados do banco
     const total = validatedItems.reduce((acc, i) => acc + (i.price || 0) * (i.quantity || 1), 0);
-    const totalInCents = Math.round(total * 100);
+    const shippingCost = parseFloat(shipping) || 0;
+    const totalInCents = Math.round((total + shippingCost) * 100);
 
     if (totalInCents <= 0) {
       return res.status(400).json({ error: 'Valor total deve ser maior que zero' });
@@ -206,6 +209,8 @@ router.post("/create-checkout-session", async (req, res) => {
         metadata: {
           orderId: order._id.toString(),
           customerEmail,
+          customerTaxId: cpf || null, // CPF do cliente
+          deliveryType: deliveryType || 'delivery',
         },
         // URLs devem ser válidas sem placeholders
         // URLs devem ser válidas sem placeholders - AbacatePay redireciona com parâmetros na URL

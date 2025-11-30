@@ -10,6 +10,10 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   const [appliedCoupon, setAppliedCoupon] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [address, setAddress] = useState({ name: '', street: '', city: '', state: '', zip: '', country: '', phone: '' })
+  const [cpf, setCpf] = useState('')
+  const [deliveryType, setDeliveryType] = useState('delivery') // 'delivery' ou 'pickup'
+  const [shipping, setShipping] = useState(0)
+  const [calculatingShipping, setCalculatingShipping] = useState(false)
   const [hasPreviousOrders, setHasPreviousOrders] = useState(false)
   const [checkingOrders, setCheckingOrders] = useState(false)
 
@@ -184,46 +188,56 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
     setIsProcessing(true)
 
     try {
-      // Frete desativado temporariamente para testes
-      const shipping = 0
-      const totalAmount = finalPrice + shipping
+      // Validar CPF
+      const cleanCpf = cpf.replace(/\D/g, '') // Remove caracteres não numéricos
+      if (cleanCpf.length !== 11) {
+        addToast('Por favor, informe um CPF válido (11 dígitos)', 'error')
+        setIsProcessing(false)
+        return
+      }
 
-      console.log('🔵 Validando endereço...');
-      // Criar pedido no backend (inclui endereço)
-      if (!address) {
-        console.log('❌ Endereço não fornecido');
-        addToast('Por favor, preencha o endereço de entrega', 'error')
-        setIsProcessing(false)
-        return
+      // Validar endereço apenas se for entrega
+      if (deliveryType === 'delivery') {
+        console.log('🔵 Validando endereço...');
+        if (!address) {
+          console.log('❌ Endereço não fornecido');
+          addToast('Por favor, preencha o endereço de entrega', 'error')
+          setIsProcessing(false)
+          return
+        }
+        
+        if (!address.street || !address.street.trim()) {
+          console.log('❌ Rua não preenchida');
+          addToast('Por favor, preencha a rua do endereço', 'error')
+          setIsProcessing(false)
+          return
+        }
+        
+        if (!address.city || !address.city.trim()) {
+          console.log('❌ Cidade não preenchida');
+          addToast('Por favor, preencha a cidade do endereço', 'error')
+          setIsProcessing(false)
+          return
+        }
+        
+        if (!address.zip || !address.zip.trim()) {
+          console.log('❌ CEP não preenchido');
+          addToast('Por favor, preencha o CEP do endereço', 'error')
+          setIsProcessing(false)
+          return
+        }
+        
+        console.log('✅ Endereço validado:', address);
+      } else {
+        console.log('✅ Retirada na loja selecionada');
       }
-      
-      if (!address.street || !address.street.trim()) {
-        console.log('❌ Rua não preenchida');
-        addToast('Por favor, preencha a rua do endereço', 'error')
-        setIsProcessing(false)
-        return
-      }
-      
-      if (!address.city || !address.city.trim()) {
-        console.log('❌ Cidade não preenchida');
-        addToast('Por favor, preencha a cidade do endereço', 'error')
-        setIsProcessing(false)
-        return
-      }
-      
-      if (!address.zip || !address.zip.trim()) {
-        console.log('❌ CEP não preenchido');
-        addToast('Por favor, preencha o CEP do endereço', 'error')
-        setIsProcessing(false)
-        return
-      }
-      
-      console.log('✅ Endereço validado:', address);
 
+      const finalShipping = deliveryType === 'pickup' ? 0 : shipping
+      
       console.log('🔵 Chamando PaymentService.createOrder...');
-      console.log('🔵 Dados enviados:', { cart, user: { email: user.email }, address });
+      console.log('🔵 Dados enviados:', { cart, user: { email: user.email }, address, cpf: cleanCpf, deliveryType, shipping: finalShipping });
       
-      const orderData = await PaymentService.createOrder(cart, user, address)
+      const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping)
 
       console.log('🔵 Resposta do createOrder:', orderData);
 
@@ -254,11 +268,66 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
     }
   }
 
+  // Função para calcular frete baseado no CEP
+  const calculateShipping = async (cep) => {
+    if (!cep || cep.replace(/\D/g, '').length !== 8) {
+      setShipping(0)
+      return
+    }
+
+    setCalculatingShipping(true)
+    try {
+      // Cálculo simples de frete baseado em faixas de CEP
+      const cleanCep = cep.replace(/\D/g, '')
+      const cepNumber = parseInt(cleanCep)
+      
+      // Exemplo de cálculo: CEPs de SP capital (01000-000 a 05999-999) têm frete menor
+      let calculatedShipping = 15.00 // Frete padrão
+      
+      if (cepNumber >= 1000000 && cepNumber <= 5999999) {
+        // Região metropolitana de SP
+        calculatedShipping = 10.00
+      } else if (cepNumber >= 6000000 && cepNumber <= 6999999) {
+        // Região Nordeste
+        calculatedShipping = 20.00
+      } else if (cepNumber >= 8000000 && cepNumber <= 8999999) {
+        // Região Sul
+        calculatedShipping = 18.00
+      } else if (cepNumber >= 3000000 && cepNumber <= 3999999) {
+        // Região Sudeste (MG, RJ, ES)
+        calculatedShipping = 15.00
+      }
+      
+      // Frete grátis para compras acima de R$ 150
+      if (totalPrice - discount >= 150) {
+        calculatedShipping = 0
+      }
+      
+      setShipping(calculatedShipping)
+    } catch (error) {
+      console.error('Erro ao calcular frete:', error)
+      setShipping(15.00) // Frete padrão em caso de erro
+    } finally {
+      setCalculatingShipping(false)
+    }
+  }
+
+  // Calcular frete quando CEP mudar (apenas para entrega)
+  useEffect(() => {
+    if (deliveryType === 'delivery' && address.zip) {
+      const timeoutId = setTimeout(() => {
+        calculateShipping(address.zip)
+      }, 500) // Debounce de 500ms
+      return () => clearTimeout(timeoutId)
+    } else if (deliveryType === 'pickup') {
+      setShipping(0) // Sem frete para retirada
+    }
+  }, [address.zip, deliveryType, totalPrice, discount])
+
   // Calcular valores
   const finalPrice = totalPrice - discount
-  // Frete desativado temporariamente para testes
-  const shipping = 0
-  const totalAmount = finalPrice + shipping
+  const finalShipping = deliveryType === 'pickup' ? 0 : shipping
+  const totalAmount = finalPrice + finalShipping
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 animate-fade-in">
@@ -409,7 +478,69 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                 </div>
               )}
 
+              {/* CPF */}
+              <div className="mb-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600">
+                <div className="flex items-center mb-4">
+                  <i className="fas fa-id-card text-lunabe-pink mr-2 text-lg"></i>
+                  <label className="text-sm font-bold text-gray-800 dark:text-white">CPF <span className="text-red-500">*</span></label>
+                </div>
+                <input 
+                  type="text"
+                  value={cpf}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '')
+                    if (value.length <= 11) {
+                      setCpf(value)
+                    }
+                  }}
+                  placeholder="000.000.000-00"
+                  maxLength="14"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-lunabe-pink focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400 text-sm"
+                  required
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">CPF obrigatório para finalizar a compra</p>
+              </div>
+
+              {/* Tipo de Entrega */}
+              <div className="mb-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600">
+                <div className="flex items-center mb-4">
+                  <i className="fas fa-truck text-lunabe-pink mr-2 text-lg"></i>
+                  <label className="text-sm font-bold text-gray-800 dark:text-white">Tipo de Entrega</label>
+                </div>
+                <div className="space-y-3">
+                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: deliveryType === 'delivery' ? '#ec4899' : '#e5e7eb' }}>
+                    <input
+                      type="radio"
+                      name="deliveryType"
+                      value="delivery"
+                      checked={deliveryType === 'delivery'}
+                      onChange={(e) => setDeliveryType(e.target.value)}
+                      className="mr-3 text-lunabe-pink"
+                    />
+                    <div className="flex-grow">
+                      <span className="font-semibold text-gray-800 dark:text-white">Entrega</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Receba em casa</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: deliveryType === 'pickup' ? '#ec4899' : '#e5e7eb' }}>
+                    <input
+                      type="radio"
+                      name="deliveryType"
+                      value="pickup"
+                      checked={deliveryType === 'pickup'}
+                      onChange={(e) => setDeliveryType(e.target.value)}
+                      className="mr-3 text-lunabe-pink"
+                    />
+                    <div className="flex-grow">
+                      <span className="font-semibold text-gray-800 dark:text-white">Retirar na Loja</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Frete grátis</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
               {/* Shipping address */}
+              {deliveryType === 'delivery' && (
               <div className="mb-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600">
                 <div className="flex items-center mb-4">
                   <i className="fas fa-map-marker-alt text-lunabe-pink mr-2 text-lg"></i>
@@ -487,13 +618,13 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                 )}
                 
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Frete</span>
-                  <span className={shipping === 0 ? 'text-green-600 dark:text-green-400 font-semibold' : ''}>
-                    {shipping === 0 ? 'Grátis' : `R$ ${shipping.toFixed(2)}`}
+                  <span>Frete {calculatingShipping && <span className="text-xs">(calculando...)</span>}</span>
+                  <span className={finalShipping === 0 ? 'text-green-600 dark:text-green-400 font-semibold' : ''}>
+                    {deliveryType === 'pickup' ? 'Grátis (Retirada)' : (finalShipping === 0 ? 'Grátis' : `R$ ${finalShipping.toFixed(2)}`)}
                   </span>
                 </div>
                 
-                {shipping > 0 && finalPrice < 150 && (
+                {deliveryType === 'delivery' && finalShipping > 0 && finalPrice < 150 && (
                   <div className="text-xs text-gray-500 dark:text-gray-400 bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded">
                     <i className="fas fa-truck mr-1"></i>
                     Adicione R$ {(150 - finalPrice).toFixed(2)} para frete grátis
@@ -505,10 +636,16 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                     <span>Total</span>
                     <span>R$ {totalAmount.toFixed(2)}</span>
                   </div>
-                  {shipping === 0 && (
+                  {deliveryType === 'delivery' && finalShipping === 0 && (
                     <p className="text-sm text-green-600 dark:text-green-400 mt-1">
                       <i className="fas fa-check-circle mr-1"></i>
                       Frete grátis aplicado!
+                    </p>
+                  )}
+                  {deliveryType === 'pickup' && (
+                    <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                      <i className="fas fa-store mr-1"></i>
+                      Retire seu pedido na loja
                     </p>
                   )}
                 </div>
@@ -572,4 +709,5 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   )
 }
 
+export default Cart
 export default Cart
