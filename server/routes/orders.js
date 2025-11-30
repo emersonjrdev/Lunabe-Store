@@ -419,52 +419,39 @@ router.get('/all', async (req, res) => {
     console.log('✅ Admin key válida, buscando pedidos...');
     
     // Verificar se o MongoDB está conectado
-    if (mongoose.connection.readyState !== 1) {
-      console.error('❌ MongoDB não está conectado. Estado:', mongoose.connection.readyState);
-      return res.status(500).json({ error: 'Database not connected', details: 'MongoDB connection is not ready' });
+    const mongoState = mongoose.connection.readyState;
+    console.log('🔵 Estado do MongoDB:', mongoState, '(0=disconnected, 1=connected, 2=connecting, 3=disconnecting)');
+    
+    if (mongoState !== 1) {
+      console.error('❌ MongoDB não está conectado. Estado:', mongoState);
+      return res.status(500).json({ 
+        error: 'Database not connected', 
+        details: `MongoDB connection state: ${mongoState}` 
+      });
     }
     
     console.log('✅ MongoDB conectado, executando query...');
     
-    try {
-      // Tentar buscar pedidos sem .lean() primeiro para ver se funciona
-      const orders = await Order.find().sort({ createdAt: -1 });
-      console.log(`✅ ${orders.length} pedidos encontrados`);
-      
-      // Converter para objetos simples
-      const ordersData = orders.map(order => ({
-        _id: order._id,
-        email: order.email,
-        items: order.items,
-        total: order.total,
-        status: order.status,
-        address: order.address,
-        deliveryType: order.deliveryType,
-        pickupAddress: order.pickupAddress,
-        pickupSchedule: order.pickupSchedule,
-        trackingCode: order.trackingCode,
-        paymentSessionId: order.paymentSessionId,
-        abacatepayPaymentId: order.abacatepayPaymentId,
-        createdAt: order.createdAt,
-        paidAt: order.paidAt,
-      }));
-      
-      console.log(`✅ ${ordersData.length} pedidos formatados`);
-      res.json(ordersData);
-    } catch (queryErr) {
-      console.error('❌ Erro na query:', queryErr);
-      console.error('❌ Stack trace da query:', queryErr.stack);
-      throw queryErr; // Re-throw para ser capturado pelo catch externo
-    }
+    // Usar a mesma abordagem que funciona na rota GET /
+    const orders = await Order.find().sort({ createdAt: -1 });
+    console.log(`✅ ${orders.length} pedidos encontrados`);
+    
+    // Converter para JSON simples (remove métodos do Mongoose)
+    const ordersData = JSON.parse(JSON.stringify(orders));
+    
+    console.log(`✅ ${ordersData.length} pedidos formatados e prontos para envio`);
+    res.json(ordersData);
   } catch (err) {
     console.error('❌ Erro ao buscar todos os pedidos:', err);
-    console.error('❌ Tipo do erro:', err.constructor.name);
+    console.error('❌ Tipo do erro:', err.constructor?.name || typeof err);
     console.error('❌ Mensagem:', err.message);
-    console.error('❌ Stack trace:', err.stack);
+    if (err.stack) {
+      console.error('❌ Stack trace:', err.stack);
+    }
     res.status(500).json({ 
       error: 'Server error', 
       details: err.message || 'Erro desconhecido',
-      type: err.constructor.name
+      type: err.constructor?.name || typeof err
     });
   }
 });
