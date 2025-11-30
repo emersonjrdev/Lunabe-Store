@@ -119,7 +119,7 @@ class AbacatePayClient {
         returnUrl: payload.success_url ? payload.success_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '') : '',
         completionUrl: payload.cancel_url ? payload.cancel_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '') : (payload.success_url ? payload.success_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '') : ''),
         frequency: 'ONE_TIME',
-        methods: ['PIX'], // métodos de pagamento - apenas PIX por enquanto (verificar documentação para outros valores)
+        methods: ['PIX', 'CREDIT_CARD', 'BOLETO'], // métodos de pagamento disponíveis
         metadata: payload.metadata
       };
       
@@ -141,15 +141,19 @@ class AbacatePayClient {
       // A resposta do billing.create() retorna: { data: { url, id, ... }, error: null }
       const billingData = response.data?.data || response.data;
       
-      console.log('🔵 Dados da cobrança:', billingData);
+      console.log('🔵 Dados da cobrança recebidos:', JSON.stringify(billingData, null, 2));
+      console.log('🔵 Chaves disponíveis:', billingData ? Object.keys(billingData) : []);
+      
+      // Extrair dados do PIX se disponíveis (pode estar em diferentes formatos)
+      const pixData = billingData.pix || billingData.payment_methods?.pix || {};
       
       return {
-        checkoutUrl: billingData.url || billingData.checkout_url,
-        sessionId: billingData.id || billingData.session_id,
-        paymentId: billingData.id || billingData.payment_id,
-        qrCode: billingData.qr_code, // para PIX (se disponível)
-        qrCodeBase64: billingData.qr_code_base64,
-        expiresAt: billingData.expires_at,
+        checkoutUrl: billingData.url || billingData.checkout_url || billingData.payment_url,
+        sessionId: billingData.id || billingData.session_id || billingData.billing_id,
+        paymentId: billingData.id || billingData.payment_id || billingData.billing_id,
+        qrCode: pixData?.qr_code || pixData?.pix_copy_paste || billingData.qr_code || billingData.pix_qrcode_text || billingData.pix_copy_paste,
+        qrCodeBase64: pixData?.qr_code_base64 || billingData.qr_code_base64 || billingData.pix_qrcode_base64,
+        expiresAt: pixData?.expires_at || billingData.expires_at || billingData.pix_expires_at,
       };
     } catch (error) {
       console.error('Erro ao criar sessão de checkout AbacatePay:', error.response?.data || error.message);
