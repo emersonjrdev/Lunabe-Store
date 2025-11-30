@@ -12,7 +12,9 @@ const Header = ({ cartCount, user, onLogout, onLoginClick }) => {
   const handleSearch = (e) => {
     e.preventDefault()
     if (searchQuery.trim()) {
-      console.log('Buscar por:', searchQuery)
+      // Navegar para a home com o parâmetro de busca
+      navigate(`/?q=${encodeURIComponent(searchQuery.trim())}`)
+      setIsMenuOpen(false) // Fechar menu mobile se estiver aberto
     }
   }
 
