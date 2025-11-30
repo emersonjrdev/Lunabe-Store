@@ -19,53 +19,53 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
 
-useEffect(() => {
-  const fetchProduct = async () => {
-    if (!id) {
-      console.error("ID do produto não fornecido");
-      addToast("ID do produto inválido.", "error");
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}/api/products/${id}`);
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          addToast("Produto não encontrado.", "error");
-          setProduct(null);
-          setIsLoading(false);
-          return;
-        }
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      if (!data || !data._id) {
-        console.error("Dados do produto inválidos:", data);
-        addToast("Erro ao carregar dados do produto.", "error");
-        setProduct(null);
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) {
+        console.error("ID do produto não fornecido");
+        addToast("ID do produto inválido.", "error");
         setIsLoading(false);
         return;
       }
 
-      setProduct(data);
-      setSelectedSize(data.sizes?.[0] || "Único");
-      setSelectedColor(data.colors?.[0] || "Padrão");
-    } catch (err) {
-      console.error("Erro ao buscar produto:", err);
-      addToast("Erro ao carregar o produto. Tente novamente.", "error");
-      setProduct(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      try {
+        const response = await fetch(`${API_BASE}/api/products/${id}`);
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            addToast("Produto não encontrado.", "error");
+            setProduct(null);
+            setIsLoading(false);
+            return;
+          }
+          throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        }
 
-  fetchProduct();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [id]);
+        const data = await response.json();
+        
+        if (!data || !data._id) {
+          console.error("Dados do produto inválidos:", data);
+          addToast("Erro ao carregar dados do produto.", "error");
+          setProduct(null);
+          setIsLoading(false);
+          return;
+        }
+
+        setProduct(data);
+        setSelectedSize(data.sizes?.[0] || "Único");
+        setSelectedColor(data.colors?.[0] || "Padrão");
+      } catch (err) {
+        console.error("Erro ao buscar produto:", err);
+        addToast("Erro ao carregar o produto. Tente novamente.", "error");
+        setProduct(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProduct();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
 
   const handleAddToCart = () => {
