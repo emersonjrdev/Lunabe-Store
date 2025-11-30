@@ -345,57 +345,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-
-// Get order by payment/session id
-router.get('/session/:sessionId', async (req, res) => {
-  try {
-    // support both the new paymentSessionId and legacy stripeSessionId
-    const order = await Order.findOne({ $or: [ { paymentSessionId: req.params.sessionId }, { stripeSessionId: req.params.sessionId } ] });
-    // If the request has an auth header, verify that the authenticated user is the owner
-    const auth = req.headers.authorization;
-    if (auth) {
-      try {
-        const token = auth.split(' ')[1];
-        const payload = jwt.verify(token, process.env.JWT_SECRET);
-        if (!payload || !payload.id) return res.status(401).json({ error: 'Unauthorized' });
-        // load user and compare email (if you need stricter control)
-      } catch (err) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-    }
-    if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
-    res.json(order);
-  } catch (err) {
-    console.error('Erro ao buscar pedido:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Get order by id
-router.get('/:id', async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id);
-    if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
-
-    // require auth & ensure owner
-    const auth = req.headers.authorization;
-    if (!auth) return res.status(401).json({ error: 'Unauthorized' });
-    try {
-      const token = auth.split(' ')[1];
-      const payload = jwt.verify(token, process.env.JWT_SECRET);
-      if (!payload?.id) return res.status(401).json({ error: 'Unauthorized' });
-      const user = await User.findById(payload.id);
-      if (!user || user.email !== order.email) return res.status(401).json({ error: 'Unauthorized' });
-      res.json(order);
-    } catch (err) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-  } catch (err) {
-    console.error('Erro ao buscar pedido por session:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
+// IMPORTANTE: Rotas específicas devem vir ANTES de rotas com parâmetros dinâmicos
 // Test endpoint para verificar se a rota está funcionando
 router.get('/all/test', async (req, res) => {
   try {
@@ -411,6 +361,7 @@ router.get('/all/test', async (req, res) => {
 });
 
 // Admin: list all orders (requires X-Admin-Key header)
+// DEVE vir ANTES de /:id para não ser capturada como parâmetro
 router.get('/all', async (req, res) => {
   let errorOccurred = false;
   try {
