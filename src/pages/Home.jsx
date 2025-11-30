@@ -90,7 +90,16 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
           <p className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-400 mb-6 md:mb-10 leading-relaxed max-w-3xl mx-auto px-4">
             Descubra pijamas premium que combinam <span className="font-semibold text-gray-800 dark:text-white">elegância, conforto</span> e qualidade excepcional.
           </p>
-          <button className="group bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-6 py-4 md:px-12 md:py-5 rounded-xl md:rounded-2xl text-base md:text-lg font-semibold hover:shadow-2xl transform hover:scale-105 transition-all duration-300">
+          <button 
+            onClick={() => {
+              const produtosSection = document.querySelector('.container-responsive');
+              if (produtosSection) {
+                produtosSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+            className="group bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-6 py-4 md:px-12 md:py-5 rounded-xl md:rounded-2xl text-base md:text-lg font-semibold hover:shadow-2xl transform hover:scale-105 transition-all duration-300"
+          >
+            <i className="fas fa-arrow-down mr-2 group-hover:translate-y-1 transition-transform"></i>
             Descobrir Coleção
           </button>
         </div>

@@ -7,6 +7,7 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0] || 'Único')
   const [selectedColor, setSelectedColor] = useState(product.colors?.[0] || 'Padrão')
   const [isAdding, setIsAdding] = useState(false)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
   if (!product) return null
 
@@ -49,18 +50,81 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
     return null;
   }
 
+  const productImages = product.images || [];
+  const hasMultipleImages = productImages.length > 1;
+  const currentImage = productImages[currentImageIndex] || productImages[0];
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden card-hover border border-gray-200 dark:border-gray-700 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:scale-[1.02] group">
-      <Link to={`/produto/${productId}`} className="block relative group overflow-hidden">
+      <Link 
+        to={`/produto/${productId}`} 
+        className="block relative group overflow-hidden"
+        onClick={() => setCurrentImageIndex(0)}
+      >
         {/* Container da imagem com aspect ratio vertical (corpo todo) */}
         <div className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-gray-900">
           <LazyImage 
-            src={getFullImageUrl(product.images?.[0]) || '/placeholder.jpg'}
+            src={getFullImageUrl(currentImage) || '/placeholder.jpg'}
             alt={product.name}
             className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-700 ease-out"
           />
           {/* Overlay no hover */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          
+          {/* Indicador de múltiplas imagens */}
+          {hasMultipleImages && (
+            <div className="absolute top-3 right-3 z-10">
+              <span className="bg-black/60 backdrop-blur-sm text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center space-x-1">
+                <i className="fas fa-images"></i>
+                <span>{currentImageIndex + 1}/{productImages.length}</span>
+              </span>
+            </div>
+          )}
+
+          {/* Navegação de imagens no hover */}
+          {hasMultipleImages && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  setCurrentImageIndex((prev) => (prev > 0 ? prev - 1 : productImages.length - 1));
+                }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-white dark:hover:bg-gray-800 z-10"
+                aria-label="Imagem anterior"
+              >
+                <i className="fas fa-chevron-left text-gray-800 dark:text-white text-sm"></i>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  setCurrentImageIndex((prev) => (prev < productImages.length - 1 ? prev + 1 : 0));
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-white dark:hover:bg-gray-800 z-10"
+                aria-label="Próxima imagem"
+              >
+                <i className="fas fa-chevron-right text-gray-800 dark:text-white text-sm"></i>
+              </button>
+              
+              {/* Indicadores de imagens */}
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                {productImages.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCurrentImageIndex(index);
+                    }}
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      index === currentImageIndex
+                        ? 'bg-white w-6'
+                        : 'bg-white/50 hover:bg-white/75'
+                    }`}
+                    aria-label={`Ir para imagem ${index + 1}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
           
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col space-y-2 z-10">

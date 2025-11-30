@@ -16,7 +16,7 @@ const Admin = () => {
     description: "",
     price: "",
     stock: "",
-    image: null,
+    images: [],
     sizes: "",
     colors: "",
   });
@@ -71,9 +71,10 @@ const Admin = () => {
     formData.append("sizes", form.sizes);
     formData.append("colors", form.colors);
 
-    if (form.image) {
-      formData.append("image", form.image);
-    }
+    // Adicionar múltiplas imagens
+    form.images.forEach((image, index) => {
+      formData.append("images", image);
+    });
 
     await axios.post(API_URL, formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -86,7 +87,7 @@ const Admin = () => {
       description: "",
       price: "",
       stock: "",
-      image: null,
+      images: [],
       sizes: "",
       colors: "",
     });
@@ -322,25 +323,50 @@ const Admin = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  <i className="fas fa-image mr-2"></i>
-                  Imagem do Produto *
+                  <i className="fas fa-images mr-2"></i>
+                  Imagens do Produto *
                 </label>
                 <div className="relative">
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) =>
-                      setForm({ ...form, image: e.target.files[0] })
-                    }
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      setForm({ ...form, images: files });
+                    }}
                     required
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-900 file:text-white hover:file:bg-gray-800"
                   />
                 </div>
-                {form.image && (
-                  <p className="mt-2 text-sm text-green-600 dark:text-green-400">
-                    <i className="fas fa-check-circle mr-1"></i>
-                    {form.image.name} selecionado
-                  </p>
+                {form.images.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm text-green-600 dark:text-green-400 font-semibold">
+                      <i className="fas fa-check-circle mr-1"></i>
+                      {form.images.length} {form.images.length === 1 ? 'imagem selecionada' : 'imagens selecionadas'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {form.images.map((image, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={URL.createObjectURL(image)}
+                            alt={`Preview ${index + 1}`}
+                            className="w-20 h-20 object-cover rounded-lg border-2 border-gray-300 dark:border-gray-600"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newImages = form.images.filter((_, i) => i !== index);
+                              setForm({ ...form, images: newImages });
+                            }}
+                            className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
 

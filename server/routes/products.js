@@ -20,7 +20,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // CREATE PRODUCT + CLOUDINARY UPLOAD
-router.post("/", upload.single("image"), async (req, res) => {
+router.post("/", upload.array("images", 10), async (req, res) => {
   try {
     const { name, description, price_cents, stock } = req.body;
     // sizes and colors can be sent as comma-separated strings from the admin UI
@@ -34,11 +34,14 @@ router.post("/", upload.single("image"), async (req, res) => {
 
     let images = [];
 
-    if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: "lunabe_products",
-      });
-      images.push(result.secure_url);
+    // Processar múltiplas imagens
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: "lunabe_products",
+        });
+        images.push(result.secure_url);
+      }
     }
 
     const product = await Product.create({
