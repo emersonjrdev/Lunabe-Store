@@ -50,129 +50,159 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg overflow-hidden card-hover border border-gray-100 dark:border-gray-700">
-      <Link to={`/produto/${productId}`} className="block relative group">
-       <LazyImage 
-     src={getFullImageUrl(product.images?.[0]) || '/placeholder.jpg'}
-    alt={product.name}
-    className="w-full h-48 sm:h-56 md:h-64 object-cover group-hover:scale-110 transition-transform duration-500"
-  />
-        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300"></div>
-
-        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col space-y-1 sm:space-y-2">
-          {isOutOfStock && (
-            <span className="bg-red-600 text-white px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-semibold shadow-lg">
-              Esgotado
-            </span>
-          )}
-          {!isOutOfStock && product.isNew && (
-            <span className="bg-lunabe-pink text-white px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-semibold shadow-lg">Novo</span>
-          )}
-          {!isOutOfStock && product.originalPrice && (
-            <span className="bg-red-500 text-white px-2 py-1 rounded-lg text-xs sm:text-sm font-bold shadow-lg">
-              -{discountPercentage}%
-            </span>
-          )}
-        </div>
-      </Link>
-
-      <div className="p-4 sm:p-6">
-        <Link to={`/produto/${productId}`}>
-          <h3 className="font-bold text-lg sm:text-xl text-gray-800 dark:text-white mb-2 hover:text-lunabe-pink dark:hover:text-lunabe-pink transition-colors line-clamp-2">
-            {product.name || 'Produto sem nome'}
-          </h3>
-        </Link>
-
-        <p className="text-gray-600 dark:text-gray-400 mb-3 sm:mb-4 line-clamp-2 text-sm sm:text-base">
-          {product.description || 'Produto incrível da Lunabê'}
-        </p>
-
-        {/* Tamanhos */}
-        {product.sizes?.length > 0 && (
-          <div className="mb-2 sm:mb-3">
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Tamanho:</label>
-            <div className="flex flex-wrap gap-1">
-              {product.sizes.map(size => (
-                <button
-                  key={size}
-                  onClick={() => setSelectedSize(size)}
-                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-                    selectedSize === size
-                      ? 'bg-gray-800 dark:bg-gray-300 text-white dark:text-gray-900'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Cores */}
-        {product.colors?.length > 0 && (
-          <div className="mb-3 sm:mb-4">
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Cor:</label>
-            <div className="flex flex-wrap gap-1">
-              {product.colors.map(color => (
-                <button
-                  key={color}
-                  onClick={() => setSelectedColor(color)}
-                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-                    selectedColor === color
-                      ? 'bg-gray-800 dark:bg-gray-300 text-white dark:text-gray-900'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {color}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Preço e botão */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
-          <div className="flex items-center space-x-2">
-              <span className="text-lg sm:text-xl font-bold text-gray-800 dark:text-white">
-              R$ {priceValue.toFixed(2)}
-            </span>
-            {product.originalPrice && (
-              <span className="text-sm sm:text-base text-gray-500 dark:text-gray-400 line-through">
-                R$ {(originalPriceValue || product.originalPrice).toFixed(2)}
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden card-hover border border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+      <Link to={`/produto/${productId}`} className="block relative group overflow-hidden">
+        {/* Container da imagem com aspect ratio vertical (corpo todo) */}
+        <div className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-gray-900">
+          <LazyImage 
+            src={getFullImageUrl(product.images?.[0]) || '/placeholder.jpg'}
+            alt={product.name}
+            className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-700 ease-out"
+          />
+          {/* Overlay no hover */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          
+          {/* Badges */}
+          <div className="absolute top-3 left-3 flex flex-col space-y-2 z-10">
+            {isOutOfStock && (
+              <span className="bg-red-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-xl backdrop-blur-sm">
+                <i className="fas fa-times-circle mr-1"></i>
+                Esgotado
+              </span>
+            )}
+            {!isOutOfStock && product.isNew && (
+              <span className="bg-gradient-to-r from-lunabe-pink to-pink-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-xl backdrop-blur-sm animate-pulse">
+                <i className="fas fa-star mr-1"></i>
+                Novo
+              </span>
+            )}
+            {!isOutOfStock && discountPercentage > 0 && (
+              <span className="bg-gradient-to-r from-red-500 to-red-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-xl backdrop-blur-sm">
+                <i className="fas fa-tag mr-1"></i>
+                -{discountPercentage}%
               </span>
             )}
           </div>
-          <button
-            onClick={handleAddToCart}
-            disabled={isAdding || isOutOfStock}
-            className={`bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-300 dark:to-gray-100 text-white dark:text-gray-900 px-3 py-2 sm:px-4 sm:py-3 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105 font-semibold flex items-center justify-center space-x-2 text-sm sm:text-base ${
-              (isAdding || isOutOfStock) ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {isAdding ? (
+
+          {/* Botão de visualização rápida no hover */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md px-6 py-3 rounded-full shadow-2xl transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+              <span className="text-gray-900 dark:text-white font-semibold text-sm flex items-center space-x-2">
+                <i className="fas fa-eye"></i>
+                <span>Ver Detalhes</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      <div className="p-5 sm:p-6 space-y-4">
+        <div>
+          <Link to={`/produto/${productId}`}>
+            <h3 className="font-bold text-lg sm:text-xl text-gray-800 dark:text-white mb-2 hover:text-lunabe-pink dark:hover:text-lunabe-pink transition-colors line-clamp-2 group-hover:underline">
+              {product.name || 'Produto sem nome'}
+            </h3>
+          </Link>
+
+          <p className="text-gray-600 dark:text-gray-400 line-clamp-2 text-sm leading-relaxed">
+            {product.description || 'Produto incrível da Lunabê'}
+          </p>
+        </div>
+
+        {/* Tamanhos e Cores - Layout mais compacto */}
+        {(product.sizes?.length > 0 || product.colors?.length > 0) && (
+          <div className="flex flex-wrap gap-2">
+            {product.sizes?.length > 0 && (
+              <div className="flex items-center space-x-1">
+                <i className="fas fa-ruler text-gray-400 text-xs"></i>
+                <div className="flex flex-wrap gap-1">
+                  {product.sizes.slice(0, 3).map(size => (
+                    <button
+                      key={size}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedSize(size);
+                      }}
+                      className={`px-2 py-0.5 rounded-md text-xs font-medium transition-all ${
+                        selectedSize === size
+                          ? 'bg-gray-900 dark:bg-gray-200 text-white dark:text-gray-900 shadow-md'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                  {product.sizes.length > 3 && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 px-1">
+                      +{product.sizes.length - 3}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            {product.colors?.length > 0 && (
+              <div className="flex items-center space-x-1">
+                <i className="fas fa-palette text-gray-400 text-xs"></i>
+                <span className="text-xs text-gray-600 dark:text-gray-400">
+                  {product.colors.length} {product.colors.length === 1 ? 'cor' : 'cores'}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Preço */}
+        <div className="flex items-baseline space-x-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex items-baseline space-x-2">
+            <span className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+              R$ {priceValue.toFixed(2).replace('.', ',')}
+            </span>
+            {discountPercentage > 0 && (
               <>
-                <i className="fas fa-spinner fa-spin text-xs sm:text-sm"></i>
-                <span className="text-xs sm:text-sm">Adicionando...</span>
-              </>
-            ) : isOutOfStock ? (
-              <>
-                <i className="fas fa-times-circle text-xs sm:text-sm"></i>
-                <span className="text-xs sm:text-sm">Esgotado</span>
-              </>
-            ) : (
-              <>
-                <i className="fas fa-shopping-cart text-xs sm:text-sm"></i>
-                <span className="text-xs sm:text-sm">Adicionar</span>
+                <span className="text-base text-gray-400 dark:text-gray-500 line-through">
+                  R$ {(originalPriceValue || product.originalPrice).toFixed(2).replace('.', ',')}
+                </span>
               </>
             )}
-          </button>
-          {product.stock !== undefined && product.stock > 0 && product.stock <= 5 && (
-            <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+          </div>
+        </div>
+
+        {/* Estoque baixo */}
+        {product.stock !== undefined && product.stock > 0 && product.stock <= 5 && (
+          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-2">
+            <p className="text-xs text-orange-700 dark:text-orange-400 font-semibold flex items-center">
+              <i className="fas fa-exclamation-triangle mr-2"></i>
               Últimas {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'}!
             </p>
+          </div>
+        )}
+
+        {/* Botão de adicionar */}
+        <button
+          onClick={handleAddToCart}
+          disabled={isAdding || isOutOfStock}
+          className={`w-full bg-gradient-to-r from-gray-900 to-gray-800 dark:from-gray-700 dark:to-gray-600 text-white px-4 py-3.5 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] font-semibold flex items-center justify-center space-x-2 text-sm ${
+            (isAdding || isOutOfStock) ? 'opacity-50 cursor-not-allowed' : 'hover:from-gray-800 hover:to-gray-700'
+          }`}
+        >
+          {isAdding ? (
+            <>
+              <i className="fas fa-spinner fa-spin"></i>
+              <span>Adicionando...</span>
+            </>
+          ) : isOutOfStock ? (
+            <>
+              <i className="fas fa-times-circle"></i>
+              <span>Esgotado</span>
+            </>
+          ) : (
+            <>
+              <i className="fas fa-shopping-cart"></i>
+              <span>Adicionar ao Carrinho</span>
+            </>
           )}
-        </div>
+        </button>
       </div>
     </div>
   )

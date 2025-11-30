@@ -45,6 +45,15 @@
   .heading-responsive {
     @apply text-2xl sm:text-3xl lg:text-4xl font-bold;
   }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes fadeIn {
