@@ -425,16 +425,46 @@ router.get('/all', async (req, res) => {
     }
     
     console.log('✅ MongoDB conectado, executando query...');
-    const orders = await Order.find().sort({ createdAt: -1 }).lean();
-    console.log(`✅ ${orders.length} pedidos encontrados`);
-    res.json(orders);
+    
+    try {
+      // Tentar buscar pedidos sem .lean() primeiro para ver se funciona
+      const orders = await Order.find().sort({ createdAt: -1 });
+      console.log(`✅ ${orders.length} pedidos encontrados`);
+      
+      // Converter para objetos simples
+      const ordersData = orders.map(order => ({
+        _id: order._id,
+        email: order.email,
+        items: order.items,
+        total: order.total,
+        status: order.status,
+        address: order.address,
+        deliveryType: order.deliveryType,
+        pickupAddress: order.pickupAddress,
+        pickupSchedule: order.pickupSchedule,
+        trackingCode: order.trackingCode,
+        paymentSessionId: order.paymentSessionId,
+        abacatepayPaymentId: order.abacatepayPaymentId,
+        createdAt: order.createdAt,
+        paidAt: order.paidAt,
+      }));
+      
+      console.log(`✅ ${ordersData.length} pedidos formatados`);
+      res.json(ordersData);
+    } catch (queryErr) {
+      console.error('❌ Erro na query:', queryErr);
+      console.error('❌ Stack trace da query:', queryErr.stack);
+      throw queryErr; // Re-throw para ser capturado pelo catch externo
+    }
   } catch (err) {
     console.error('❌ Erro ao buscar todos os pedidos:', err);
+    console.error('❌ Tipo do erro:', err.constructor.name);
+    console.error('❌ Mensagem:', err.message);
     console.error('❌ Stack trace:', err.stack);
     res.status(500).json({ 
       error: 'Server error', 
-      details: err.message,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      details: err.message || 'Erro desconhecido',
+      type: err.constructor.name
     });
   }
 });
