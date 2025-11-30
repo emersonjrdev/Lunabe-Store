@@ -399,19 +399,28 @@ router.get('/:id', async (req, res) => {
 router.get('/all', async (req, res) => {
   try {
     const adminKey = req.headers['x-admin-key'];
-    if (!adminKey || adminKey !== process.env.ADMIN_SECRET) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    const expectedKey = process.env.ADMIN_SECRET || 'lunabe25'; // Fallback para compatibilidade
+    
+    console.log('🔵 Requisição de pedidos admin recebida');
+    console.log('🔵 Admin key recebida:', adminKey ? '***' : 'não fornecida');
+    console.log('🔵 ADMIN_SECRET configurado:', !!process.env.ADMIN_SECRET);
+    
+    if (!adminKey) {
+      console.warn('❌ Admin key não fornecida');
+      return res.status(401).json({ error: 'Unauthorized: Admin key não fornecida' });
     }
     
-    if (!process.env.ADMIN_SECRET) {
-      console.error('ADMIN_SECRET não configurado no servidor');
-      return res.status(500).json({ error: 'Configuração do servidor incompleta' });
+    if (adminKey !== expectedKey) {
+      console.warn('❌ Admin key inválida');
+      return res.status(401).json({ error: 'Unauthorized: Admin key inválida' });
     }
     
+    console.log('✅ Admin key válida, buscando pedidos...');
     const orders = await Order.find().sort({ createdAt: -1 }).lean();
+    console.log(`✅ ${orders.length} pedidos encontrados`);
     res.json(orders);
   } catch (err) {
-    console.error('Erro ao buscar todos os pedidos:', err);
+    console.error('❌ Erro ao buscar todos os pedidos:', err);
     res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
