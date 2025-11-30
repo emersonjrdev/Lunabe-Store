@@ -15,6 +15,7 @@ const Admin = () => {
     name: "",
     description: "",
     price: "",
+    stock: "",
     image: null,
     sizes: "",
     colors: "",
@@ -66,7 +67,7 @@ const Admin = () => {
     formData.append("name", form.name);
     formData.append("description", form.description);
     formData.append("price_cents", Number(form.price) * 100);
-    formData.append("stock", 10);
+    formData.append("stock", Number(form.stock) || 0);
     formData.append("sizes", form.sizes);
     formData.append("colors", form.colors);
 
@@ -84,6 +85,7 @@ const Admin = () => {
       name: "",
       description: "",
       price: "",
+      stock: "",
       image: null,
       sizes: "",
       colors: "",
@@ -246,6 +248,23 @@ const Admin = () => {
                     step="0.01"
                     min="0"
                     value={form.price}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <i className="fas fa-box mr-2"></i>
+                    Estoque (quantidade) *
+                  </label>
+                  <input
+                    type="number"
+                    name="stock"
+                    placeholder="Ex: 50"
+                    min="0"
+                    value={form.stock}
                     onChange={handleChange}
                     required
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400"
