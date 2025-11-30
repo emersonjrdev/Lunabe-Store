@@ -2,6 +2,7 @@
 import express from "express";
 // Using AbacatePay API integration
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Order from "../models/Order.js"; // modelo do pedido
 import Product from "../models/Product.js"; // modelo do produto
