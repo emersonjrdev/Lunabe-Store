@@ -231,22 +231,36 @@ function AppContent() {
   // Mostrar loading enquanto verifica autenticação
   if (isLoading || isCheckingAuth) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
-        <div className="text-center flex flex-col items-center space-y-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+        <div className="text-center flex flex-col items-center space-y-6 max-w-md">
+          {/* Logo com animação */}
           <div className="relative">
-            <img
-              className="w-16 h-16 rounded-xl shadow-lg animate-pulse"
-              src="/logo.jpg"
-              alt="Lunabê Logo"
-            />
-            <div className="absolute -inset-2 border-2 border-lunabe-pink border-t-transparent rounded-xl animate-spin"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-lunabe-pink/20 to-pink-600/20 rounded-3xl blur-2xl animate-pulse"></div>
+            <div className="relative bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-2xl border-2 border-gray-100 dark:border-gray-700">
+              <img
+                className="w-20 h-20 rounded-2xl shadow-lg object-cover"
+                src="/logo.jpg"
+                alt="Lunabê Logo"
+              />
+            </div>
+            {/* Anel giratório */}
+            <div className="absolute -inset-3 border-4 border-lunabe-pink border-t-transparent rounded-3xl animate-spin"></div>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white animate-pulse">
-            Lunabê
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            {isCheckingAuth ? "Verificando autenticação..." : "Carregando..."}
-          </p>
+          
+          {/* Texto */}
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+              Lunabê
+            </h2>
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-2 h-2 bg-lunabe-pink rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 bg-lunabe-pink rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 bg-lunabe-pink rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mt-4">
+              {isCheckingAuth ? "Verificando autenticação..." : "Carregando sua loja..."}
+            </p>
+          </div>
         </div>
       </div>
     );

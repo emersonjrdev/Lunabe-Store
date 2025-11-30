@@ -234,30 +234,30 @@ useEffect(() => {
         </div>
 
         {/* Informações do Produto */}
-        <div className="space-y-6 md:space-y-8 mobile-padding lg:pl-0">
+        <div className="space-y-5 md:space-y-6 mobile-padding lg:pl-0">
           {/* Título e Descrição */}
           <div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4 leading-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3 leading-tight">
               {product?.name || 'Produto sem nome'}
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-base sm:text-lg leading-relaxed">
+            <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base leading-relaxed">
               {product?.description || 'Sem descrição disponível'}
             </p>
           </div>
 
           {/* Preço */}
-          <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-2xl p-6 border border-gray-200 dark:border-gray-600">
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-2xl p-5 border border-gray-200 dark:border-gray-600">
             <div className="flex items-baseline space-x-4">
               <div>
-                <span className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white">
+                <span className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
                   R$ {priceValue.toFixed(2).replace('.', ',')}
                 </span>
                 {discount > 0 && (
                   <div className="mt-2 flex items-center space-x-3">
-                    <span className="text-xl sm:text-2xl text-gray-400 dark:text-gray-500 line-through">
+                    <span className="text-lg sm:text-xl text-gray-400 dark:text-gray-500 line-through">
                       R$ {originalPriceValue.toFixed(2).replace('.', ',')}
                     </span>
-                    <span className="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg">
+                    <span className="bg-gradient-to-r from-red-500 to-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
                       <i className="fas fa-tag mr-1"></i>
                       {discount}% OFF
                     </span>
@@ -276,21 +276,21 @@ useEffect(() => {
           </div>
 
           {/* Tamanhos */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-            <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-4 flex items-center">
-              <i className="fas fa-ruler mr-2 text-lunabe-pink"></i>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold text-base text-gray-900 dark:text-white mb-3 flex items-center">
+              <i className="fas fa-ruler mr-2 text-lunabe-pink text-sm"></i>
               Tamanho
             </h3>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               {product?.sizes && product.sizes.length > 0 ? (
                 product.sizes.map((size) => (
                   <button
                     key={size}
                     onClick={() => setSelectedSize(size)}
-                    className={`px-5 py-3 text-base font-semibold rounded-xl transition-all duration-300 transform ${
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
                       selectedSize === size
-                        ? "bg-gradient-to-r from-lunabe-pink to-pink-600 text-white shadow-lg scale-105 ring-2 ring-lunabe-pink/50"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 hover:scale-105 border-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600"
+                        ? "bg-gradient-to-r from-lunabe-pink to-pink-600 text-white shadow-md scale-105"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                     }`}
                   >
                     {size}
@@ -300,30 +300,24 @@ useEffect(() => {
                 <span className="text-sm text-gray-500 dark:text-gray-400">Tamanho único</span>
               )}
             </div>
-            {selectedSize && (
-              <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-                <i className="fas fa-check-circle text-green-500 mr-2"></i>
-                Tamanho selecionado: <strong>{selectedSize}</strong>
-              </p>
-            )}
           </div>
 
           {/* Cores */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-            <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-4 flex items-center">
-              <i className="fas fa-palette mr-2 text-lunabe-pink"></i>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold text-base text-gray-900 dark:text-white mb-3 flex items-center">
+              <i className="fas fa-palette mr-2 text-lunabe-pink text-sm"></i>
               Cor
             </h3>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               {product?.colors && product.colors.length > 0 ? (
                 product.colors.map((color) => (
                   <button
                     key={color}
                     onClick={() => setSelectedColor(color)}
-                    className={`px-5 py-3 text-base font-semibold rounded-xl transition-all duration-300 transform ${
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
                       selectedColor === color
-                        ? "bg-gradient-to-r from-lunabe-pink to-pink-600 text-white shadow-lg scale-105 ring-2 ring-lunabe-pink/50"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 hover:scale-105 border-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600"
+                        ? "bg-gradient-to-r from-lunabe-pink to-pink-600 text-white shadow-md scale-105"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                     }`}
                   >
                     {color}
@@ -333,12 +327,6 @@ useEffect(() => {
                 <span className="text-sm text-gray-500 dark:text-gray-400">Cor padrão</span>
               )}
             </div>
-            {selectedColor && (
-              <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-                <i className="fas fa-check-circle text-green-500 mr-2"></i>
-                Cor selecionada: <strong>{selectedColor}</strong>
-              </p>
-            )}
           </div>
 
           {/* Estoque disponível */}
@@ -367,22 +355,22 @@ useEffect(() => {
           {/* Quantidade e Botões */}
           <div className="space-y-4">
             {/* Seletor de Quantidade */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Quantidade
               </label>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-600">
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     disabled={quantity <= 1}
-                    className={`w-12 h-12 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                    className={`w-10 h-10 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                       quantity <= 1 ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
-                    <i className="fas fa-minus"></i>
+                    <i className="fas fa-minus text-sm"></i>
                   </button>
-                  <span className="px-6 text-gray-900 dark:text-white min-w-16 text-center font-bold text-lg">
+                  <span className="px-4 text-gray-900 dark:text-white min-w-12 text-center font-semibold text-base">
                     {quantity}
                   </span>
                   <button
@@ -391,15 +379,15 @@ useEffect(() => {
                       setQuantity(Math.min(maxQty, quantity + 1));
                     }}
                     disabled={product.stock !== undefined && quantity >= product.stock}
-                    className={`w-12 h-12 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                    className={`w-10 h-10 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
                       (product.stock !== undefined && quantity >= product.stock) ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
-                    <i className="fas fa-plus"></i>
+                    <i className="fas fa-plus text-sm"></i>
                   </button>
                 </div>
                 {product.stock !== undefined && quantity > product.stock && (
-                  <p className="text-sm text-red-600 dark:text-red-400 font-semibold">
+                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">
                     Máximo: {product.stock}
                   </p>
                 )}
@@ -407,11 +395,11 @@ useEffect(() => {
             </div>
 
             {/* Botões de Ação */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleAddToCart}
                 disabled={product.stock !== undefined && product.stock === 0}
-                className={`flex-1 bg-white dark:bg-gray-800 border-2 border-gray-900 dark:border-gray-300 text-gray-900 dark:text-white px-6 py-4 rounded-xl font-bold text-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2 ${
+                className={`flex-1 bg-white dark:bg-gray-800 border-2 border-gray-900 dark:border-gray-300 text-gray-900 dark:text-white px-5 py-3 rounded-xl font-semibold text-base hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2 ${
                   (product.stock !== undefined && product.stock === 0) ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
@@ -422,7 +410,7 @@ useEffect(() => {
               <button
                 onClick={handleBuyNow}
                 disabled={product.stock !== undefined && product.stock === 0}
-                className={`flex-1 bg-gradient-to-r from-lunabe-pink to-pink-600 text-white px-6 py-4 rounded-xl font-bold text-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2 ${
+                className={`flex-1 bg-gradient-to-r from-lunabe-pink to-pink-600 text-white px-5 py-3 rounded-xl font-semibold text-base hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2 ${
                   (product.stock !== undefined && product.stock === 0) ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
