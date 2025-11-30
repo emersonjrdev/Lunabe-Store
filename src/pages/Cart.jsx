@@ -10,6 +10,8 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   const [appliedCoupon, setAppliedCoupon] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [address, setAddress] = useState({ name: '', street: '', city: '', state: '', zip: '', country: '', phone: '' })
+  const [hasPreviousOrders, setHasPreviousOrders] = useState(false)
+  const [checkingOrders, setCheckingOrders] = useState(false)
 
   useEffect(() => {
     // prefills address from user or saved profile
@@ -43,6 +45,36 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
           // ignore
         }
       }
+    }
+  }, [user])
+
+  // Verificar se o usuário já tem pedidos anteriores
+  useEffect(() => {
+    const checkPreviousOrders = async () => {
+      if (!user?.email) return;
+      
+      setCheckingOrders(true);
+      try {
+        const orders = await PaymentService.getUserOrders(user.email);
+        const ordersArray = Array.isArray(orders) ? orders : (orders ? [orders] : []);
+        // Verificar se tem pelo menos um pedido com status "Pago" ou "Entregue"
+        const hasPaidOrder = ordersArray.some(order => {
+          const status = (order.status || '').toLowerCase();
+          return status.includes('pago') || status.includes('paid') || 
+                 status.includes('entregue') || status.includes('delivered') ||
+                 status.includes('aprovado');
+        });
+        setHasPreviousOrders(hasPaidOrder);
+      } catch (err) {
+        console.error('Erro ao verificar pedidos anteriores:', err);
+        setHasPreviousOrders(false);
+      } finally {
+        setCheckingOrders(false);
+      }
+    };
+
+    if (user) {
+      checkPreviousOrders();
     }
   }, [user])
   const { addToast } = useToast()
@@ -91,23 +123,33 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   }
 
   // Aplicar cupom
-  const applyCoupon = () => {
-    const coupons = {
-      'LUNABE10': 0.1,
-      'LUNABE15': 0.15,
-      'LUNABE20': 0.2,
-    }
-
+  const applyCoupon = async () => {
     const couponCode = coupon.toUpperCase().trim()
     
-    if (coupons[couponCode] !== undefined) {
-      const discountRate = coupons[couponCode]
+    // Apenas o cupom LUNABE20 é válido, e só para quem já comprou
+    if (couponCode === 'LUNABE20') {
+      if (!user) {
+        addToast('Faça login para usar cupons', 'error')
+        return
+      }
+
+      // Verificar se o usuário já tem pedidos pagos
+      if (!hasPreviousOrders) {
+        if (checkingOrders) {
+          addToast('Verificando elegibilidade...', 'info')
+          return
+        }
+        addToast('Este cupom é válido apenas para clientes que já realizaram uma compra', 'error')
+        return
+      }
+
+      const discountRate = 0.2 // 20% de desconto
       const newDiscount = totalPrice * discountRate
       setDiscount(newDiscount)
       setAppliedCoupon(couponCode)
-      addToast(`Cupom ${couponCode} aplicado com sucesso!`, 'success')
+      addToast(`Cupom ${couponCode} aplicado com sucesso! 20% de desconto!`, 'success')
     } else {
-      addToast('Cupom inválido ou expirado', 'error')
+      addToast('Cupom inválido', 'error')
     }
   }
 
@@ -289,9 +331,6 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                       Aplicar
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Cupons válidos: LUNABE10, LUNABE15, LUNABE20
-                  </p>
                 </div>
               ) : (
                 <div className="mb-6 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
