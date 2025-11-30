@@ -106,7 +106,9 @@ class AbacatePayClient {
           email: payload.customer.email,
           name: payload.customer.name || 'Cliente',
           cellphone: payload.customer.phone || '',
-          // taxId removido - não enviar se estiver vazio (causa erro "Invalid taxId")
+          // taxId é obrigatório no AbacatePay - usar CPF genérico se não fornecido
+          // Formato esperado: apenas números (11 dígitos para CPF)
+          taxId: payload.customer.taxId || (payload.metadata && payload.metadata.customerTaxId) || '00000000000',
         },
         // Garantir que as URLs são válidas (sem placeholders e sem trailing slash)
         // returnUrl: URL de retorno após pagamento bem-sucedido

@@ -17,8 +17,9 @@ dotenv.config();
 const app = express();
 
 // Configurar trust proxy para funcionar corretamente com proxies reversos (Render, etc.)
+// Confiar apenas no primeiro proxy (Render) para segurança do rate limiting
 // Isso é necessário para express-rate-limit identificar corretamente os IPs
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 
 // Para usar "__dirname" em módulos ES
 const __filename = fileURLToPath(import.meta.url);
