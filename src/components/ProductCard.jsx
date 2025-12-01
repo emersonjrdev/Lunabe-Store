@@ -11,15 +11,36 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
 
   if (!product) return null
 
+  // Função para obter estoque da variante selecionada
+  const getVariantStock = () => {
+    if (!product) return 0;
+    
+    // Se tem stockByVariant, usar ele
+    if (product.stockByVariant) {
+      const variant = `${selectedSize}-${selectedColor}`;
+      // stockByVariant pode ser Map ou objeto
+      if (product.stockByVariant instanceof Map) {
+        return product.stockByVariant.get(variant) || 0;
+      } else if (typeof product.stockByVariant === 'object') {
+        return product.stockByVariant[variant] || 0;
+      }
+    }
+    
+    // Fallback para stock geral
+    return product.stock !== undefined ? product.stock : 0;
+  };
+
+  const availableStock = getVariantStock();
+
   const handleAddToCart = async () => {
     if (!user) {
       onLoginClick()
       return
     }
     
-    // Verificar estoque
-    if (product.stock !== undefined && product.stock === 0) {
-      return // Produto esgotado, não adicionar
+    // Verificar estoque da variante selecionada
+    if (availableStock === 0) {
+      return // Produto esgotado para esta combinação, não adicionar
     }
     
     setIsAdding(true)
@@ -33,7 +54,7 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
     setIsAdding(false)
   }
   
-  const isOutOfStock = product.stock !== undefined && product.stock === 0
+  const isOutOfStock = availableStock === 0
 
   const priceValue = product.price_cents ? (product.price_cents / 100) : (product.price || 0);
   const originalPriceValue = product.originalPrice_cents ? (product.originalPrice_cents / 100) : product.originalPrice;
@@ -233,11 +254,16 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
         </div>
 
         {/* Estoque baixo */}
-        {product.stock !== undefined && product.stock > 0 && product.stock <= 5 && (
+        {availableStock > 0 && availableStock <= 5 && (
           <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-2">
             <p className="text-xs text-orange-700 dark:text-orange-400 font-semibold flex items-center">
               <i className="fas fa-exclamation-triangle mr-2"></i>
-              Últimas {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'}!
+              Últimas {availableStock} {availableStock === 1 ? 'unidade' : 'unidades'}!
+              {selectedSize && selectedColor && (
+                <span className="ml-1 text-xs font-normal">
+                  ({selectedSize} - {selectedColor})
+                </span>
+              )}
             </p>
           </div>
         )}

@@ -19,6 +19,7 @@ const Admin = () => {
     images: [],
     sizes: "",
     colors: "",
+    stockByVariant: {}, // { "P-Rosa": 10, "M-Azul": 5, ... }
   });
 
   const adminPassword = "lunabe25";
@@ -72,6 +73,48 @@ const Admin = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // Atualizar estoque por variante quando sizes ou colors mudarem
+  useEffect(() => {
+    if (form.sizes && form.colors) {
+      const sizes = form.sizes.split(',').map(s => s.trim()).filter(Boolean);
+      const colors = form.colors.split(',').map(c => c.trim()).filter(Boolean);
+      
+      // Só atualizar se sizes ou colors realmente mudaram
+      const currentVariants = Object.keys(form.stockByVariant || {});
+      const expectedVariants = sizes.flatMap(size => 
+        colors.map(color => `${size}-${color}`)
+      );
+      
+      // Verificar se precisa atualizar
+      const needsUpdate = expectedVariants.some(v => !form.stockByVariant[v]) ||
+        currentVariants.some(v => !expectedVariants.includes(v));
+      
+      if (needsUpdate) {
+        const newStockByVariant = { ...form.stockByVariant };
+        
+        // Garantir que todas as combinações existam
+        sizes.forEach(size => {
+          colors.forEach(color => {
+            const variant = `${size}-${color}`;
+            if (!newStockByVariant[variant]) {
+              newStockByVariant[variant] = parseInt(form.stock) || 0;
+            }
+          });
+        });
+        
+        // Remover variantes que não existem mais
+        Object.keys(newStockByVariant).forEach(variant => {
+          const [size, color] = variant.split('-');
+          if (!sizes.includes(size) || !colors.includes(color)) {
+            delete newStockByVariant[variant];
+          }
+        });
+        
+        setForm(prev => ({ ...prev, stockByVariant: newStockByVariant }));
+      }
+    }
+  }, [form.sizes, form.colors, form.stock]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -82,8 +125,13 @@ const Admin = () => {
     formData.append("stock", Number(form.stock) || 0);
     formData.append("sizes", form.sizes);
     formData.append("colors", form.colors);
+    
+    // Adicionar estoque por variante se existir
+    if (Object.keys(form.stockByVariant || {}).length > 0) {
+      formData.append("stockByVariant", JSON.stringify(form.stockByVariant));
+    }
 
-    // Adicionar múltiplas imagens
+    // Adicionar múltiplas imagens (até 13)
     form.images.forEach((image, index) => {
       formData.append("images", image);
     });
@@ -102,6 +150,7 @@ const Admin = () => {
       images: [],
       sizes: "",
       colors: "",
+      stockByVariant: {},
     });
 
     fetchProducts();
@@ -332,6 +381,47 @@ const Admin = () => {
                   />
                 </div>
               </div>
+
+              {/* Estoque por Cor/Tamanho */}
+              {form.sizes && form.colors && form.sizes.trim() && form.colors.trim() && (
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-600">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                    <i className="fas fa-boxes mr-2"></i>
+                    Estoque por Cor e Tamanho
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {form.sizes.split(',').map(size => size.trim()).filter(Boolean).map(size => 
+                      form.colors.split(',').map(color => color.trim()).filter(Boolean).map(color => {
+                        const variant = `${size}-${color}`;
+                        return (
+                          <div key={variant} className="flex items-center space-x-2">
+                            <label className="text-xs text-gray-600 dark:text-gray-400 w-20 truncate">
+                              {size} - {color}:
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={form.stockByVariant[variant] || 0}
+                              onChange={(e) => {
+                                const newStockByVariant = {
+                                  ...form.stockByVariant,
+                                  [variant]: parseInt(e.target.value) || 0
+                                };
+                                setForm({ ...form, stockByVariant: newStockByVariant });
+                              }}
+                              className="flex-1 px-2 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-800 dark:text-white"
+                            />
+                          </div>
+                        );
+                      })
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    Configure o estoque individual para cada combinação de cor e tamanho
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">

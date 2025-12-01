@@ -20,7 +20,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // CREATE PRODUCT + CLOUDINARY UPLOAD
-router.post("/", upload.array("images", 10), async (req, res) => {
+router.post("/", upload.array("images", 13), async (req, res) => {
   try {
     const { name, description, price_cents, stock } = req.body;
     // sizes and colors can be sent as comma-separated strings from the admin UI
@@ -34,7 +34,7 @@ router.post("/", upload.array("images", 10), async (req, res) => {
 
     let images = [];
 
-    // Processar múltiplas imagens
+    // Processar múltiplas imagens (até 13)
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const result = await cloudinary.uploader.upload(file.path, {
@@ -44,11 +44,53 @@ router.post("/", upload.array("images", 10), async (req, res) => {
       }
     }
 
+    // Processar estoque por variante (cor + tamanho)
+    const stockByVariant = new Map();
+    let totalStock = 0;
+    
+    // Se stockByVariant foi enviado como JSON string ou objeto
+    if (req.body.stockByVariant) {
+      let stockData;
+      try {
+        stockData = typeof req.body.stockByVariant === 'string' 
+          ? JSON.parse(req.body.stockByVariant) 
+          : req.body.stockByVariant;
+      } catch (e) {
+        stockData = {};
+      }
+      
+      // Processar cada variante: "P-Rosa": 10
+      Object.entries(stockData).forEach(([variant, qty]) => {
+        const quantity = parseInt(qty) || 0;
+        if (quantity > 0) {
+          stockByVariant.set(variant, quantity);
+          totalStock += quantity;
+        }
+      });
+    } else {
+      // Se não foi enviado stockByVariant, criar a partir de sizes e colors
+      // e usar o stock geral para todas as combinações
+      const generalStock = Number(stock) || 0;
+      if (sizes.length > 0 && colors.length > 0) {
+        sizes.forEach(size => {
+          colors.forEach(color => {
+            const variant = `${size}-${color}`;
+            stockByVariant.set(variant, generalStock);
+            totalStock += generalStock;
+          });
+        });
+      } else {
+        // Se não tem sizes/colors, usar stock geral
+        totalStock = generalStock;
+      }
+    }
+
     const product = await Product.create({
       name,
       description,
       price_cents: Number(price_cents),
-      stock: Number(stock),
+      stock: totalStock, // Estoque total para compatibilidade
+      stockByVariant: stockByVariant.size > 0 ? stockByVariant : undefined,
       images,
       sizes,
       colors,

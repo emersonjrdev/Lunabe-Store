@@ -60,10 +60,48 @@ router.post('/abacatepay', async (req, res) => {
           try {
             const product = await Product.findById(item.productId);
             if (product) {
-              const newStock = Math.max(0, (product.stock || 0) - (item.quantity || 1));
-              product.stock = newStock;
+              const quantity = item.quantity || 1;
+              const selectedSize = item.selectedSize;
+              const selectedColor = item.selectedColor;
+              
+              // Se tem stockByVariant e foi selecionado cor/tamanho, reduzir da variante
+              if (product.stockByVariant && selectedSize && selectedColor) {
+                const variant = `${selectedSize}-${selectedColor}`;
+                let stockByVariant = product.stockByVariant;
+                
+                // Converter Map para objeto se necessário
+                if (stockByVariant instanceof Map) {
+                  const variantStock = stockByVariant.get(variant) || 0;
+                  const newVariantStock = Math.max(0, variantStock - quantity);
+                  stockByVariant.set(variant, newVariantStock);
+                  product.stockByVariant = stockByVariant;
+                  
+                  // Atualizar estoque total
+                  let totalStock = 0;
+                  stockByVariant.forEach((qty) => totalStock += qty);
+                  product.stock = totalStock;
+                  
+                  console.log(`Estoque da variante reduzido: ${product.name} (${variant}) - Novo estoque: ${newVariantStock}`);
+                } else if (typeof stockByVariant === 'object' && stockByVariant !== null) {
+                  const variantStock = stockByVariant[variant] || 0;
+                  const newVariantStock = Math.max(0, variantStock - quantity);
+                  stockByVariant[variant] = newVariantStock;
+                  
+                  // Atualizar estoque total
+                  let totalStock = 0;
+                  Object.values(stockByVariant).forEach((qty) => totalStock += qty);
+                  product.stock = totalStock;
+                  
+                  console.log(`Estoque da variante reduzido: ${product.name} (${variant}) - Novo estoque: ${newVariantStock}`);
+                }
+              } else {
+                // Fallback para estoque geral
+                const newStock = Math.max(0, (product.stock || 0) - quantity);
+                product.stock = newStock;
+                console.log(`Estoque reduzido: ${product.name} - Novo estoque: ${newStock}`);
+              }
+              
               await product.save();
-              console.log(`Estoque reduzido: ${product.name} - Novo estoque: ${newStock}`);
             }
           } catch (err) {
             console.error(`Erro ao reduzir estoque do produto ${item.productId}:`, err);
@@ -79,9 +117,45 @@ router.post('/abacatepay', async (req, res) => {
           try {
             const product = await Product.findById(item.productId);
             if (product) {
-              product.stock = (product.stock || 0) + (item.quantity || 1);
+              const quantity = item.quantity || 1;
+              const selectedSize = item.selectedSize;
+              const selectedColor = item.selectedColor;
+              
+              // Se tem stockByVariant e foi selecionado cor/tamanho, restaurar na variante
+              if (product.stockByVariant && selectedSize && selectedColor) {
+                const variant = `${selectedSize}-${selectedColor}`;
+                let stockByVariant = product.stockByVariant;
+                
+                // Converter Map para objeto se necessário
+                if (stockByVariant instanceof Map) {
+                  const variantStock = stockByVariant.get(variant) || 0;
+                  stockByVariant.set(variant, variantStock + quantity);
+                  product.stockByVariant = stockByVariant;
+                  
+                  // Atualizar estoque total
+                  let totalStock = 0;
+                  stockByVariant.forEach((qty) => totalStock += qty);
+                  product.stock = totalStock;
+                  
+                  console.log(`Estoque da variante restaurado: ${product.name} (${variant}) - Novo estoque: ${variantStock + quantity}`);
+                } else if (typeof stockByVariant === 'object' && stockByVariant !== null) {
+                  const variantStock = stockByVariant[variant] || 0;
+                  stockByVariant[variant] = variantStock + quantity;
+                  
+                  // Atualizar estoque total
+                  let totalStock = 0;
+                  Object.values(stockByVariant).forEach((qty) => totalStock += qty);
+                  product.stock = totalStock;
+                  
+                  console.log(`Estoque da variante restaurado: ${product.name} (${variant}) - Novo estoque: ${variantStock + quantity}`);
+                }
+              } else {
+                // Fallback para estoque geral
+                product.stock = (product.stock || 0) + quantity;
+                console.log(`Estoque restaurado: ${product.name} - Novo estoque: ${product.stock}`);
+              }
+              
               await product.save();
-              console.log(`Estoque restaurado: ${product.name} - Novo estoque: ${product.stock}`);
             }
           } catch (err) {
             console.error(`Erro ao restaurar estoque do produto ${item.productId}:`, err);

@@ -98,11 +98,26 @@ router.post("/create-checkout-session", async (req, res) => {
           });
         }
 
-        // Verificar estoque disponível
-        const availableStock = product.stock || 0;
+        // Verificar estoque disponível (por variante se tiver cor/tamanho)
+        let availableStock = product.stock || 0;
+        const selectedSize = item.selectedSize;
+        const selectedColor = item.selectedColor;
+        
+        // Se tem stockByVariant e foi selecionado cor/tamanho, usar estoque da variante
+        if (product.stockByVariant && selectedSize && selectedColor) {
+          const variant = `${selectedSize}-${selectedColor}`;
+          // stockByVariant pode ser Map ou objeto
+          if (product.stockByVariant instanceof Map) {
+            availableStock = product.stockByVariant.get(variant) || 0;
+          } else if (typeof product.stockByVariant === 'object' && product.stockByVariant !== null) {
+            availableStock = product.stockByVariant[variant] || 0;
+          }
+        }
+        
         if (availableStock < quantity) {
+          const variantInfo = selectedSize && selectedColor ? ` (${selectedSize} - ${selectedColor})` : '';
           return res.status(400).json({ 
-            error: `Estoque insuficiente para ${product.name}. Disponível: ${availableStock}, Solicitado: ${quantity}` 
+            error: `Estoque insuficiente para ${product.name}${variantInfo}. Disponível: ${availableStock}, Solicitado: ${quantity}` 
           });
         }
 
@@ -117,7 +132,9 @@ router.post("/create-checkout-session", async (req, res) => {
         stockChecks.push({
           productId: product._id.toString(),
           quantity,
-          availableStock
+          availableStock,
+          selectedSize: selectedSize || null,
+          selectedColor: selectedColor || null,
         });
 
         validatedItems.push({

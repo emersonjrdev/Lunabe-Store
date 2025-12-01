@@ -19,6 +19,27 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Função para obter estoque da variante selecionada
+  const getVariantStock = () => {
+    if (!product) return 0;
+    
+    // Se tem stockByVariant, usar ele
+    if (product.stockByVariant) {
+      const variant = `${selectedSize}-${selectedColor}`;
+      // stockByVariant pode ser Map ou objeto
+      if (product.stockByVariant instanceof Map) {
+        return product.stockByVariant.get(variant) || 0;
+      } else if (typeof product.stockByVariant === 'object') {
+        return product.stockByVariant[variant] || 0;
+      }
+    }
+    
+    // Fallback para stock geral
+    return product.stock !== undefined ? product.stock : 0;
+  };
+
+  const availableStock = getVariantStock();
+
   useEffect(() => {
     const fetchProduct = async () => {
       if (!id) {
@@ -80,15 +101,15 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
       return;
     }
 
-    // Verificar estoque
-    if (product.stock !== undefined && product.stock === 0) {
-      addToast("Produto esgotado.", "error");
+    // Verificar estoque da variante selecionada
+    if (availableStock === 0) {
+      addToast("Produto esgotado para esta combinação de cor e tamanho.", "error");
       return;
     }
 
-    if (product.stock !== undefined && quantity > product.stock) {
-      addToast(`Quantidade indisponível. Estoque: ${product.stock}`, "error");
-      setQuantity(product.stock);
+    if (quantity > availableStock) {
+      addToast(`Quantidade indisponível. Estoque disponível: ${availableStock}`, "error");
+      setQuantity(availableStock);
       return;
     }
 
@@ -182,13 +203,13 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
             </div>
             {/* Badges na imagem principal */}
             <div className="absolute top-4 left-4 flex flex-col space-y-2 z-10">
-              {product.stock !== undefined && product.stock === 0 && (
+              {availableStock === 0 && (
                 <span className="bg-red-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-xl backdrop-blur-sm">
                   <i className="fas fa-times-circle mr-2"></i>
                   Esgotado
                 </span>
               )}
-              {product.stock !== undefined && product.stock > 0 && product.isNew && (
+              {availableStock > 0 && product.isNew && (
                 <span className="bg-gradient-to-r from-lunabe-pink to-pink-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-xl backdrop-blur-sm">
                   <i className="fas fa-star mr-2"></i>
                   Novo
@@ -259,11 +280,11 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
                 )}
               </div>
             </div>
-            {product.stock !== undefined && product.stock > 0 && product.stock <= 5 && (
+            {availableStock > 0 && availableStock <= 5 && (
               <div className="mt-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
                 <p className="text-sm text-orange-700 dark:text-orange-400 font-semibold flex items-center">
                   <i className="fas fa-exclamation-triangle mr-2"></i>
-                  Últimas {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'} disponível{product.stock === 1 ? '' : 'is'}!
+                  Últimas {availableStock} {availableStock === 1 ? 'unidade' : 'unidades'} disponível{availableStock === 1 ? '' : 'is'}!
                 </p>
               </div>
             )}
@@ -324,27 +345,30 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
           </div>
 
           {/* Estoque disponível */}
-          {product.stock !== undefined && (
-            <div className={`rounded-xl p-4 border-2 ${
-              product.stock > 0 
-                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
-                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-            }`}>
-              {product.stock > 0 ? (
-                <p className="text-sm font-semibold flex items-center">
-                  <i className="fas fa-check-circle text-green-600 dark:text-green-400 mr-2 text-lg"></i>
-                  <span className="text-green-700 dark:text-green-400">
-                    {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'} disponível{product.stock === 1 ? '' : 'is'} em estoque
-                  </span>
-                </p>
-              ) : (
-                <p className="text-sm font-semibold flex items-center text-red-700 dark:text-red-400">
-                  <i className="fas fa-times-circle mr-2 text-lg"></i>
-                  Produto esgotado
-                </p>
-              )}
-            </div>
-          )}
+          <div className={`rounded-xl p-4 border-2 ${
+            availableStock > 0 
+              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+          }`}>
+            {availableStock > 0 ? (
+              <p className="text-sm font-semibold flex items-center">
+                <i className="fas fa-check-circle text-green-600 dark:text-green-400 mr-2 text-lg"></i>
+                <span className="text-green-700 dark:text-green-400">
+                  {availableStock} {availableStock === 1 ? 'unidade' : 'unidades'} disponível{availableStock === 1 ? '' : 'is'} em estoque
+                  {selectedSize && selectedColor && (
+                    <span className="ml-2 text-xs font-normal">
+                      ({selectedSize} - {selectedColor})
+                    </span>
+                  )}
+                </span>
+              </p>
+            ) : (
+              <p className="text-sm font-semibold flex items-center text-red-700 dark:text-red-400">
+                <i className="fas fa-times-circle mr-2 text-lg"></i>
+                Produto esgotado para {selectedSize && selectedColor ? `${selectedSize} - ${selectedColor}` : 'esta combinação'}
+              </p>
+            )}
+          </div>
 
           {/* Quantidade e Botões */}
           <div className="space-y-4">
@@ -369,20 +393,20 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
                   </span>
                   <button
                     onClick={() => {
-                      const maxQty = product.stock !== undefined ? product.stock : 100;
+                      const maxQty = availableStock > 0 ? availableStock : 100;
                       setQuantity(Math.min(maxQty, quantity + 1));
                     }}
-                    disabled={product.stock !== undefined && quantity >= product.stock}
+                    disabled={availableStock > 0 && quantity >= availableStock}
                     className={`w-10 h-10 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                      (product.stock !== undefined && quantity >= product.stock) ? 'opacity-50 cursor-not-allowed' : ''
+                      (availableStock > 0 && quantity >= availableStock) ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
                     <i className="fas fa-plus text-sm"></i>
                   </button>
                 </div>
-                {product.stock !== undefined && quantity > product.stock && (
+                {availableStock > 0 && quantity > availableStock && (
                   <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                    Máximo: {product.stock}
+                    Máximo: {availableStock}
                   </p>
                 )}
               </div>
@@ -392,20 +416,20 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleAddToCart}
-                disabled={product.stock !== undefined && product.stock === 0}
+                disabled={availableStock === 0}
                 className={`flex-1 bg-white dark:bg-gray-800 border-2 border-gray-900 dark:border-gray-300 text-gray-900 dark:text-white px-5 py-3 rounded-xl font-semibold text-base hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2 ${
-                  (product.stock !== undefined && product.stock === 0) ? 'opacity-50 cursor-not-allowed' : ''
+                  availableStock === 0 ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
                 <i className="fas fa-shopping-cart"></i>
-                <span>{product.stock === 0 ? 'Produto Esgotado' : 'Adicionar ao Carrinho'}</span>
+                <span>{availableStock === 0 ? 'Produto Esgotado' : 'Adicionar ao Carrinho'}</span>
               </button>
 
               <button
                 onClick={handleBuyNow}
-                disabled={product.stock !== undefined && product.stock === 0}
+                disabled={availableStock === 0}
                 className={`flex-1 bg-gradient-to-r from-lunabe-pink to-pink-600 text-white px-5 py-3 rounded-xl font-semibold text-base hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2 ${
-                  (product.stock !== undefined && product.stock === 0) ? 'opacity-50 cursor-not-allowed' : ''
+                  availableStock === 0 ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
                 <i className="fas fa-bolt"></i>

@@ -22,6 +22,8 @@ class PaymentService {
           image: item.image || "https://via.placeholder.com/150",
           price: item.price || 0,
           quantity: item.quantity || 1,
+          selectedSize: item.selectedSize || null,
+          selectedColor: item.selectedColor || null,
         })),
         customerEmail: user.email,
         address: deliveryType === 'delivery' ? address : null,

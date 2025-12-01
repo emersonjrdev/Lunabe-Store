@@ -139,3 +139,6 @@ const PoliticaPrivacidade = () => {
 
 export default PoliticaPrivacidade
 
+
+
+
