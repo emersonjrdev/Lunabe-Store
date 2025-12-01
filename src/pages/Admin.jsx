@@ -178,12 +178,16 @@ const Admin = () => {
   const handleEdit = (product) => {
     // Preencher formulário com dados do produto
     setEditingId(product._id);
+    
+    // Processar imagens: manter URLs existentes e usar getFullImageUrl para garantir URLs completas
+    const existingImages = (product.images || []).map(img => getFullImageUrl(img));
+    
     setForm({
       name: product.name || "",
       description: product.description || "",
       price: product.price_cents ? (product.price_cents / 100).toFixed(2) : "",
       stock: product.stock || "",
-      images: product.images || [], // URLs das imagens existentes
+      images: existingImages, // URLs das imagens existentes (strings)
       sizes: product.sizes ? product.sizes.join(', ') : "",
       colors: product.colors ? product.colors.join(', ') : "",
       stockByVariant: product.stockByVariant 
@@ -198,6 +202,13 @@ const Admin = () => {
   };
 
   const handleCancelEdit = () => {
+    // Limpar URLs de blob se houver
+    form.images.forEach((image) => {
+      if (image instanceof File) {
+        // Não precisamos limpar aqui, será limpo quando o componente desmontar
+      }
+    });
+    
     setEditingId(null);
     setForm({
       name: "",
@@ -531,28 +542,45 @@ const Admin = () => {
                       )}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {form.images.map((image, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={URL.createObjectURL(image)}
-                            alt={`Preview ${index + 1}`}
-                            className="w-20 h-20 object-cover rounded-lg border-2 border-gray-300 dark:border-gray-600"
-                          />
-                          <div className="absolute top-0 left-0 bg-black/60 text-white text-xs px-1 rounded">
-                            {index + 1}
+                      {form.images.map((image, index) => {
+                        // Verificar se é uma URL (string) ou um File
+                        const imageUrl = image instanceof File 
+                          ? URL.createObjectURL(image)
+                          : (typeof image === 'string' ? image : null);
+                        
+                        if (!imageUrl) return null;
+                        
+                        return (
+                          <div key={index} className="relative group">
+                            <img
+                              src={imageUrl}
+                              alt={`Preview ${index + 1}`}
+                              className="w-20 h-20 object-cover rounded-lg border-2 border-gray-300 dark:border-gray-600"
+                              onError={(e) => {
+                                // Se a imagem falhar ao carregar, mostrar placeholder
+                                e.target.src = 'https://via.placeholder.com/80?text=Imagem';
+                              }}
+                            />
+                            <div className="absolute top-0 left-0 bg-black/60 text-white text-xs px-1 rounded">
+                              {index + 1}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newImages = form.images.filter((_, i) => i !== index);
+                                setForm({ ...form, images: newImages });
+                                // Limpar URL criada se for File
+                                if (image instanceof File && imageUrl.startsWith('blob:')) {
+                                  URL.revokeObjectURL(imageUrl);
+                                }
+                              }}
+                              className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                            >
+                              <i className="fas fa-times"></i>
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newImages = form.images.filter((_, i) => i !== index);
-                              setForm({ ...form, images: newImages });
-                            }}
-                            className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
-                          >
-                            <i className="fas fa-times"></i>
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     {form.images.length < 13 && (
                       <button
