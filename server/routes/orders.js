@@ -280,6 +280,13 @@ router.post("/create-checkout-session", async (req, res) => {
         console.error('Erro ao enviar email de confirmação (não crítico):', err);
       });
       
+      console.log('✅ Dados PIX gerados:', {
+        orderId: order._id.toString(),
+        pixQrCodeLength: pixData.qrCode?.length,
+        pixChave: pixData.chave,
+        pixValor: pixData.valor,
+      });
+      
       return res.json({
         orderId: order._id.toString(),
         paymentMethod: 'itau-pix',

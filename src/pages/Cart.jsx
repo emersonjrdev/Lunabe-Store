@@ -242,45 +242,17 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
       }
 
       const finalShipping = deliveryType === 'pickup' ? 0 : shipping
-      
-      // Se for pagamento via Itaú, criar pedido e redirecionar
-      if (paymentMethod === 'itau') {
-        try {
-          const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping, 'itau', pickupSchedule)
-          
-          // Obter link do Itaú (pode ser configurado via variável de ambiente ou usar link padrão)
-          const itauLink = import.meta.env.VITE_ITAU_PAYMENT_LINK || 'https://www.itau.com.br/empresas/pagamentos-recebimentos/link-de-pagamento';
-          
-          // Se o link do Itaú for uma URL completa, redirecionar diretamente
-          if (itauLink.startsWith('http')) {
-            addToast('Redirecionando para o pagamento Itaú...', 'info');
-            // Adicionar informações do pedido como parâmetros na URL
-            const itauUrl = new URL(itauLink);
-            itauUrl.searchParams.set('orderId', orderData.orderId || '');
-            itauUrl.searchParams.set('amount', totalAmount.toFixed(2));
-            itauUrl.searchParams.set('email', user.email);
-            window.location.href = itauUrl.toString();
-            return;
-          } else {
-            // Se for apenas um ID ou código, mostrar mensagem
-            addToast('Pedido criado! Use o link de pagamento do Itaú para finalizar.', 'success');
-            setIsProcessing(false);
-            return;
-          }
-        } catch (error) {
-          console.error('Erro ao criar pedido para Itaú:', error);
-          addToast('Erro ao processar pedido. Tente novamente.', 'error');
-          setIsProcessing(false);
-          return;
-        }
-      }
+      const totalAmount = finalPrice + finalShipping
       
       console.log('🔵 Chamando PaymentService.createOrder...');
-      console.log('🔵 Dados enviados:', { cart, user: { email: user.email }, address, cpf: cleanCpf, deliveryType, shipping: finalShipping, paymentMethod });
+      console.log('🔵 Método de pagamento selecionado:', paymentMethod);
+      console.log('🔵 Dados enviados:', { cart, user: { email: user.email }, address, cpf: cleanCpf, deliveryType, shipping: finalShipping, paymentMethod, totalAmount });
       
       const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping, paymentMethod, pickupSchedule)
 
       console.log('🔵 Resposta do createOrder:', orderData);
+      console.log('🔵 Tipo de resposta:', typeof orderData);
+      console.log('🔵 Chaves da resposta:', orderData ? Object.keys(orderData) : 'null');
 
       if (!orderData) {
         console.error('❌ orderData é null ou undefined');
@@ -290,25 +262,53 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
       }
 
       // Processar resposta baseado no método de pagamento
-      if (paymentMethod === 'rede' && orderData.checkoutUrl) {
-        // Redirecionar para Red-e (cartão)
-        console.log('✅ Redirecionando para Red-e:', orderData.checkoutUrl);
-        window.location.href = orderData.checkoutUrl;
-      } else if (paymentMethod === 'itau-pix' && orderData.pixQrCode) {
-        // Mostrar QR Code PIX
-        console.log('✅ QR Code PIX gerado');
-        // Redirecionar para página de pagamento PIX
-        navigate(`/pix-payment/${orderData.orderId}`, { 
-          state: { 
-            pixQrCode: orderData.pixQrCode,
+      if (paymentMethod === 'rede') {
+        if (orderData.checkoutUrl) {
+          // Redirecionar para Red-e (cartão)
+          console.log('✅ Redirecionando para Red-e:', orderData.checkoutUrl);
+          window.location.href = orderData.checkoutUrl;
+        } else {
+          console.error('❌ checkoutUrl não encontrado na resposta Red-e:', orderData);
+          addToast('Erro: URL de checkout não retornada. Verifique os logs.', 'error');
+          setIsProcessing(false);
+        }
+      } else if (paymentMethod === 'itau-pix') {
+        console.log('🔵 Processando resposta PIX...');
+        console.log('🔵 pixQrCode presente:', !!orderData.pixQrCode);
+        console.log('🔵 orderId presente:', !!orderData.orderId);
+        
+        if (orderData.pixQrCode && orderData.orderId) {
+          // Mostrar QR Code PIX
+          console.log('✅ QR Code PIX gerado, redirecionando...');
+          console.log('🔵 Dados PIX:', {
+            orderId: orderData.orderId,
+            pixQrCode: orderData.pixQrCode?.substring(0, 50) + '...',
             pixChave: orderData.pixChave,
             pixValor: orderData.pixValor,
-            pixDescricao: orderData.pixDescricao,
-          } 
-        });
+          });
+          
+          // Redirecionar para página de pagamento PIX
+          navigate(`/pix-payment/${orderData.orderId}`, { 
+            state: { 
+              pixQrCode: orderData.pixQrCode,
+              pixChave: orderData.pixChave,
+              pixValor: orderData.pixValor,
+              pixDescricao: orderData.pixDescricao,
+            } 
+          });
+        } else {
+          console.error('❌ Dados PIX incompletos:', {
+            hasPixQrCode: !!orderData.pixQrCode,
+            hasOrderId: !!orderData.orderId,
+            orderData: orderData
+          });
+          addToast('Erro: Dados do PIX não retornados. Verifique os logs.', 'error');
+          setIsProcessing(false);
+        }
       } else {
-        console.error('❌ Dados de pagamento incompletos:', orderData);
-        addToast('Erro: Dados de pagamento não retornados. Verifique os logs.', 'error');
+        console.error('❌ Método de pagamento desconhecido:', paymentMethod);
+        console.error('❌ Dados recebidos:', orderData);
+        addToast('Erro: Método de pagamento não reconhecido.', 'error');
         setIsProcessing(false);
       }
       
