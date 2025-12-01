@@ -187,23 +187,33 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
     }
 
     console.log('✅ Iniciando processamento...');
+    console.log('🔵 CPF atual:', cpf);
+    console.log('🔵 Método de pagamento:', paymentMethod);
+    console.log('🔵 Tipo de entrega:', deliveryType);
     setIsProcessing(true)
 
     try {
       // Validar CPF
+      console.log('🔵 Validando CPF...');
       const cleanCpf = cpf.replace(/\D/g, '') // Remove caracteres não numéricos
+      console.log('🔵 CPF limpo:', cleanCpf, 'Tamanho:', cleanCpf.length);
       if (cleanCpf.length !== 11) {
+        console.log('❌ CPF inválido - tamanho:', cleanCpf.length);
         addToast('Por favor, informe um CPF válido (11 dígitos)', 'error')
         setIsProcessing(false)
         return
       }
+      console.log('✅ CPF válido');
 
       // Validar agendamento se for retirada na loja
+      console.log('🔵 Verificando tipo de entrega...');
       if (deliveryType === 'pickup' && !pickupSchedule) {
+        console.log('❌ Retirada na loja sem horário agendado');
         addToast('Por favor, selecione um horário para retirada na loja', 'error')
         setIsProcessing(false)
         return
       }
+      console.log('✅ Tipo de entrega validado');
 
       // Validar endereço apenas se for entrega
       if (deliveryType === 'delivery') {
