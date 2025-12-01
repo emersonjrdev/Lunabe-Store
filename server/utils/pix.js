@@ -3,20 +3,22 @@
 
 /**
  * Calcula CRC16-CCITT (usado no PIX)
+ * Implementação corrigida conforme padrão EMV
  */
 function calculateCRC16(data) {
   let crc = 0xFFFF;
   const polynomial = 0x1021;
   
   for (let i = 0; i < data.length; i++) {
-    crc ^= data.charCodeAt(i) << 8;
+    const byte = data.charCodeAt(i);
+    crc ^= (byte << 8);
+    
     for (let j = 0; j < 8; j++) {
       if (crc & 0x8000) {
-        crc = (crc << 1) ^ polynomial;
+        crc = ((crc << 1) ^ polynomial) & 0xFFFF;
       } else {
-        crc <<= 1;
+        crc = (crc << 1) & 0xFFFF;
       }
-      crc &= 0xFFFF;
     }
   }
   
@@ -70,15 +72,19 @@ function generatePixCode({ chave, valor, descricao, merchantName = 'Lunabê', me
   // Merchant City (60)
   emvString += `60${String(merchantCity.length).padStart(2, '0')}${merchantCity}`;
   
-  // Additional Data Field Template (62)
-  const description = descricao || 'Pagamento Lunabê';
-  const additionalData = `05${String(description.length).padStart(2, '0')}${description}`;
-  emvString += `62${String(additionalData.length).padStart(2, '0')}${additionalData}`;
+  // Additional Data Field Template (62) - Reference Label (05)
+  const description = (descricao || 'Pagamento Lunabê').substring(0, 25); // Limitar a 25 caracteres
+  const referenceLabel = `05${String(description.length).padStart(2, '0')}${description}`;
+  emvString += `62${String(referenceLabel.length).padStart(2, '0')}${referenceLabel}`;
   
-  // CRC16 (63) - calcular sobre a string + '6304'
+  // CRC16 (63) - calcular sobre toda a string + '6304'
   const dataForCrc = emvString + '6304';
   const crc = calculateCRC16(dataForCrc);
   emvString += `6304${crc}`;
+  
+  console.log('🔵 Código PIX gerado:', emvString.substring(0, 50) + '...');
+  console.log('🔵 CRC16 calculado:', crc);
+  console.log('🔵 Tamanho total:', emvString.length);
   
   return emvString;
 }

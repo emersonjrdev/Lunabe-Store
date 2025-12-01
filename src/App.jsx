@@ -91,16 +91,10 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Carregar carrinho do localStorage (apenas se usuário estiver logado)
+  // Carregar carrinho do localStorage (sempre, mesmo sem usuário logado)
   useEffect(() => {
-    // Só carregar carrinho se houver usuário logado
-    if (!user) {
-      // Limpar carrinho se não houver usuário
-      setCart([]);
-      localStorage.removeItem("lunabe-cart");
-      return;
-    }
-
+    // Carregar carrinho do localStorage independente de ter usuário ou não
+    // O carrinho será mantido mesmo após recarregar a página
     const savedCart = localStorage.getItem("lunabe-cart");
     if (savedCart) {
       try {
@@ -113,27 +107,28 @@ function AppContent() {
           return { ...item, price_cents, price, image };
         });
         setCart(normalized);
+        console.log('✅ Carrinho carregado do localStorage:', normalized.length, 'itens');
       } catch (error) {
         console.error('Erro ao carregar carrinho:', error);
         setCart([]);
       }
+    } else {
+      console.log('ℹ️ Nenhum carrinho salvo encontrado');
     }
-  }, [user]);
+  }, []); // Carregar apenas uma vez ao montar o componente
 
-  // Salvar carrinho no localStorage (apenas se usuário estiver logado)
+  // Salvar carrinho no localStorage (sempre, mesmo sem usuário logado)
   useEffect(() => {
-    if (!user) {
-      // Não salvar carrinho se não houver usuário
-      return;
-    }
-    
+    // Salvar carrinho sempre, independente de ter usuário ou não
+    // Isso garante que o carrinho persista mesmo após recarregar a página
     if (cart.length > 0) {
       localStorage.setItem("lunabe-cart", JSON.stringify(cart));
+      console.log('💾 Carrinho salvo no localStorage:', cart.length, 'itens');
     } else {
-      // Limpar localStorage se carrinho estiver vazio
-      localStorage.removeItem("lunabe-cart");
+      // Não limpar automaticamente - deixar o usuário decidir quando limpar
+      // localStorage.removeItem("lunabe-cart");
     }
-  }, [cart, user]);
+  }, [cart]); // Salvar sempre que o carrinho mudar
 
   const handleAddToCart = (product) => {
     if (!user) {
