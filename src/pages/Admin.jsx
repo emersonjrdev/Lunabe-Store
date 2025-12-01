@@ -390,31 +390,38 @@ const Admin = () => {
                     Estoque por Cor e Tamanho
                   </label>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {form.sizes.split(',').map(size => size.trim()).filter(Boolean).map(size => 
-                      form.colors.split(',').map(color => color.trim()).filter(Boolean).map(color => {
-                        const variant = `${size}-${color}`;
-                        return (
-                          <div key={variant} className="flex items-center space-x-2">
-                            <label className="text-xs text-gray-600 dark:text-gray-400 w-20 truncate">
-                              {size} - {color}:
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={form.stockByVariant[variant] || 0}
-                              onChange={(e) => {
-                                const newStockByVariant = {
-                                  ...form.stockByVariant,
-                                  [variant]: parseInt(e.target.value) || 0
-                                };
-                                setForm({ ...form, stockByVariant: newStockByVariant });
-                              }}
-                              className="flex-1 px-2 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-800 dark:text-white"
-                            />
-                          </div>
-                        );
-                      })
-                    ))}
+                    {(() => {
+                      const sizes = form.sizes.split(',').map(s => s.trim()).filter(Boolean);
+                      const colors = form.colors.split(',').map(c => c.trim()).filter(Boolean);
+                      const variants = [];
+                      
+                      sizes.forEach(size => {
+                        colors.forEach(color => {
+                          variants.push({ size, color, variant: `${size}-${color}` });
+                        });
+                      });
+                      
+                      return variants.map(({ size, color, variant }) => (
+                        <div key={variant} className="flex items-center space-x-2">
+                          <label className="text-xs text-gray-600 dark:text-gray-400 w-20 truncate">
+                            {size} - {color}:
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={form.stockByVariant[variant] || 0}
+                            onChange={(e) => {
+                              const newStockByVariant = {
+                                ...form.stockByVariant,
+                                [variant]: parseInt(e.target.value) || 0
+                              };
+                              setForm({ ...form, stockByVariant: newStockByVariant });
+                            }}
+                            className="flex-1 px-2 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-800 dark:text-white"
+                          />
+                        </div>
+                      ));
+                    })()}
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     <i className="fas fa-info-circle mr-1"></i>
