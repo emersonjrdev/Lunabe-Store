@@ -169,10 +169,19 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
 
   // Finalizar compra
   const handleCheckout = async () => {
+    // Proteção contra duplo clique
+    if (isProcessing) {
+      console.log('⚠️ Checkout já em processamento, ignorando...');
+      return;
+    }
+    
     console.log('🔵 handleCheckout chamado');
     console.log('🔵 user:', user);
     console.log('🔵 cart:', cart);
     console.log('🔵 address:', address);
+    console.log('🔵 CPF atual:', cpf);
+    console.log('🔵 Método de pagamento:', paymentMethod);
+    console.log('🔵 Tipo de entrega:', deliveryType);
     
     if (!user) {
       console.log('❌ Usuário não logado');
@@ -187,9 +196,6 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
     }
 
     console.log('✅ Iniciando processamento...');
-    console.log('🔵 CPF atual:', cpf);
-    console.log('🔵 Método de pagamento:', paymentMethod);
-    console.log('🔵 Tipo de entrega:', deliveryType);
     setIsProcessing(true)
 
     try {
