@@ -50,8 +50,12 @@ function generatePixCode({ chave, valor, descricao, merchantName = 'Lunabê', me
   
   // Merchant Account Information (26)
   const pixGui = 'br.gov.bcb.pix';
-  const merchantInfo = `0014${pixGui}01${String(pixKey.length).padStart(2, '0')}${pixKey}`;
-  emvString += `26${String(merchantInfo.length).padStart(2, '0')}${merchantInfo}`;
+  // Formato: [00][tamanho][br.gov.bcb.pix][01][tamanho chave][chave]
+  const guiLength = String(pixGui.length).padStart(2, '0');
+  const keyLength = String(pixKey.length).padStart(2, '0');
+  const merchantInfo = `00${guiLength}${pixGui}01${keyLength}${pixKey}`;
+  const merchantInfoLength = String(merchantInfo.length).padStart(2, '0');
+  emvString += `26${merchantInfoLength}${merchantInfo}`;
   
   // Merchant Category Code (52) - 0000 = não especificado
   emvString += '52040000';
