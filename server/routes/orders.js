@@ -9,7 +9,10 @@ import Product from "../models/Product.js"; // modelo do produto
 import dotenv from "dotenv";
 // Utilitários de pagamento
 import pixUtils from '../utils/pix.js';
+import { generatePixForOrder as generatePixViaApi } from '../utils/itau-pix.js';
 import { sendOrderEmail, sendPaymentConfirmationEmail, sendStatusUpdateEmail } from '../utils/mailer.js';
+import { validateItemsWithStock } from '../utils/orderOptimizer.js';
+import { reduceStock } from '../utils/stockManager.js';
 
 dotenv.config();
 
@@ -60,98 +63,24 @@ router.post("/create-checkout-session", async (req, res) => {
     customerName = customerName ? sanitizeString(customerName) : '';
     customerPhone = customerPhone ? sanitizeString(customerPhone) : '';
 
-    // Validar e verificar estoque de cada item
-    const validatedItems = [];
-    const stockChecks = [];
-
-    for (const item of items) {
-      // Validar campos obrigatórios
-      if (!item.productId && !item.id) {
-        return res.status(400).json({ 
-          error: `Produto sem ID: ${item.name || 'Produto desconhecido'}` 
-        });
-      }
-
-      const productId = item.productId || item.id;
-      const quantity = parseInt(item.quantity) || 1;
-      const price = parseFloat(item.price) || 0;
-
-      // Validar quantidade
-      if (quantity <= 0 || quantity > 100) {
-        return res.status(400).json({ 
-          error: `Quantidade inválida para ${item.name || 'produto'}: ${quantity}` 
-        });
-      }
-
-      // Validar preço
-      if (price <= 0 || price > 100000) {
-        return res.status(400).json({ 
-          error: `Preço inválido para ${item.name || 'produto'}: R$ ${price}` 
-        });
-      }
-
-      // Buscar produto no banco para verificar estoque e preço
-      try {
-        const product = await Product.findById(productId);
-        if (!product) {
-          return res.status(404).json({ 
-            error: `Produto não encontrado: ${item.name || productId}` 
-          });
-        }
-
-        // Verificar estoque disponível (por variante se tiver cor/tamanho)
-        let availableStock = product.stock || 0;
-        const selectedSize = item.selectedSize;
-        const selectedColor = item.selectedColor;
-        
-        // Se tem stockByVariant e foi selecionado cor/tamanho, usar estoque da variante
-        if (product.stockByVariant && selectedSize && selectedColor) {
-          const variant = `${selectedSize}-${selectedColor}`;
-          // stockByVariant pode ser Map ou objeto
-          if (product.stockByVariant instanceof Map) {
-            availableStock = product.stockByVariant.get(variant) || 0;
-          } else if (typeof product.stockByVariant === 'object' && product.stockByVariant !== null) {
-            availableStock = product.stockByVariant[variant] || 0;
-          }
-        }
-        
-        if (availableStock < quantity) {
-          const variantInfo = selectedSize && selectedColor ? ` (${selectedSize} - ${selectedColor})` : '';
-          return res.status(400).json({ 
-            error: `Estoque insuficiente para ${product.name}${variantInfo}. Disponível: ${availableStock}, Solicitado: ${quantity}` 
-          });
-        }
-
-        // Validar que o preço não foi alterado (tolerância de 1%)
-        const productPrice = (product.price_cents || 0) / 100;
-        const priceDifference = Math.abs(price - productPrice);
-        if (priceDifference > productPrice * 0.01) {
-          console.warn(`Aviso: Preço alterado para ${product.name}. Original: R$ ${productPrice}, Recebido: R$ ${price}`);
-        }
-
-        // Armazenar verificação de estoque (será usado apenas se pagamento for confirmado)
-        stockChecks.push({
-          productId: product._id.toString(),
-          quantity,
-          availableStock,
-          selectedSize: selectedSize || null,
-          selectedColor: selectedColor || null,
-        });
-
-        validatedItems.push({
-          productId: product._id.toString(),
-          name: sanitizeString(item.name || product.name),
-          price: productPrice, // Usar preço do banco, não o enviado
-          quantity,
-          image: item.image || (product.images && product.images[0]) || null,
-        });
-      } catch (err) {
-        console.error(`Erro ao buscar produto ${productId}:`, err);
-        return res.status(500).json({ 
-          error: `Erro ao validar produto: ${item.name || productId}` 
-        });
-      }
+    // Validar e verificar estoque de forma otimizada (com transações atômicas)
+    let validatedItems, stockChecks;
+    try {
+      const result = await validateItemsWithStock(items);
+      validatedItems = result.validatedItems;
+      stockChecks = result.stockChecks;
+    } catch (validationError) {
+      console.error('❌ Erro ao validar itens:', validationError);
+      return res.status(400).json({ 
+        error: validationError.message || 'Erro ao validar produtos'
+      });
     }
+
+    // Sanitizar nomes dos produtos
+    validatedItems = validatedItems.map(item => ({
+      ...item,
+      name: sanitizeString(item.name),
+    }));
 
     // Calcular total usando preços validados do banco
     const total = validatedItems.reduce((acc, i) => acc + (i.price || 0) * (i.quantity || 1), 0);
@@ -250,6 +179,17 @@ router.post("/create-checkout-session", async (req, res) => {
       order.paymentSessionId = order._id.toString();
       await order.save();
       
+      // Reduzir estoque quando o pedido é criado
+      try {
+        await reduceStock(order.items);
+        order.stockReduced = true;
+        await order.save();
+        console.log('✅ Estoque reduzido automaticamente ao criar pedido');
+      } catch (stockError) {
+        console.error('❌ Erro ao reduzir estoque (não crítico):', stockError);
+        // Não falhar o pedido se houver erro ao reduzir estoque
+      }
+      
       // Enviar email de confirmação
       sendOrderEmail(customerEmail, order).catch(err => {
         console.error('Erro ao enviar email de confirmação (não crítico):', err);
@@ -261,21 +201,40 @@ router.post("/create-checkout-session", async (req, res) => {
         paymentMethod: 'rede',
       });
     } else if (paymentMethod === 'itau-pix') {
-      // Pagamento via PIX Itaú
-      console.log('🔵 Processando pagamento via PIX Itaú...');
+      // Pagamento via PIX Itaú (API)
+      console.log('🔵 Processando pagamento via PIX Itaú (API)...');
       console.log('🔵 Total em centavos:', totalInCents);
       console.log('🔵 Order ID:', order._id.toString());
       
       try {
-        // Gerar QR Code PIX
-        console.log('🔵 Chamando generatePixForOrder...');
-        const pixData = pixUtils.generatePixForOrder(order, totalInCents);
-        console.log('✅ PIX gerado com sucesso:', {
-          hasQrCode: !!pixData.qrCode,
-          qrCodeLength: pixData.qrCode?.length,
-          chave: pixData.chave,
-          valor: pixData.valor,
-        });
+        // Verificar se as credenciais da API estão configuradas
+        const hasApiCredentials = process.env.ITAU_CLIENT_ID && process.env.ITAU_CLIENT_SECRET;
+        
+        let pixData;
+        
+        if (hasApiCredentials) {
+          // Usar API do Itaú para gerar QR Code dinâmico
+          console.log('🔵 Usando API do Itaú para gerar PIX dinâmico...');
+          pixData = await generatePixViaApi(order, totalInCents);
+          console.log('✅ PIX gerado via API com sucesso:', {
+            hasQrCode: !!pixData.qrCode,
+            qrCodeLength: pixData.qrCode?.length,
+            chave: pixData.chave,
+            valor: pixData.valor,
+            txId: pixData.txId,
+          });
+        } else {
+          // Fallback: usar código estático se API não estiver configurada
+          console.warn('⚠️ Credenciais da API Itaú não configuradas. Usando código PIX estático como fallback.');
+          console.log('⚠️ Para usar QR Codes dinâmicos, configure ITAU_CLIENT_ID e ITAU_CLIENT_SECRET no .env');
+          pixData = pixUtils.generatePixForOrder(order, totalInCents);
+          console.log('✅ PIX estático gerado:', {
+            hasQrCode: !!pixData.qrCode,
+            qrCodeLength: pixData.qrCode?.length,
+            chave: pixData.chave,
+            valor: pixData.valor,
+          });
+        }
         
         if (!pixData.qrCode) {
           throw new Error('QR Code PIX não foi gerado');
@@ -283,12 +242,29 @@ router.post("/create-checkout-session", async (req, res) => {
         
         // Atualizar pedido com dados do PIX
         order.paymentMethod = 'itau-pix';
-        order.paymentSessionId = order._id.toString();
+        order.paymentSessionId = pixData.txId || order._id.toString();
         order.pixQrCode = pixData.qrCode;
         order.pixChave = pixData.chave;
         order.pixValor = pixData.valor;
+        if (pixData.txId) {
+          order.pixTxId = pixData.txId; // Salvar txId para consulta posterior
+        }
+        if (pixData.location) {
+          order.pixLocation = pixData.location; // Salvar location para consulta
+        }
         await order.save();
         console.log('✅ Pedido atualizado com dados PIX');
+        
+        // Reduzir estoque quando o pedido é criado
+        try {
+          await reduceStock(order.items);
+          order.stockReduced = true;
+          await order.save();
+          console.log('✅ Estoque reduzido automaticamente ao criar pedido');
+        } catch (stockError) {
+          console.error('❌ Erro ao reduzir estoque (não crítico):', stockError);
+          // Não falhar o pedido se houver erro ao reduzir estoque
+        }
         
         // Enviar email de confirmação
         sendOrderEmail(customerEmail, order).catch(err => {
@@ -299,9 +275,11 @@ router.post("/create-checkout-session", async (req, res) => {
           orderId: order._id.toString(),
           paymentMethod: 'itau-pix',
           pixQrCode: pixData.qrCode,
+          pixQrCodeBase64: pixData.qrCodeBase64 || null, // Imagem do QR Code se disponível
           pixChave: pixData.chave,
           pixValor: pixData.valor,
           pixDescricao: pixData.descricao,
+          pixTxId: pixData.txId || null,
         });
       } catch (pixError) {
         console.error('❌ Erro ao gerar PIX:', pixError);

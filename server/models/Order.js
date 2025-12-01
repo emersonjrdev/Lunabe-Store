@@ -12,6 +12,8 @@ const orderSchema = new mongoose.Schema({
   pixQrCode: { type: String }, // QR Code PIX (código copia-e-cola)
   pixChave: { type: String }, // Chave PIX
   pixValor: { type: Number }, // Valor do PIX
+  pixTxId: { type: String }, // Transaction ID da cobrança PIX (para consulta na API)
+  pixLocation: { type: String }, // Location da cobrança PIX (para consulta na API)
   // Red-e fields (cartão)
   redeOrderId: { type: String }, // ID do pedido no Red-e
   // Campos legados (mantidos para compatibilidade)
@@ -26,6 +28,8 @@ const orderSchema = new mongoose.Schema({
       price: Number,
       quantity: Number,
       image: String, // URL da imagem do produto
+      selectedSize: { type: String }, // Tamanho selecionado
+      selectedColor: { type: String }, // Cor selecionada
     },
   ],
   total: Number,
@@ -53,5 +57,12 @@ const orderSchema = new mongoose.Schema({
   stockReduced: { type: Boolean, default: false }, // Flag para evitar redução duplicada
   createdAt: { type: Date, default: Date.now },
 });
+
+// Índices para melhor performance em consultas frequentes
+orderSchema.index({ email: 1 }); // Busca por email (muito comum)
+orderSchema.index({ paymentSessionId: 1 }); // Busca por session ID
+orderSchema.index({ status: 1 }); // Busca por status
+orderSchema.index({ createdAt: -1 }); // Ordenação por data (mais recentes primeiro)
+orderSchema.index({ email: 1, createdAt: -1 }); // Índice composto para buscar pedidos do usuário ordenados
 
 export default mongoose.model("Order", orderSchema);

@@ -104,6 +104,116 @@ router.post("/", upload.array("images", 13), async (req, res) => {
   }
 });
 
+// UPDATE PRODUCT
+router.put("/:id", upload.array("images", 13), async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ error: "Produto não encontrado" });
+    }
+
+    const { name, description, price_cents, stock } = req.body;
+    const parseCsv = (val) => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      return String(val).split(',').map(s => s.trim()).filter(Boolean);
+    };
+    const sizes = parseCsv(req.body.sizes);
+    const colors = parseCsv(req.body.colors);
+
+    // Processar novas imagens se fornecidas
+    let images = product.images || [];
+    if (req.files && req.files.length > 0) {
+      const newImages = [];
+      for (const file of req.files) {
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: "lunabe_products",
+        });
+        newImages.push(result.secure_url);
+      }
+      // Se novas imagens foram enviadas, substituir ou adicionar
+      if (req.body.replaceImages === 'true') {
+        images = newImages;
+      } else {
+        images = [...images, ...newImages].slice(0, 13); // Limitar a 13 imagens
+      }
+    }
+
+    // Processar estoque por variante
+    const stockByVariant = new Map();
+    let totalStock = 0;
+    
+    if (req.body.stockByVariant) {
+      let stockData;
+      try {
+        stockData = typeof req.body.stockByVariant === 'string' 
+          ? JSON.parse(req.body.stockByVariant) 
+          : req.body.stockByVariant;
+      } catch (e) {
+        stockData = {};
+      }
+      
+      Object.entries(stockData).forEach(([variant, qty]) => {
+        const quantity = parseInt(qty) || 0;
+        if (quantity >= 0) { // Permitir 0 para limpar estoque
+          stockByVariant.set(variant, quantity);
+          totalStock += quantity;
+        }
+      });
+    } else if (sizes.length > 0 && colors.length > 0) {
+      // Se não foi enviado stockByVariant, manter o existente ou criar a partir de stock geral
+      const generalStock = Number(stock) || 0;
+      if (product.stockByVariant && product.stockByVariant instanceof Map) {
+        // Manter variantes existentes, criar novas se necessário
+        product.stockByVariant.forEach((qty, variant) => {
+          stockByVariant.set(variant, qty);
+          totalStock += qty;
+        });
+        // Adicionar novas combinações se necessário
+        sizes.forEach(size => {
+          colors.forEach(color => {
+            const variant = `${size}-${color}`;
+            if (!stockByVariant.has(variant)) {
+              stockByVariant.set(variant, generalStock);
+              totalStock += generalStock;
+            }
+          });
+        });
+      } else {
+        // Criar todas as combinações
+        sizes.forEach(size => {
+          colors.forEach(color => {
+            const variant = `${size}-${color}`;
+            stockByVariant.set(variant, generalStock);
+            totalStock += generalStock;
+          });
+        });
+      }
+    } else {
+      // Sem variantes, usar stock geral
+      totalStock = Number(stock) || product.stock || 0;
+    }
+
+    // Atualizar produto
+    product.name = name || product.name;
+    product.description = description !== undefined ? description : product.description;
+    product.price_cents = price_cents !== undefined ? Number(price_cents) : product.price_cents;
+    product.stock = totalStock;
+    if (stockByVariant.size > 0) {
+      product.stockByVariant = stockByVariant;
+    }
+    product.images = images;
+    product.sizes = sizes.length > 0 ? sizes : product.sizes;
+    product.colors = colors.length > 0 ? colors : product.colors;
+
+    await product.save();
+    res.json(product);
+  } catch (err) {
+    console.error('Erro ao atualizar produto:', err);
+    res.status(500).json({ error: "Erro ao atualizar produto", details: err.message });
+  }
+});
+
 // DELETE
 router.delete("/:id", async (req, res) => {
   try {

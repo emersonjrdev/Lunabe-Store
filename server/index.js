@@ -86,9 +86,10 @@ const authLimiter = rateLimit({
 });
 
 const checkoutLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hora
-  max: 10, // máximo 10 tentativas de checkout por IP a cada hora
-  message: { error: 'Muitas tentativas de checkout. Tente novamente em 1 hora.' },
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 30, // máximo 30 tentativas de checkout por IP a cada 15 minutos (mais realista para e-commerce)
+  message: { error: 'Muitas tentativas de checkout. Tente novamente em alguns minutos.' },
+  skipSuccessfulRequests: true, // Não contar requisições bem-sucedidas
 });
 
 // Rate limiter mais permissivo para rotas admin

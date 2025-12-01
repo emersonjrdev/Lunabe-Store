@@ -17,4 +17,9 @@ const ProductSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Índices para melhor performance em consultas frequentes
+ProductSchema.index({ _id: 1 }); // Índice primário (já existe por padrão, mas explícito)
+ProductSchema.index({ name: 'text' }); // Índice de texto para busca
+ProductSchema.index({ createdAt: -1 }); // Índice para ordenação por data
+
 export default mongoose.model('Product', ProductSchema);

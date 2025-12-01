@@ -11,6 +11,7 @@ const Admin = () => {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [showOrders, setShowOrders] = useState(false);
+  const [editingId, setEditingId] = useState(null); // ID do produto sendo editado
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -131,17 +132,73 @@ const Admin = () => {
       formData.append("stockByVariant", JSON.stringify(form.stockByVariant));
     }
 
-    // Adicionar múltiplas imagens (até 13)
-    form.images.forEach((image, index) => {
-      formData.append("images", image);
+    // Adicionar múltiplas imagens (até 13) - apenas novas imagens
+    form.images.forEach((image) => {
+      // Se for um File (nova imagem), adicionar ao FormData
+      if (image instanceof File) {
+        formData.append("images", image);
+      }
     });
 
-    await axios.post(API_URL, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+    try {
+      if (editingId) {
+        // Atualizar produto existente
+        await axios.put(`${API_URL}/${editingId}`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        alert("✅ Produto atualizado com sucesso!");
+      } else {
+        // Criar novo produto
+        await axios.post(API_URL, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        alert("✅ Produto adicionado!");
+      }
+
+      // Limpar formulário
+      setForm({
+        name: "",
+        description: "",
+        price: "",
+        stock: "",
+        images: [],
+        sizes: "",
+        colors: "",
+        stockByVariant: {},
+      });
+      setEditingId(null);
+
+      fetchProducts();
+    } catch (error) {
+      console.error('Erro ao salvar produto:', error);
+      alert(`❌ Erro ao salvar produto: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
+  const handleEdit = (product) => {
+    // Preencher formulário com dados do produto
+    setEditingId(product._id);
+    setForm({
+      name: product.name || "",
+      description: product.description || "",
+      price: product.price_cents ? (product.price_cents / 100).toFixed(2) : "",
+      stock: product.stock || "",
+      images: product.images || [], // URLs das imagens existentes
+      sizes: product.sizes ? product.sizes.join(', ') : "",
+      colors: product.colors ? product.colors.join(', ') : "",
+      stockByVariant: product.stockByVariant 
+        ? (product.stockByVariant instanceof Map 
+          ? Object.fromEntries(product.stockByVariant) 
+          : product.stockByVariant)
+        : {},
     });
+    
+    // Scroll para o formulário
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-    alert("✅ Produto adicionado!");
-
+  const handleCancelEdit = () => {
+    setEditingId(null);
     setForm({
       name: "",
       description: "",
@@ -152,8 +209,6 @@ const Admin = () => {
       colors: "",
       stockByVariant: {},
     });
-
-    fetchProducts();
   };
 
   const handleDelete = async (id) => {
@@ -272,13 +327,24 @@ const Admin = () => {
           </div>
         </div>
 
-        {/* Formulário de Cadastro de Produtos */}
+        {/* Formulário de Cadastro/Edição de Produtos */}
         {!showOrders && (
           <div className="bg-white dark:bg-gray-800 shadow-xl rounded-2xl p-6 md:p-8 mb-6 border border-gray-200 dark:border-gray-700">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center">
-              <i className="fas fa-plus-circle mr-3 text-gray-900 dark:text-white"></i>
-              Cadastrar Novo Produto
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center">
+                <i className={`fas ${editingId ? 'fa-edit' : 'fa-plus-circle'} mr-3 text-gray-900 dark:text-white`}></i>
+                {editingId ? 'Editar Produto' : 'Cadastrar Novo Produto'}
+              </h2>
+              {editingId && (
+                <button
+                  onClick={handleCancelEdit}
+                  className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all"
+                >
+                  <i className="fas fa-times mr-2"></i>
+                  Cancelar Edição
+                </button>
+              )}
+            </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
@@ -508,8 +574,8 @@ const Admin = () => {
                 type="submit"
                 className="w-full bg-gradient-to-r from-gray-900 to-gray-700 hover:from-gray-800 hover:to-gray-600 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
               >
-                <i className="fas fa-plus-circle mr-2"></i>
-                Adicionar Produto
+                <i className={`fas ${editingId ? 'fa-save' : 'fa-plus-circle'} mr-2`}></i>
+                {editingId ? 'Salvar Alterações' : 'Adicionar Produto'}
               </button>
             </form>
           </div>
@@ -575,13 +641,39 @@ const Admin = () => {
                           </p>
                         </div>
                       )}
-                      <button
-                        onClick={() => handleDelete(p._id)}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300 transform hover:scale-105"
-                      >
-                        <i className="fas fa-trash mr-2"></i>
-                        Excluir Produto
-                      </button>
+                      {/* Mostrar estoque por variante se existir */}
+                      {p.stockByVariant && (p.stockByVariant instanceof Map ? p.stockByVariant.size > 0 : Object.keys(p.stockByVariant || {}).length > 0) && (
+                        <div className="mb-3 p-2 bg-gray-100 dark:bg-gray-600 rounded text-xs">
+                          <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Estoque por Variante:</p>
+                          <div className="space-y-1">
+                            {(p.stockByVariant instanceof Map 
+                              ? Array.from(p.stockByVariant.entries())
+                              : Object.entries(p.stockByVariant || {})
+                            ).map(([variant, qty]) => (
+                              <div key={variant} className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">{variant}:</span>
+                                <span className="font-semibold text-gray-800 dark:text-white">{qty}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(p)}
+                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300 transform hover:scale-105"
+                        >
+                          <i className="fas fa-edit mr-2"></i>
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleDelete(p._id)}
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300 transform hover:scale-105"
+                        >
+                          <i className="fas fa-trash mr-2"></i>
+                          Excluir
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
