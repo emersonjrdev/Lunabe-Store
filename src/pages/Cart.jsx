@@ -12,7 +12,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   const [address, setAddress] = useState({ name: '', street: '', city: '', state: '', zip: '', country: '', phone: '' })
   const [cpf, setCpf] = useState('')
   const [deliveryType, setDeliveryType] = useState('delivery') // 'delivery' ou 'pickup'
-  const [paymentMethod, setPaymentMethod] = useState('abacatepay') // 'abacatepay' ou 'itau'
+  const [paymentMethod, setPaymentMethod] = useState('rede') // 'rede' (cartão) ou 'itau-pix' (PIX)
   const [pickupSchedule, setPickupSchedule] = useState('') // Horário agendado para retirada
   const [shipping, setShipping] = useState(0)
   const [calculatingShipping, setCalculatingShipping] = useState(false)
@@ -289,17 +289,28 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
         return
       }
 
-      if (!orderData.checkoutUrl) {
-        console.error('❌ checkoutUrl não encontrado na resposta:', orderData);
-        addToast('Erro: URL de checkout não retornada. Verifique os logs.', 'error')
-        console.error('Resposta do servidor:', orderData)
-        setIsProcessing(false)
-        return
+      // Processar resposta baseado no método de pagamento
+      if (paymentMethod === 'rede' && orderData.checkoutUrl) {
+        // Redirecionar para Red-e (cartão)
+        console.log('✅ Redirecionando para Red-e:', orderData.checkoutUrl);
+        window.location.href = orderData.checkoutUrl;
+      } else if (paymentMethod === 'itau-pix' && orderData.pixQrCode) {
+        // Mostrar QR Code PIX
+        console.log('✅ QR Code PIX gerado');
+        // Redirecionar para página de pagamento PIX
+        navigate(`/pix-payment/${orderData.orderId}`, { 
+          state: { 
+            pixQrCode: orderData.pixQrCode,
+            pixChave: orderData.pixChave,
+            pixValor: orderData.pixValor,
+            pixDescricao: orderData.pixDescricao,
+          } 
+        });
+      } else {
+        console.error('❌ Dados de pagamento incompletos:', orderData);
+        addToast('Erro: Dados de pagamento não retornados. Verifique os logs.', 'error');
+        setIsProcessing(false);
       }
-
-      console.log('✅ Redirecionando para:', orderData.checkoutUrl);
-      // Redirecionar para o checkout do provedor (AbacatePay)
-      window.location.href = orderData.checkoutUrl
       
     } catch (error) {
       console.error('❌ Erro no checkout:', error);
@@ -549,32 +560,32 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                   <label className="text-sm font-bold text-gray-800 dark:text-white">Método de Pagamento</label>
                 </div>
                 <div className="space-y-3">
-                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'abacatepay' ? '#ec4899' : '#e5e7eb' }}>
+                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'rede' ? '#ec4899' : '#e5e7eb' }}>
                     <input
                       type="radio"
                       name="paymentMethod"
-                      value="abacatepay"
-                      checked={paymentMethod === 'abacatepay'}
+                      value="rede"
+                      checked={paymentMethod === 'rede'}
                       onChange={(e) => setPaymentMethod(e.target.value)}
                       className="mr-3 text-lunabe-pink"
                     />
                     <div className="flex-grow">
-                      <span className="font-semibold text-gray-800 dark:text-white">AbacatePay</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">PIX, Cartão e Boleto</p>
+                      <span className="font-semibold text-gray-800 dark:text-white">Cartão de Crédito/Débito</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Red-e (meu.userede.com.br)</p>
                     </div>
                   </label>
-                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'itau' ? '#ec4899' : '#e5e7eb' }}>
+                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'itau-pix' ? '#ec4899' : '#e5e7eb' }}>
                     <input
                       type="radio"
                       name="paymentMethod"
-                      value="itau"
-                      checked={paymentMethod === 'itau'}
+                      value="itau-pix"
+                      checked={paymentMethod === 'itau-pix'}
                       onChange={(e) => setPaymentMethod(e.target.value)}
                       className="mr-3 text-lunabe-pink"
                     />
                     <div className="flex-grow">
-                      <span className="font-semibold text-gray-800 dark:text-white">Itaú</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Link de Pagamento Itaú</p>
+                      <span className="font-semibold text-gray-800 dark:text-white">PIX</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Itaú - Pagamento instantâneo</p>
                     </div>
                   </label>
                 </div>

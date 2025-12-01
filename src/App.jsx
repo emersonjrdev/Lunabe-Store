@@ -11,7 +11,7 @@ import Success from "./pages/Success";
 import OrderDetail from './pages/OrderDetail'
 import ProductDetail from "./pages/ProductDetail";
 import GoogleRedirect from "./pages/GoogleRedirect";
-import AbacatePayCheckout from "./pages/AbacatePayCheckout";
+import PixPayment from "./pages/PixPayment";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import TermosUso from "./pages/TermosUso";
 import TrocasDevolucoes from "./pages/TrocasDevolucoes";
@@ -321,7 +321,7 @@ function AppContent() {
             <Route path="/minhas-compras" element={<MinhasCompras user={user} />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/success" element={<Success />} />
-            <Route path="/abacatepay/checkout/:sessionId" element={<AbacatePayCheckout />} />
+            <Route path="/pix-payment/:orderId" element={<PixPayment />} />
             <Route path="/google-redirect" element={<GoogleRedirect />} />
             <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
             <Route path="/termos-uso" element={<TermosUso />} />

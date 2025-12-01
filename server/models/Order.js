@@ -6,11 +6,19 @@ const orderSchema = new mongoose.Schema({
   paymentSessionId: { type: String, required: true },
   // kept for backwards compatibility in case older records still contain stripeSessionId
   stripeSessionId: { type: String },
-  // AbacatePay specific fields
+  // Método de pagamento
+  paymentMethod: { type: String }, // 'rede', 'itau-pix'
+  // PIX Itaú fields
+  pixQrCode: { type: String }, // QR Code PIX (código copia-e-cola)
+  pixChave: { type: String }, // Chave PIX
+  pixValor: { type: Number }, // Valor do PIX
+  // Red-e fields (cartão)
+  redeOrderId: { type: String }, // ID do pedido no Red-e
+  // Campos legados (mantidos para compatibilidade)
   abacatepayPaymentId: { type: String },
-  abacatepayQrCode: { type: String }, // QR Code PIX (texto)
-  abacatepayQrCodeBase64: { type: String }, // QR Code PIX (imagem base64)
-  abacatepayMetadata: { type: mongoose.Schema.Types.Mixed }, // metadados adicionais
+  abacatepayQrCode: { type: String },
+  abacatepayQrCodeBase64: { type: String },
+  abacatepayMetadata: { type: mongoose.Schema.Types.Mixed },
   items: [
     {
       productId: String, // ID do produto no banco

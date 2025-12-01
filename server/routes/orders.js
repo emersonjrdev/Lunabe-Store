@@ -7,7 +7,8 @@ import User from '../models/User.js';
 import Order from "../models/Order.js"; // modelo do pedido
 import Product from "../models/Product.js"; // modelo do produto
 import dotenv from "dotenv";
-import abacatepayClient from '../utils/abacatepay.js';
+// Utilitários de pagamento
+import pixUtils from '../utils/pix.js';
 import { sendOrderEmail, sendPaymentConfirmationEmail, sendStatusUpdateEmail } from '../utils/mailer.js';
 
 dotenv.config();
@@ -229,98 +230,69 @@ router.post("/create-checkout-session", async (req, res) => {
       console.warn('Erro ao buscar/salvar dados do usuário:', err.message);
     }
 
-    // Se for pagamento via Itaú, retornar apenas o ID do pedido
-    if (paymentMethod === 'itau') {
-      console.log('🔵 Pagamento via Itaú selecionado');
-      return res.json({
-        orderId: order._id.toString(),
-        paymentMethod: 'itau',
-        message: 'Pedido criado. Redirecione para o link de pagamento do Itaú.'
-      });
-    }
-
-    // Criar sessão de checkout no AbacatePay
-    console.log('🔵 Criando sessão de checkout no AbacatePay...');
-    console.log('🔵 CPF recebido:', cpf);
-    console.log('🔵 CPF limpo:', cpf ? cpf.replace(/\D/g, '') : null);
-    try {
-      const cleanCpf = cpf ? cpf.replace(/\D/g, '') : null;
-      const checkoutData = await abacatepayClient.createCheckoutSession({
-        amount: totalInCents,
-        currency: 'BRL',
-        customerEmail,
-        customerName: userData?.name || customerName || 'Cliente',
-        customerPhone: userData?.phone || customerPhone,
-        items: validatedItems.map(item => ({
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-        metadata: {
-          orderId: order._id.toString(),
-          customerEmail,
-          customerTaxId: cleanCpf && cleanCpf.length === 11 ? cleanCpf : null, // CPF do cliente (apenas números, 11 dígitos)
-          deliveryType: deliveryType || 'delivery',
-        },
-        // URLs devem ser válidas sem placeholders
-        // URLs devem ser válidas sem placeholders - AbacatePay redireciona com parâmetros na URL
-        successUrl: `${cleanFront}/success`,
-        cancelUrl: `${cleanFront}/carrinho`,
-        webhookUrl: `${cleanBackend}/api/webhooks/abacatepay`,
-      });
-      console.log('✅ Sessão de checkout criada:', checkoutData.sessionId);
-
-      // Atualizar pedido com dados da sessão do AbacatePay
-      order.paymentSessionId = checkoutData.sessionId;
-      order.abacatepayPaymentId = checkoutData.paymentId;
-      order.abacatepayQrCode = checkoutData.qrCode;
-      order.abacatepayQrCodeBase64 = checkoutData.qrCodeBase64;
+    // Processar pagamento baseado no método selecionado
+    console.log('🔵 Método de pagamento selecionado:', paymentMethod);
+    
+    if (paymentMethod === 'rede') {
+      // Pagamento via Red-e (Cartão de Crédito/Débito)
+      console.log('🔵 Processando pagamento via Red-e...');
+      
+      // Construir URL do Red-e com parâmetros do pedido
+      const redeUrl = new URL('https://meu.userede.com.br');
+      redeUrl.searchParams.set('orderId', order._id.toString());
+      redeUrl.searchParams.set('amount', (totalInCents / 100).toFixed(2));
+      redeUrl.searchParams.set('email', customerEmail);
+      redeUrl.searchParams.set('name', userData?.name || customerName || 'Cliente');
+      redeUrl.searchParams.set('phone', userData?.phone || customerPhone || '');
+      
+      // Atualizar pedido
+      order.paymentMethod = 'rede';
+      order.paymentSessionId = order._id.toString();
       await order.save();
-
-      // Enviar email de confirmação de pedido criado (em background, não bloquear resposta)
+      
+      // Enviar email de confirmação
       sendOrderEmail(customerEmail, order).catch(err => {
         console.error('Erro ao enviar email de confirmação (não crítico):', err);
       });
-
-      // Retornar URL de checkout do AbacatePay
-      res.json({
-        checkoutUrl: checkoutData.checkoutUrl,
-        sessionId: checkoutData.sessionId,
-        paymentId: checkoutData.paymentId,
-        qrCode: checkoutData.qrCode, // para exibir QR Code PIX se necessário
-        qrCodeBase64: checkoutData.qrCodeBase64,
+      
+      return res.json({
+        checkoutUrl: redeUrl.toString(),
+        orderId: order._id.toString(),
+        paymentMethod: 'rede',
       });
-    } catch (abacatepayError) {
-      console.error('❌ Erro ao criar sessão no AbacatePay:', abacatepayError);
-      console.error('❌ Stack trace:', abacatepayError.stack);
-      console.error('❌ Detalhes do erro:', {
-        message: abacatepayError.message,
-        response: abacatepayError.response?.data,
-        status: abacatepayError.response?.status,
+    } else if (paymentMethod === 'itau-pix') {
+      // Pagamento via PIX Itaú
+      console.log('🔵 Processando pagamento via PIX Itaú...');
+      
+      // Gerar QR Code PIX
+      const pixData = pixUtils.generatePixForOrder(order, totalInCents);
+      
+      // Atualizar pedido com dados do PIX
+      order.paymentMethod = 'itau-pix';
+      order.paymentSessionId = order._id.toString();
+      order.pixQrCode = pixData.qrCode;
+      order.pixChave = pixData.chave;
+      order.pixValor = pixData.valor;
+      await order.save();
+      
+      // Enviar email de confirmação
+      sendOrderEmail(customerEmail, order).catch(err => {
+        console.error('Erro ao enviar email de confirmação (não crítico):', err);
       });
       
-      // Se falhar, manter fallback para página simulada (modo desenvolvimento)
-      if (process.env.NODE_ENV !== 'production' && !process.env.ABACATEPAY_API_KEY) {
-        console.warn('AbacatePay não configurado - usando modo de desenvolvimento');
-        order.paymentSessionId = order._id.toString();
-        await order.save();
-        
-        res.json({
-          checkoutUrl: `${front}/abacatepay/checkout/${order.paymentSessionId}`,
-          sessionId: order.paymentSessionId,
-        });
-      } else {
-        // Em produção ou com API key configurada, retornar erro detalhado
-        const errorMessage = abacatepayError.response?.data?.message || 
-                            abacatepayError.response?.data?.error || 
-                            abacatepayError.message || 
-                            'Erro ao criar sessão de pagamento';
-        console.error('❌ Retornando erro 500:', errorMessage);
-        res.status(500).json({
-          error: 'Erro ao criar sessão de pagamento',
-          details: errorMessage,
-        });
-      }
+      return res.json({
+        orderId: order._id.toString(),
+        paymentMethod: 'itau-pix',
+        pixQrCode: pixData.qrCode,
+        pixChave: pixData.chave,
+        pixValor: pixData.valor,
+        pixDescricao: pixData.descricao,
+      });
+    } else {
+      return res.status(400).json({
+        error: 'Método de pagamento inválido',
+        details: `Método "${paymentMethod}" não é suportado. Use "rede" ou "itau-pix".`,
+      });
     }
   } catch (err) {
     console.error("❌ Erro geral ao criar sessão de checkout:", err);
