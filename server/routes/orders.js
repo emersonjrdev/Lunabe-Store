@@ -263,38 +263,54 @@ router.post("/create-checkout-session", async (req, res) => {
     } else if (paymentMethod === 'itau-pix') {
       // Pagamento via PIX Itaú
       console.log('🔵 Processando pagamento via PIX Itaú...');
+      console.log('🔵 Total em centavos:', totalInCents);
+      console.log('🔵 Order ID:', order._id.toString());
       
-      // Gerar QR Code PIX
-      const pixData = pixUtils.generatePixForOrder(order, totalInCents);
-      
-      // Atualizar pedido com dados do PIX
-      order.paymentMethod = 'itau-pix';
-      order.paymentSessionId = order._id.toString();
-      order.pixQrCode = pixData.qrCode;
-      order.pixChave = pixData.chave;
-      order.pixValor = pixData.valor;
-      await order.save();
-      
-      // Enviar email de confirmação
-      sendOrderEmail(customerEmail, order).catch(err => {
-        console.error('Erro ao enviar email de confirmação (não crítico):', err);
-      });
-      
-      console.log('✅ Dados PIX gerados:', {
-        orderId: order._id.toString(),
-        pixQrCodeLength: pixData.qrCode?.length,
-        pixChave: pixData.chave,
-        pixValor: pixData.valor,
-      });
-      
-      return res.json({
-        orderId: order._id.toString(),
-        paymentMethod: 'itau-pix',
-        pixQrCode: pixData.qrCode,
-        pixChave: pixData.chave,
-        pixValor: pixData.valor,
-        pixDescricao: pixData.descricao,
-      });
+      try {
+        // Gerar QR Code PIX
+        console.log('🔵 Chamando generatePixForOrder...');
+        const pixData = pixUtils.generatePixForOrder(order, totalInCents);
+        console.log('✅ PIX gerado com sucesso:', {
+          hasQrCode: !!pixData.qrCode,
+          qrCodeLength: pixData.qrCode?.length,
+          chave: pixData.chave,
+          valor: pixData.valor,
+        });
+        
+        if (!pixData.qrCode) {
+          throw new Error('QR Code PIX não foi gerado');
+        }
+        
+        // Atualizar pedido com dados do PIX
+        order.paymentMethod = 'itau-pix';
+        order.paymentSessionId = order._id.toString();
+        order.pixQrCode = pixData.qrCode;
+        order.pixChave = pixData.chave;
+        order.pixValor = pixData.valor;
+        await order.save();
+        console.log('✅ Pedido atualizado com dados PIX');
+        
+        // Enviar email de confirmação
+        sendOrderEmail(customerEmail, order).catch(err => {
+          console.error('Erro ao enviar email de confirmação (não crítico):', err);
+        });
+        
+        return res.json({
+          orderId: order._id.toString(),
+          paymentMethod: 'itau-pix',
+          pixQrCode: pixData.qrCode,
+          pixChave: pixData.chave,
+          pixValor: pixData.valor,
+          pixDescricao: pixData.descricao,
+        });
+      } catch (pixError) {
+        console.error('❌ Erro ao gerar PIX:', pixError);
+        console.error('❌ Stack trace:', pixError.stack);
+        return res.status(500).json({
+          error: 'Erro ao gerar código PIX',
+          details: pixError.message,
+        });
+      }
     } else {
       return res.status(400).json({
         error: 'Método de pagamento inválido',
