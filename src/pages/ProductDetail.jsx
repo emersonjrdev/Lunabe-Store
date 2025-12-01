@@ -14,6 +14,45 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
 
   const [product, setProduct] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
+  
+  // Estados para touch/swipe
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  
+  // Distância mínima para considerar um swipe
+  const minSwipeDistance = 50;
+  
+  // Funções para touch/swipe
+  const onTouchStart = (e) => {
+    if (!product?.images || product.images.length <= 1) return;
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    if (!product?.images || product.images.length <= 1) return;
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!product?.images || product.images.length <= 1 || !touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      // Swipe para esquerda = próxima imagem
+      setSelectedImage((prev) => (prev < product.images.length - 1 ? prev + 1 : 0));
+    } else if (isRightSwipe) {
+      // Swipe para direita = imagem anterior
+      setSelectedImage((prev) => (prev > 0 ? prev - 1 : product.images.length - 1));
+    }
+    
+    // Reset
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -194,11 +233,17 @@ export default function ProductDetail({ onAddToCart, user, onLoginClick }) {
         <div className="space-y-4">
           {/* Imagem Principal - Aspect ratio vertical para corpo todo */}
           <div className="relative bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 group">
-            <div className="aspect-[3/4] w-full overflow-hidden">
+            <div 
+              className="aspect-[3/4] w-full overflow-hidden touch-none"
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+            >
               <LazyImage
                 src={getFullImageUrl(product?.images?.[selectedImage] || product?.image) || '/placeholder.jpg'}
                 alt={product?.name || 'Produto'}
-                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
+                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 select-none"
+                draggable={false}
               />
             </div>
             {/* Badges na imagem principal */}

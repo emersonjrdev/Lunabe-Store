@@ -8,6 +8,13 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   const [selectedColor, setSelectedColor] = useState(product.colors?.[0] || 'Padrão')
   const [isAdding, setIsAdding] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  
+  // Estados para touch/swipe
+  const [touchStart, setTouchStart] = useState(null)
+  const [touchEnd, setTouchEnd] = useState(null)
+  
+  // Distância mínima para considerar um swipe
+  const minSwipeDistance = 50
 
   if (!product) return null
 
@@ -78,6 +85,38 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   // Garantir que sempre mostre pelo menos uma imagem
   const displayImage = currentImage || '/placeholder.jpg';
 
+  // Funções para touch/swipe
+  const onTouchStart = (e) => {
+    if (!hasMultipleImages) return;
+    setTouchEnd(null); // Reset touchEnd
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    if (!hasMultipleImages) return;
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!hasMultipleImages || !touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      // Swipe para esquerda = próxima imagem
+      setCurrentImageIndex((prev) => (prev < productImages.length - 1 ? prev + 1 : 0));
+    } else if (isRightSwipe) {
+      // Swipe para direita = imagem anterior
+      setCurrentImageIndex((prev) => (prev > 0 ? prev - 1 : productImages.length - 1));
+    }
+    
+    // Reset
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden card-hover border border-gray-200 dark:border-gray-700 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:scale-[1.02] group">
       <Link 
@@ -86,11 +125,17 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
         onClick={() => setCurrentImageIndex(0)}
       >
         {/* Container da imagem com aspect ratio vertical (corpo todo) */}
-        <div className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-gray-900">
+        <div 
+          className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-gray-900 touch-none"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
           <LazyImage 
             src={getFullImageUrl(displayImage)}
             alt={product.name}
-            className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-700 ease-out"
+            className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-700 ease-out select-none"
+            draggable={false}
           />
           {/* Overlay no hover */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
