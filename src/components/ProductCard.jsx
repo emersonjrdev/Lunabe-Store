@@ -73,7 +73,10 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
 
   const productImages = product.images || [];
   const hasMultipleImages = productImages.length > 1;
-  const currentImage = productImages[currentImageIndex] || productImages[0];
+  const currentImage = productImages[currentImageIndex] || productImages[0] || product.image;
+  
+  // Garantir que sempre mostre pelo menos uma imagem
+  const displayImage = currentImage || '/placeholder.jpg';
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden card-hover border border-gray-200 dark:border-gray-700 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:scale-[1.02] group">
@@ -85,7 +88,7 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
         {/* Container da imagem com aspect ratio vertical (corpo todo) */}
         <div className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-gray-900">
           <LazyImage 
-            src={getFullImageUrl(currentImage) || '/placeholder.jpg'}
+            src={getFullImageUrl(displayImage)}
             alt={product.name}
             className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-700 ease-out"
           />

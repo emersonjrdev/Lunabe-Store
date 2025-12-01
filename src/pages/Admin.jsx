@@ -426,18 +426,23 @@ const Admin = () => {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   <i className="fas fa-images mr-2"></i>
-                  Imagens do Produto *
+                  Imagens do Produto * (até 13 imagens)
                 </label>
                 <div className="relative">
                   <input
                     type="file"
                     accept="image/*"
                     multiple
+                    id="product-images-input"
                     onChange={(e) => {
-                      const files = Array.from(e.target.files || []);
-                      setForm({ ...form, images: files });
+                      const newFiles = Array.from(e.target.files || []);
+                      // Combinar com imagens existentes (até 13 no total)
+                      const combinedImages = [...form.images, ...newFiles].slice(0, 13);
+                      setForm({ ...form, images: combinedImages });
+                      // Resetar o input para permitir selecionar mais arquivos
+                      e.target.value = '';
                     }}
-                    required
+                    required={form.images.length === 0}
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-900 file:text-white hover:file:bg-gray-800"
                   />
                 </div>
@@ -446,6 +451,11 @@ const Admin = () => {
                     <p className="text-sm text-green-600 dark:text-green-400 font-semibold">
                       <i className="fas fa-check-circle mr-1"></i>
                       {form.images.length} {form.images.length === 1 ? 'imagem selecionada' : 'imagens selecionadas'}
+                      {form.images.length >= 13 && (
+                        <span className="ml-2 text-orange-600 dark:text-orange-400">
+                          (máximo atingido)
+                        </span>
+                      )}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {form.images.map((image, index) => (
@@ -455,6 +465,9 @@ const Admin = () => {
                             alt={`Preview ${index + 1}`}
                             className="w-20 h-20 object-cover rounded-lg border-2 border-gray-300 dark:border-gray-600"
                           />
+                          <div className="absolute top-0 left-0 bg-black/60 text-white text-xs px-1 rounded">
+                            {index + 1}
+                          </div>
                           <button
                             type="button"
                             onClick={() => {
@@ -468,6 +481,18 @@ const Admin = () => {
                         </div>
                       ))}
                     </div>
+                    {form.images.length < 13 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          document.getElementById('product-images-input')?.click();
+                        }}
+                        className="mt-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline"
+                      >
+                        <i className="fas fa-plus mr-1"></i>
+                        Adicionar mais imagens ({13 - form.images.length} restantes)
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
