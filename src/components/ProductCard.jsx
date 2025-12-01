@@ -111,9 +111,14 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
               <button
                 onClick={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   setCurrentImageIndex((prev) => (prev > 0 ? prev - 1 : productImages.length - 1));
                 }}
-                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-white dark:hover:bg-gray-800 z-10"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-white dark:hover:bg-gray-800 z-20 cursor-pointer"
                 aria-label="Imagem anterior"
               >
                 <i className="fas fa-chevron-left text-gray-800 dark:text-white text-sm"></i>
@@ -121,24 +126,34 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
               <button
                 onClick={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   setCurrentImageIndex((prev) => (prev < productImages.length - 1 ? prev + 1 : 0));
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-white dark:hover:bg-gray-800 z-10"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-white dark:hover:bg-gray-800 z-20 cursor-pointer"
                 aria-label="Próxima imagem"
               >
                 <i className="fas fa-chevron-right text-gray-800 dark:text-white text-sm"></i>
               </button>
               
               {/* Indicadores de imagens */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
                 {productImages.map((_, index) => (
                   <button
                     key={index}
                     onClick={(e) => {
                       e.preventDefault();
+                      e.stopPropagation();
                       setCurrentImageIndex(index);
                     }}
-                    className={`w-2 h-2 rounded-full transition-all ${
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
                       index === currentImageIndex
                         ? 'bg-white w-6'
                         : 'bg-white/50 hover:bg-white/75'
