@@ -55,12 +55,18 @@ class PaymentService {
       const data = await response.json();
       console.log('🔵 Dados recebidos:', data);
 
-      if (!data.checkoutUrl) {
-        console.error('❌ Resposta do servidor sem checkoutUrl:', data);
-        throw new Error("checkoutUrl não retornado pelo servidor");
+      // Verificar se tem checkoutUrl (para Red-e) ou pixQrCode (para PIX)
+      if (!data.checkoutUrl && !data.pixQrCode) {
+        console.error('❌ Resposta do servidor sem checkoutUrl ou pixQrCode:', data);
+        throw new Error("Dados de pagamento não retornados pelo servidor");
       }
 
-      console.log('✅ checkoutUrl recebido:', data.checkoutUrl);
+      if (data.checkoutUrl) {
+        console.log('✅ checkoutUrl recebido:', data.checkoutUrl);
+      } else if (data.pixQrCode) {
+        console.log('✅ pixQrCode recebido, tamanho:', data.pixQrCode?.length);
+      }
+      
       return data; // caller should redirect
     } catch (error) {
       console.error("❌ Erro no PaymentService.createOrder:", error);
