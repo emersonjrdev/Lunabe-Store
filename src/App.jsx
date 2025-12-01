@@ -52,9 +52,11 @@ function AppContent() {
             // token invalid or expired
             localStorage.removeItem('lunabe-token');
             localStorage.removeItem('lunabe-user');
-            localStorage.removeItem('lunabe-cart'); // Limpar carrinho também
+            // NÃO limpar carrinho - manter itens mesmo sem login válido
+            // localStorage.removeItem('lunabe-cart');
             setUser(null);
-            setCart([]); // Limpar carrinho do estado
+            // NÃO limpar carrinho do estado - manter itens
+            // setCart([]);
           }
         } else {
           // fallback to any saved client-side user data
