@@ -10,6 +10,7 @@ import dotenv from "dotenv";
 // Utilitários de pagamento
 import pixUtils from '../utils/pix.js';
 import { generatePixForOrder as generatePixViaApi } from '../utils/itau-pix.js';
+import { createRedeTransaction, createRedePixCharge } from '../utils/rede.js';
 import { sendOrderEmail, sendPaymentConfirmationEmail, sendStatusUpdateEmail } from '../utils/mailer.js';
 import { validateItemsWithStock } from '../utils/orderOptimizer.js';
 import { reduceStock } from '../utils/stockManager.js';
@@ -164,82 +165,70 @@ router.post("/create-checkout-session", async (req, res) => {
     
     if (paymentMethod === 'rede') {
       // Pagamento via Red-e (Cartão de Crédito/Débito)
+      // NOTA: Para usar a API da Red-e com 3DS e Data Only, os dados do cartão
+      // devem ser coletados no frontend e enviados em uma requisição separada
+      // Esta rota apenas cria o pedido. O pagamento será processado em /process-rede-payment
       console.log('🔵 Processando pagamento via Red-e...');
-      
-      // Construir URL do Red-e com parâmetros do pedido
-      const redeUrl = new URL('https://meu.userede.com.br');
-      redeUrl.searchParams.set('orderId', order._id.toString());
-      redeUrl.searchParams.set('amount', (totalInCents / 100).toFixed(2));
-      redeUrl.searchParams.set('email', customerEmail);
-      redeUrl.searchParams.set('name', userData?.name || customerName || 'Cliente');
-      redeUrl.searchParams.set('phone', userData?.phone || customerPhone || '');
       
       // Atualizar pedido
       order.paymentMethod = 'rede';
       order.paymentSessionId = order._id.toString();
       await order.save();
       
-      // Reduzir estoque quando o pedido é criado
-      try {
-        await reduceStock(order.items);
-        order.stockReduced = true;
-        await order.save();
-        console.log('✅ Estoque reduzido automaticamente ao criar pedido');
-      } catch (stockError) {
-        console.error('❌ Erro ao reduzir estoque (não crítico):', stockError);
-        // Não falhar o pedido se houver erro ao reduzir estoque
-      }
+      // NÃO reduzir estoque ainda - só reduzir após confirmação do pagamento
+      // O estoque será reduzido quando o pagamento for confirmado via webhook ou callback
       
-      // Enviar email de confirmação
+      // Enviar email de confirmação do pedido (sem pagamento ainda)
       sendOrderEmail(customerEmail, order).catch(err => {
         console.error('Erro ao enviar email de confirmação (não crítico):', err);
       });
       
       return res.json({
-        checkoutUrl: redeUrl.toString(),
         orderId: order._id.toString(),
         paymentMethod: 'rede',
+        requiresCardData: true, // Indica que precisa coletar dados do cartão
+        amount: totalInCents,
+        message: 'Pedido criado. Envie os dados do cartão para processar o pagamento.',
       });
-    } else if (paymentMethod === 'itau-pix') {
-      // Pagamento via PIX Itaú (API)
-      console.log('🔵 Processando pagamento via PIX Itaú (API)...');
+    } else if (paymentMethod === 'itau-pix' || paymentMethod === 'rede-pix') {
+      // Pagamento via PIX Red-e (API)
+      console.log('🔵 Processando pagamento via PIX Red-e (API)...');
       console.log('🔵 Total em centavos:', totalInCents);
       console.log('🔵 Order ID:', order._id.toString());
       
       try {
-        // Verificar se as credenciais da API estão configuradas (OBRIGATÓRIO)
-        const hasApiCredentials = process.env.ITAU_CLIENT_ID && process.env.ITAU_CLIENT_SECRET;
+        // Verificar se as credenciais da API Red-e estão configuradas (OBRIGATÓRIO)
+        const hasApiCredentials = process.env.REDE_PV && process.env.REDE_TOKEN;
         
         if (!hasApiCredentials) {
-          console.error('❌ Credenciais da API Itaú não configuradas!');
-          console.error('❌ ITAU_CLIENT_ID:', process.env.ITAU_CLIENT_ID ? '✅ Configurado' : '❌ Não configurado');
-          console.error('❌ ITAU_CLIENT_SECRET:', process.env.ITAU_CLIENT_SECRET ? '✅ Configurado' : '❌ Não configurado');
+          console.error('❌ Credenciais da API Red-e não configuradas!');
+          console.error('❌ REDE_PV:', process.env.REDE_PV ? '✅ Configurado' : '❌ Não configurado');
+          console.error('❌ REDE_TOKEN:', process.env.REDE_TOKEN ? '✅ Configurado' : '❌ Não configurado');
           return res.status(500).json({
             error: 'Configuração de pagamento PIX não disponível',
-            details: 'As credenciais da API Itaú não estão configuradas. Códigos PIX estáticos não são mais aceitos pelos bancos. Por favor, configure ITAU_CLIENT_ID e ITAU_CLIENT_SECRET no servidor.',
+            details: 'As credenciais da API Red-e não estão configuradas. Por favor, configure REDE_PV e REDE_TOKEN no servidor.',
             requiresApi: true,
           });
         }
         
-        // Usar API do Itaú para gerar QR Code dinâmico (OBRIGATÓRIO)
-        console.log('🔵 Gerando PIX dinâmico via API Itaú...');
+        // Usar API da Red-e para gerar QR Code PIX
+        console.log('🔵 Gerando PIX dinâmico via API Red-e...');
         let pixData;
         
         try {
-          console.log('🔵 Iniciando geração de PIX via API Itaú...');
+          console.log('🔵 Iniciando geração de PIX via API Red-e...');
           console.log('🔵 Order ID:', order._id.toString());
           console.log('🔵 Total (centavos):', totalInCents);
           console.log('🔵 Total (reais):', (totalInCents / 100).toFixed(2));
           
-          pixData = await generatePixViaApi(order, totalInCents);
+          pixData = await createRedePixCharge(order, totalInCents);
           
-          console.log('✅ PIX gerado via API com sucesso:', {
+          console.log('✅ PIX gerado via API Red-e com sucesso:', {
             hasQrCode: !!pixData.qrCode,
             qrCodeLength: pixData.qrCode?.length,
-            chave: pixData.chave,
+            chargeId: pixData.chargeId,
             valor: pixData.valor,
-            txId: pixData.txId,
-            location: pixData.location,
+            status: pixData.status,
           });
         } catch (apiError) {
           console.error('❌ ========== ERRO AO GERAR PIX ==========');
@@ -255,32 +244,29 @@ router.post("/create-checkout-session", async (req, res) => {
           const errorMessage = apiError.message || 'Erro desconhecido ao gerar PIX';
           
           return res.status(500).json({
-            error: 'Erro ao gerar código PIX via API Itaú',
+            error: 'Erro ao gerar código PIX via API Red-e',
             details: errorMessage,
             status: apiError.response?.status,
             apiError: errorDetails,
-            suggestion: 'Verifique as credenciais do Itaú no Render, se a chave PIX está cadastrada, e se o ambiente está correto (production/sandbox).',
+            suggestion: 'Verifique as credenciais da Red-e no Render (REDE_PV e REDE_TOKEN) e se o ambiente está correto (production/sandbox).',
           });
         }
         
         if (!pixData || !pixData.qrCode) {
-          throw new Error('QR Code PIX não foi retornado pela API Itaú');
+          throw new Error('QR Code PIX não foi retornado pela API Red-e');
         }
         
         // Atualizar pedido com dados do PIX
-        order.paymentMethod = 'itau-pix';
-        order.paymentSessionId = pixData.txId || order._id.toString();
+        order.paymentMethod = 'rede-pix';
+        order.paymentSessionId = pixData.chargeId || order._id.toString();
         order.pixQrCode = pixData.qrCode;
-        order.pixChave = pixData.chave;
+        order.pixChave = '63824145000127'; // Chave PIX da Red-e
         order.pixValor = pixData.valor;
-        if (pixData.txId) {
-          order.pixTxId = pixData.txId; // Salvar txId para consulta posterior
-        }
-        if (pixData.location) {
-          order.pixLocation = pixData.location; // Salvar location para consulta
+        if (pixData.chargeId) {
+          order.pixTxId = pixData.chargeId; // Salvar chargeId para consulta posterior
         }
         await order.save();
-        console.log('✅ Pedido atualizado com dados PIX');
+        console.log('✅ Pedido atualizado com dados PIX Red-e');
         
         // Reduzir estoque quando o pedido é criado
         try {
@@ -300,13 +286,13 @@ router.post("/create-checkout-session", async (req, res) => {
         
         return res.json({
           orderId: order._id.toString(),
-          paymentMethod: 'itau-pix',
+          paymentMethod: 'rede-pix',
           pixQrCode: pixData.qrCode,
           pixQrCodeBase64: pixData.qrCodeBase64 || null, // Imagem do QR Code se disponível
-          pixChave: pixData.chave,
+          pixChave: '63824145000127',
           pixValor: pixData.valor,
           pixDescricao: pixData.descricao,
-          pixTxId: pixData.txId || null,
+          pixTxId: pixData.chargeId || null,
         });
       } catch (pixError) {
         console.error('❌ Erro crítico ao gerar PIX:', pixError);
@@ -317,14 +303,14 @@ router.post("/create-checkout-session", async (req, res) => {
         return res.status(500).json({
           error: 'Erro ao gerar código PIX',
           details: pixError.message,
-          suggestion: 'Códigos PIX estáticos não são mais aceitos pelos bancos. É necessário configurar a API do Itaú com credenciais válidas.',
+          suggestion: 'Verifique as credenciais da Red-e (REDE_PV e REDE_TOKEN) no servidor.',
           requiresApi: true,
         });
       }
     } else {
       return res.status(400).json({
         error: 'Método de pagamento inválido',
-        details: `Método "${paymentMethod}" não é suportado. Use "rede" ou "itau-pix".`,
+        details: `Método "${paymentMethod}" não é suportado. Use "rede" (cartão) ou "rede-pix" (PIX).`,
       });
     }
   } catch (err) {
@@ -663,6 +649,216 @@ router.get('/test-itau-credentials', async (req, res) => {
       message: 'Erro ao testar credenciais',
       error: error.message,
     });
+  }
+});
+
+// Rota para processar pagamento Red-e com cartão (3DS e Data Only)
+router.post('/process-rede-payment', async (req, res) => {
+  try {
+    const {
+      orderId,
+      cardData, // { cardNumber, expirationMonth, expirationYear, securityCode, cardholderName, kind }
+      userAgent, // User agent do navegador para 3DS
+    } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({ error: 'orderId é obrigatório' });
+    }
+
+    if (!cardData || !cardData.cardNumber || !cardData.expirationMonth || 
+        !cardData.expirationYear || !cardData.securityCode || !cardData.cardholderName) {
+      return res.status(400).json({ 
+        error: 'Dados do cartão incompletos',
+        required: ['cardNumber', 'expirationMonth', 'expirationYear', 'securityCode', 'cardholderName']
+      });
+    }
+
+    // Buscar pedido
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+
+    if (order.paymentMethod !== 'rede') {
+      return res.status(400).json({ error: 'Este pedido não é para pagamento Red-e' });
+    }
+
+    // Buscar dados do usuário
+    const user = await User.findOne({ email: order.email });
+    const customer = {
+      name: user?.name || order.address?.name || 'Cliente',
+      email: order.email,
+      phone: user?.phone || order.address?.phone || '',
+      document: order.cpf || '', // CPF do pedido
+      userAgent: userAgent || req.headers['user-agent'] || 'Mozilla/5.0',
+    };
+
+    console.log('🔵 Processando pagamento Red-e com 3DS e Data Only...');
+    console.log('🔵 Order ID:', orderId);
+    console.log('🔵 Valor (centavos):', order.total * 100);
+
+    // Criar transação na Red-e com 3DS e Data Only
+    const transaction = await createRedeTransaction(
+      order,
+      Math.round(order.total * 100), // Converter para centavos
+      {
+        cardholderName: cardData.cardholderName,
+        cardNumber: cardData.cardNumber,
+        expirationMonth: cardData.expirationMonth,
+        expirationYear: cardData.expirationYear,
+        securityCode: cardData.securityCode,
+        kind: cardData.kind || 'credit',
+      },
+      customer
+    );
+
+    console.log('✅ Transação Red-e criada:', {
+      tid: transaction.tid,
+      status: transaction.status,
+      has3DS: !!transaction.threeDSecure,
+    });
+
+    // Atualizar pedido com dados da transação
+    order.redeOrderId = transaction.tid;
+    order.paymentSessionId = transaction.tid;
+    await order.save();
+
+    // Se 3DS for necessário, retornar URL de autenticação
+    if (transaction.threeDSecure && transaction.authenticationUrl) {
+      return res.json({
+        success: true,
+        requires3DS: true,
+        authenticationUrl: transaction.authenticationUrl,
+        threeDSecureData: transaction.threeDSecureData,
+        tid: transaction.tid,
+        orderId: order._id.toString(),
+        message: '3DS necessário. Redirecione o cliente para a URL de autenticação.',
+      });
+    }
+
+    // Se pagamento foi aprovado diretamente (sem 3DS)
+    if (transaction.status === 'Approved' || transaction.returnCode === '00') {
+      // Reduzir estoque
+      try {
+        await reduceStock(order.items);
+        order.stockReduced = true;
+        await order.save();
+        console.log('✅ Estoque reduzido após pagamento aprovado');
+      } catch (stockError) {
+        console.error('❌ Erro ao reduzir estoque:', stockError);
+      }
+
+      // Atualizar status do pedido
+      order.status = 'Pago';
+      order.paidAt = new Date();
+      await order.save();
+
+      // Enviar email de confirmação de pagamento
+      sendPaymentConfirmationEmail(order.email, order).catch(err => {
+        console.error('Erro ao enviar email de confirmação (não crítico):', err);
+      });
+
+      return res.json({
+        success: true,
+        approved: true,
+        tid: transaction.tid,
+        orderId: order._id.toString(),
+        redirectUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/success?orderId=${order._id}`,
+        message: 'Pagamento aprovado com sucesso!',
+      });
+    }
+
+    // Pagamento recusado ou pendente
+    return res.json({
+      success: false,
+      approved: false,
+      tid: transaction.tid,
+      status: transaction.status,
+      returnCode: transaction.returnCode,
+      returnMessage: transaction.returnMessage,
+      orderId: order._id.toString(),
+      message: transaction.returnMessage || 'Pagamento não aprovado',
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao processar pagamento Red-e:', error);
+    return res.status(500).json({
+      error: 'Erro ao processar pagamento',
+      message: error.message,
+      details: error.response?.data || null,
+    });
+  }
+});
+
+// Rota de callback para 3DS Success
+router.get('/rede/3ds-success', async (req, res) => {
+  try {
+    const { orderId, tid } = req.query;
+
+    if (!orderId) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/cart?error=orderId_missing`);
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/cart?error=order_not_found`);
+    }
+
+    // Consultar status da transação
+    const redeClient = (await import('../utils/rede.js')).default;
+    const transaction = await redeClient.getTransaction(tid || order.redeOrderId);
+
+    if (transaction.status === 'Approved' || transaction.returnCode === '00') {
+      // Reduzir estoque
+      try {
+        await reduceStock(order.items);
+        order.stockReduced = true;
+        await order.save();
+        console.log('✅ Estoque reduzido após 3DS aprovado');
+      } catch (stockError) {
+        console.error('❌ Erro ao reduzir estoque:', stockError);
+      }
+
+      // Atualizar status do pedido
+      order.status = 'Pago';
+      order.paidAt = new Date();
+      await order.save();
+
+      // Enviar email de confirmação
+      sendPaymentConfirmationEmail(order.email, order).catch(err => {
+        console.error('Erro ao enviar email (não crítico):', err);
+      });
+
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/success?orderId=${order._id}`);
+    }
+
+    // 3DS aprovado mas pagamento não aprovado
+    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/cart?error=payment_not_approved`);
+  } catch (error) {
+    console.error('❌ Erro no callback 3DS Success:', error);
+    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/cart?error=callback_error`);
+  }
+});
+
+// Rota de callback para 3DS Failure
+router.get('/rede/3ds-failure', async (req, res) => {
+  try {
+    const { orderId } = req.query;
+
+    if (orderId) {
+      const order = await Order.findById(orderId);
+      if (order && !order.stockReduced) {
+        // Se o estoque ainda não foi reduzido, não precisa restaurar
+        // Mas podemos atualizar o status
+        order.status = 'Falha no pagamento (3DS)';
+        await order.save();
+      }
+    }
+
+    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/cart?error=3ds_failed`);
+  } catch (error) {
+    console.error('❌ Erro no callback 3DS Failure:', error);
+    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/cart?error=callback_error`);
   }
 });
 

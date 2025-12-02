@@ -12,7 +12,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   const [address, setAddress] = useState({ name: '', street: '', city: '', state: '', zip: '', country: '', phone: '' })
   const [cpf, setCpf] = useState('')
   const [deliveryType, setDeliveryType] = useState('delivery') // 'delivery' ou 'pickup'
-  const [paymentMethod, setPaymentMethod] = useState('rede') // 'rede' (cartão) ou 'itau-pix' (PIX)
+  const [paymentMethod, setPaymentMethod] = useState('rede') // 'rede' (cartão) ou 'rede-pix' (PIX)
   const [pickupSchedule, setPickupSchedule] = useState('') // Horário agendado para retirada
   const [shipping, setShipping] = useState(0)
   const [calculatingShipping, setCalculatingShipping] = useState(false)
@@ -288,7 +288,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
           addToast('Erro: URL de checkout não retornada. Verifique os logs.', 'error');
           setIsProcessing(false);
         }
-      } else if (paymentMethod === 'itau-pix') {
+      } else if (paymentMethod === 'rede-pix' || paymentMethod === 'itau-pix') {
         console.log('🔵 Processando resposta PIX...');
         console.log('🔵 pixQrCode presente:', !!orderData.pixQrCode);
         console.log('🔵 orderId presente:', !!orderData.orderId);
@@ -590,18 +590,18 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                       <p className="text-xs text-gray-500 dark:text-gray-400">Red-e (meu.userede.com.br)</p>
                     </div>
                   </label>
-                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'itau-pix' ? '#ec4899' : '#e5e7eb' }}>
+                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'rede-pix' ? '#ec4899' : '#e5e7eb' }}>
                     <input
                       type="radio"
                       name="paymentMethod"
-                      value="itau-pix"
-                      checked={paymentMethod === 'itau-pix'}
+                      value="rede-pix"
+                      checked={paymentMethod === 'rede-pix'}
                       onChange={(e) => setPaymentMethod(e.target.value)}
                       className="mr-3 text-lunabe-pink"
                     />
                     <div className="flex-grow">
                       <span className="font-semibold text-gray-800 dark:text-white">PIX</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Itaú - Pagamento instantâneo</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Red-e - Pagamento instantâneo</p>
                     </div>
                   </label>
                 </div>
