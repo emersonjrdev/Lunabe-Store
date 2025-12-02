@@ -12,13 +12,13 @@ dotenv.config();
 class RedeClient {
   constructor() {
     // Credenciais OAuth 2.0 da API Red-e
-    // PV agora é clientId, Token agora é clientSecret
-    this.clientId = process.env.REDE_PV; // clientId (antigo PV) - pode ser GUID ou número
-    this.clientSecret = process.env.REDE_TOKEN; // clientSecret (antiga Chave de Integração)
+    // IMPORTANTE: Client ID é o PV (número da filial), NÃO o GUID!
+    // Client Secret é a chave de 32 caracteres gerada no portal
+    // Conforme suporte da Rede: Client ID = PV (104847581), não GUID
+    this.clientId = process.env.REDE_AFFILIATION || process.env.REDE_PV; // Client ID = PV (número da filial)
+    this.clientSecret = process.env.REDE_TOKEN; // Client Secret = chave de 32 caracteres
     
-    // Número da filial (affiliation) - pode ser diferente do clientId
-    // Se não configurado, usa o clientId
-    // IMPORTANTE: No portal aparece "Filial 104847581" - esse número deve ser usado aqui
+    // Número da filial (affiliation) - usado no payload das transações
     this.affiliation = process.env.REDE_AFFILIATION || this.clientId;
     
     // Log para debug

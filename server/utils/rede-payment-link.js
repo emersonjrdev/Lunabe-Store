@@ -12,10 +12,13 @@ import axios from 'axios';
 class RedePaymentLinkClient {
   constructor() {
     // Credenciais OAuth 2.0
-    this.clientId = process.env.REDE_PV; // GUID para OAuth
-    this.clientSecret = process.env.REDE_TOKEN; // Chave de integração
+    // IMPORTANTE: Client ID é o PV (número da filial), NÃO o GUID!
+    // Client Secret é a chave de 32 caracteres gerada no portal
+    // Conforme suporte da Rede: Client ID = PV (104847581), não GUID
+    this.clientId = process.env.REDE_AFFILIATION || process.env.REDE_PV; // Client ID = PV (número da filial)
+    this.clientSecret = process.env.REDE_TOKEN; // Client Secret = chave de 32 caracteres
     // company-number: número do PV (numérico, máximo 10 dígitos) - obrigatório no header
-    // Deve ser o número da filial, não o GUID
+    // É o mesmo que clientId (PV)
     this.companyNumber = process.env.REDE_AFFILIATION || process.env.REDE_PV;
     
     // Validar que company-number é numérico e tem no máximo 10 dígitos
