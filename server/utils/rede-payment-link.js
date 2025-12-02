@@ -246,18 +246,49 @@ class RedePaymentLinkClient {
       console.log('🔵   Endpoint completo:', endpoint);
       console.log('🔵   Payload completo:', JSON.stringify(payload, null, 2));
 
-      const response = await axios.post(
-        endpoint,
-        payload,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-            'Company-number': companyNumberStr, // OBRIGATÓRIO: número da filial (numérico, max 10 dígitos)
-          },
-          timeout: 30000,
+      // Tentar criar o link de pagamento
+      // Se receber 401, limpar cache do token e tentar novamente uma vez
+      let response;
+      let retryCount = 0;
+      const maxRetries = 1;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          // Se for retry, obter novo token
+          if (retryCount > 0) {
+            console.log('🔵 Retry: obtendo novo access_token...');
+            this.accessToken = null;
+            this.tokenExpiresAt = null;
+            accessToken = await this.getAccessToken();
+            console.log('✅ Novo access token obtido');
+          }
+          
+          response = await axios.post(
+            endpoint,
+            payload,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'Company-number': companyNumberStr, // OBRIGATÓRIO: número da filial (numérico, max 10 dígitos)
+              },
+              timeout: 30000,
+            }
+          );
+          
+          // Se chegou aqui, a requisição foi bem-sucedida
+          break;
+        } catch (retryError) {
+          // Se for 401 e ainda não tentou novamente, fazer retry
+          if (retryError.response?.status === 401 && retryCount < maxRetries) {
+            console.warn('⚠️ Erro 401 recebido, tentando novamente com novo token...');
+            retryCount++;
+            continue;
+          }
+          // Se não for 401 ou já tentou, lançar o erro
+          throw retryError;
         }
-      );
+      }
 
       console.log('✅ Link de pagamento criado com sucesso');
       console.log('🔵 Status:', response.status);
@@ -305,15 +336,27 @@ class RedePaymentLinkClient {
           console.error('❌   Ambiente:', this.environment);
           console.error('❌   OAuth URL:', this.oauthUrl);
           
-          if (errorData?.message?.includes('Partner not allowed for this company number')) {
-            console.error('❌ ========== ERRO: Partner not allowed ==========');
-            console.error('❌ O token OAuth não tem permissão para acessar este company-number');
-            console.error('❌ Company-number usado:', this.companyNumber);
-            console.error('❌');
-            console.error('❌ Verifique:');
-            console.error('❌   1. O company-number está correto?');
-            console.error('❌   2. O token OAuth foi gerado com credenciais do mesmo PV?');
-            console.error('❌   3. O company-number está autorizado no portal da Rede?');
+          // Tentar limpar o cache do token e obter um novo
+          console.log('🔵 Tentando limpar cache do token e obter um novo...');
+          this.accessToken = null;
+          this.tokenExpiresAt = null;
+          
+          // Se o erro for "invalid_client" ou "Partner not allowed", não tentar novamente
+          if (errorData?.error === 'invalid_client' || 
+              errorData?.message?.includes('Partner not allowed')) {
+            console.error('❌ ========== ERRO: Credenciais inválidas ==========');
+            if (errorData?.message?.includes('Partner not allowed for this company number')) {
+              console.error('❌ O token OAuth não tem permissão para acessar este company-number');
+              console.error('❌ Company-number usado:', this.companyNumber);
+              console.error('❌');
+              console.error('❌ Verifique:');
+              console.error('❌   1. O company-number está correto?');
+              console.error('❌   2. O token OAuth foi gerado com credenciais do mesmo PV?');
+              console.error('❌   3. O company-number está autorizado no portal da Rede?');
+            } else {
+              console.error('❌ Credenciais OAuth inválidas (clientId ou clientSecret incorretos)');
+              console.error('❌ Verifique REDE_AFFILIATION (ou REDE_PV) e REDE_TOKEN no Render');
+            }
             console.error('❌ =========================================');
           }
         }

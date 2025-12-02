@@ -482,6 +482,12 @@ class RedeClient {
         payload.orderId = reference;
       }
 
+      // Adicionar webhookUrl para receber notificações de pagamento
+      const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'https://lunabe-store.onrender.com';
+      const webhookUrl = `${backendUrl}/api/webhooks/rede-pix`;
+      payload.webhookUrl = webhookUrl;
+      console.log('🔵 Webhook URL:', webhookUrl);
+
       console.log('🔵 Payload PIX inicial:', JSON.stringify(payload, null, 2));
       console.log('🔵 Base URL configurada:', this.baseUrl);
       console.log('🔵 Endpoint:', endpoint);
