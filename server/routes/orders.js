@@ -631,6 +631,14 @@ router.get('/test-itau-credentials', async (req, res) => {
         },
       });
     } catch (tokenError) {
+      // Log detalhado do erro
+      console.error('❌ Erro completo no teste:', {
+        message: tokenError.message,
+        status: tokenError.response?.status,
+        data: tokenError.response?.data,
+        url: tokenError.config?.url,
+      });
+      
       return res.json({
         success: false,
         message: 'Erro ao obter token',
@@ -640,8 +648,13 @@ router.get('/test-itau-credentials', async (req, res) => {
           ITAU_PIX_KEY: pixKey,
           ITAU_ENV: environment,
           error: tokenError.message,
+          status: tokenError.response?.status,
           apiResponse: tokenError.response?.data,
+          urlTentada: tokenError.config?.url,
         },
+        suggestion: tokenError.response?.status === 404 
+          ? 'Erro 404: As credenciais podem não ser válidas para sandbox. Obtenha credenciais válidas em https://devportal.itau.com.br'
+          : 'Verifique as credenciais no portal do Itaú: https://devportal.itau.com.br',
       });
     }
   } catch (error) {

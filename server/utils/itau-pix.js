@@ -20,18 +20,26 @@ class ItauPixClient {
     this.environment = process.env.ITAU_ENV || 'sandbox'; // 'sandbox' ou 'production'
     
     // URLs da API Itaú
-    // Sandbox: https://api.itau.com.br/sandbox
+    // Sandbox: https://api.itau.com.br/sandbox (ou pode ser diferente - verificar documentação)
     // Produção: https://api.itau.com.br (mas requer certificado mTLS)
     if (this.environment === 'production') {
       this.baseUrl = 'https://api.itau.com.br';
       console.warn('⚠️ Ambiente PRODUÇÃO: Requer certificado mTLS configurado');
     } else {
+      // Tentar URL padrão do sandbox primeiro
       this.baseUrl = 'https://api.itau.com.br/sandbox';
       console.log('🔵 Usando ambiente SANDBOX');
+      console.log('🔵 Base URL sandbox:', this.baseUrl);
     }
     
+    // URLs dos endpoints
     this.tokenUrl = `${this.baseUrl}/oauth/v2/token`;
     this.pixUrl = `${this.baseUrl}/pix/v2/cob`;
+    
+    // Logs para debug
+    console.log('🔵 Base URL configurada:', this.baseUrl);
+    console.log('🔵 Token URL:', this.tokenUrl);
+    console.log('🔵 PIX URL:', this.pixUrl);
     
     console.log('🔵 Base URL configurada:', this.baseUrl);
     console.log('🔵 Token URL:', this.tokenUrl);
