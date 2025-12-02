@@ -5,13 +5,40 @@ dotenv.config();
 // Verificar se email está configurado
 const isEmailConfigured = process.env.EMAIL_USER && process.env.EMAIL_PASS;
 
+if (!isEmailConfigured) {
+  console.warn('⚠️ ========== EMAIL NÃO CONFIGURADO ==========');
+  console.warn('⚠️ EMAIL_USER:', process.env.EMAIL_USER ? '✅ Configurado' : '❌ Não configurado');
+  console.warn('⚠️ EMAIL_PASS:', process.env.EMAIL_PASS ? '✅ Configurado' : '❌ Não configurado');
+  console.warn('⚠️ Para habilitar envio de emails, configure no Render:');
+  console.warn('⚠️   - EMAIL_USER: seu email Gmail');
+  console.warn('⚠️   - EMAIL_PASS: senha de app do Gmail (não a senha normal)');
+  console.warn('⚠️   - EMAIL_FROM: email remetente (opcional, usa EMAIL_USER se não configurado)');
+  console.warn('⚠️ =========================================');
+}
+
 const transporter = isEmailConfigured ? nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  // Adicionar configurações adicionais para melhor compatibilidade
+  tls: {
+    rejectUnauthorized: false
+  }
 }) : null;
+
+// Verificar conexão do transporter ao inicializar (apenas uma vez)
+if (transporter) {
+  transporter.verify().then(() => {
+    console.log('✅ Servidor de email configurado e pronto para enviar emails');
+    console.log('🔵 Email remetente:', process.env.EMAIL_FROM || process.env.EMAIL_USER);
+  }).catch((error) => {
+    console.error('❌ Erro ao verificar configuração de email:', error.message);
+    console.error('❌ Verifique se EMAIL_USER e EMAIL_PASS estão corretos');
+    console.error('❌ Para Gmail, use uma "Senha de App" (não a senha normal)');
+  });
+}
 
 // Função auxiliar para formatar itens do pedido
 function formatOrderItems(items) {
@@ -31,12 +58,22 @@ function formatOrderItems(items) {
 
 // Email de confirmação de pedido criado
 export async function sendOrderEmail(to, order) {
-  if (!to || !transporter) {
-    if (!transporter) console.warn('Email não configurado - pulando envio');
+  if (!to) {
+    console.warn('⚠️ Tentativa de enviar email sem destinatário');
+    return;
+  }
+  
+  if (!transporter) {
+    console.warn('⚠️ Email não configurado - pulando envio de email de pedido');
+    console.warn('⚠️ Configure EMAIL_USER e EMAIL_PASS no Render para habilitar emails');
     return;
   }
 
   try {
+    console.log('🔵 ========== ENVIAR EMAIL DE PEDIDO ==========');
+    console.log('🔵 Destinatário:', to);
+    console.log('🔵 Pedido ID:', order._id);
+    console.log('🔵 Status:', order.status);
     const html = `
       <!DOCTYPE html>
       <html>
@@ -87,27 +124,51 @@ export async function sendOrderEmail(to, order) {
       </html>
     `;
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+    console.log('🔵 Remetente:', emailFrom);
+    
+    const result = await transporter.sendMail({
+      from: emailFrom,
       to,
       subject: "Pedido Recebido - Lunabe Pijamas",
       html,
     });
     
-    console.log(`Email de confirmação enviado para ${to}`);
+    console.log('✅ Email de confirmação de pedido enviado com sucesso');
+    console.log('🔵 Message ID:', result.messageId);
+    console.log('🔵 Destinatário:', to);
+    console.log('🔵 =========================================');
   } catch (error) {
-    console.error('Erro ao enviar email de confirmação:', error);
+    console.error('❌ ========== ERRO AO ENVIAR EMAIL DE PEDIDO ==========');
+    console.error('❌ Erro:', error.message);
+    console.error('❌ Destinatário:', to);
+    console.error('❌ Código do erro:', error.code);
+    if (error.response) {
+      console.error('❌ Resposta do servidor:', error.response);
+    }
+    console.error('❌ =========================================');
+    // Não lançar erro para não quebrar o fluxo do pedido
   }
 }
 
 // Email de confirmação de pagamento
 export async function sendPaymentConfirmationEmail(to, order) {
-  if (!to || !transporter) {
-    if (!transporter) console.warn('Email não configurado - pulando envio');
+  if (!to) {
+    console.warn('⚠️ Tentativa de enviar email de pagamento sem destinatário');
+    return;
+  }
+  
+  if (!transporter) {
+    console.warn('⚠️ Email não configurado - pulando envio de email de pagamento');
+    console.warn('⚠️ Configure EMAIL_USER e EMAIL_PASS no Render para habilitar emails');
     return;
   }
 
   try {
+    console.log('🔵 ========== ENVIAR EMAIL DE PAGAMENTO ==========');
+    console.log('🔵 Destinatário:', to);
+    console.log('🔵 Pedido ID:', order._id);
+    console.log('🔵 Status:', order.status);
     const html = `
       <!DOCTYPE html>
       <html>
@@ -166,16 +227,30 @@ export async function sendPaymentConfirmationEmail(to, order) {
       </html>
     `;
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+    console.log('🔵 Remetente:', emailFrom);
+    
+    const result = await transporter.sendMail({
+      from: emailFrom,
       to,
       subject: "Pagamento Confirmado - Lunabe Pijamas",
       html,
     });
     
-    console.log(`Email de confirmação de pagamento enviado para ${to}`);
+    console.log('✅ Email de confirmação de pagamento enviado com sucesso');
+    console.log('🔵 Message ID:', result.messageId);
+    console.log('🔵 Destinatário:', to);
+    console.log('🔵 =========================================');
   } catch (error) {
-    console.error('Erro ao enviar email de confirmação de pagamento:', error);
+    console.error('❌ ========== ERRO AO ENVIAR EMAIL DE PAGAMENTO ==========');
+    console.error('❌ Erro:', error.message);
+    console.error('❌ Destinatário:', to);
+    console.error('❌ Código do erro:', error.code);
+    if (error.response) {
+      console.error('❌ Resposta do servidor:', error.response);
+    }
+    console.error('❌ =========================================');
+    // Não lançar erro para não quebrar o fluxo do webhook
   }
 }
 
