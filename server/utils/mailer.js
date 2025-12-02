@@ -1,67 +1,53 @@
 import nodemailer from "nodemailer";
+import sgMail from "@sendgrid/mail";
 import dotenv from "dotenv";
 dotenv.config();
 
-// Verificar se email está configurado
-const isEmailConfigured = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+// Verificar qual método de email está configurado
+const hasSendGrid = !!process.env.SENDGRID_API_KEY;
+const hasGmail = process.env.EMAIL_USER && process.env.EMAIL_PASS;
 
-if (!isEmailConfigured) {
+// Configurar SendGrid se disponível
+if (hasSendGrid) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log('✅ SendGrid configurado para envio de emails');
+  console.log('🔵 Email remetente:', process.env.EMAIL_FROM || 'noreply@lunabe.com.br');
+} else if (hasGmail) {
+  console.log('⚠️ SendGrid não configurado, usando Gmail SMTP (pode ter problemas no Render)');
+} else {
   console.warn('⚠️ ========== EMAIL NÃO CONFIGURADO ==========');
+  console.warn('⚠️ SENDGRID_API_KEY:', hasSendGrid ? '✅ Configurado' : '❌ Não configurado');
   console.warn('⚠️ EMAIL_USER:', process.env.EMAIL_USER ? '✅ Configurado' : '❌ Não configurado');
   console.warn('⚠️ EMAIL_PASS:', process.env.EMAIL_PASS ? '✅ Configurado' : '❌ Não configurado');
   console.warn('⚠️ Para habilitar envio de emails, configure no Render:');
-  console.warn('⚠️   - EMAIL_USER: seu email Gmail');
-  console.warn('⚠️   - EMAIL_PASS: senha de app do Gmail (não a senha normal)');
-  console.warn('⚠️   - EMAIL_FROM: email remetente (opcional, usa EMAIL_USER se não configurado)');
+  console.warn('⚠️   OPÇÃO 1 (Recomendado): SENDGRID_API_KEY');
+  console.warn('⚠️   OPÇÃO 2: EMAIL_USER e EMAIL_PASS (Gmail SMTP)');
+  console.warn('⚠️   EMAIL_FROM: email remetente (opcional)');
   console.warn('⚠️ =========================================');
 }
 
-// Tentar múltiplas configurações SMTP para compatibilidade com Render
-const transporter = isEmailConfigured ? nodemailer.createTransport({
+// Configurar Gmail SMTP como fallback
+const transporter = hasGmail && !hasSendGrid ? nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 465, // Porta SSL (mais compatível com alguns firewalls)
-  secure: true, // true para 465, false para 587
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  // Configurações para melhor compatibilidade com Render
   tls: {
     rejectUnauthorized: false,
     minVersion: 'TLSv1.2'
   },
-  // Timeout aumentado para conexões mais lentas
-  connectionTimeout: 10000, // 10 segundos (reduzido para falhar mais rápido)
-  greetingTimeout: 10000, // 10 segundos
-  socketTimeout: 10000, // 10 segundos
-  // Não usar pool para evitar problemas de conexão
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
   pool: false,
-  // Retry automático
   retry: {
     attempts: 2,
     delay: 1000
   }
 }) : null;
-
-// Verificar conexão do transporter ao inicializar (apenas uma vez)
-// Não bloquear a inicialização se a verificação falhar
-if (transporter) {
-  // Verificar de forma assíncrona sem bloquear
-  transporter.verify()
-    .then(() => {
-      console.log('✅ Servidor de email configurado e pronto para enviar emails');
-      console.log('🔵 Email remetente:', process.env.EMAIL_FROM || process.env.EMAIL_USER);
-      console.log('🔵 SMTP: smtp.gmail.com:587');
-    })
-    .catch((error) => {
-      console.warn('⚠️ Aviso: Não foi possível verificar conexão SMTP na inicialização');
-      console.warn('⚠️ Erro:', error.message);
-      console.warn('⚠️ Isso não impede o envio de emails - será tentado quando necessário');
-      console.warn('⚠️ Verifique se EMAIL_USER e EMAIL_PASS estão corretos');
-      console.warn('⚠️ Para Gmail, use uma "Senha de App" (não a senha normal)');
-      // Não bloquear - tentará conectar quando enviar email
-    });
-}
 
 // Função auxiliar para formatar itens do pedido
 function formatOrderItems(items) {
@@ -79,6 +65,46 @@ function formatOrderItems(items) {
   `).join('');
 }
 
+// Função auxiliar para enviar email (usa SendGrid ou Gmail SMTP)
+async function sendEmail({ to, subject, html }) {
+  if (!to) {
+    throw new Error('Destinatário não fornecido');
+  }
+
+  const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@lunabe.com.br';
+
+  // Priorizar SendGrid se disponível
+  if (hasSendGrid) {
+    console.log('🔵 Enviando via SendGrid...');
+    const msg = {
+      to,
+      from: emailFrom,
+      subject,
+      html,
+    };
+
+    const result = await sgMail.send(msg);
+    console.log('✅ Email enviado via SendGrid');
+    console.log('🔵 Status:', result[0]?.statusCode);
+    return { messageId: result[0]?.headers['x-message-id'], response: result[0]?.statusCode };
+  }
+
+  // Fallback para Gmail SMTP
+  if (transporter) {
+    console.log('🔵 Enviando via Gmail SMTP...');
+    const result = await transporter.sendMail({
+      from: emailFrom,
+      to,
+      subject,
+      html,
+    });
+    console.log('✅ Email enviado via Gmail SMTP');
+    return result;
+  }
+
+  throw new Error('Nenhum método de email configurado');
+}
+
 // Email de confirmação de pedido criado
 export async function sendOrderEmail(to, order) {
   if (!to) {
@@ -86,9 +112,9 @@ export async function sendOrderEmail(to, order) {
     return;
   }
   
-  if (!transporter) {
+  if (!hasSendGrid && !transporter) {
     console.warn('⚠️ Email não configurado - pulando envio de email de pedido');
-    console.warn('⚠️ Configure EMAIL_USER e EMAIL_PASS no Render para habilitar emails');
+    console.warn('⚠️ Configure SENDGRID_API_KEY (recomendado) ou EMAIL_USER/EMAIL_PASS no Render');
     return;
   }
 
@@ -97,6 +123,7 @@ export async function sendOrderEmail(to, order) {
     console.log('🔵 Destinatário:', to);
     console.log('🔵 Pedido ID:', order._id);
     console.log('🔵 Status:', order.status);
+    
     const html = `
       <!DOCTYPE html>
       <html>
@@ -147,11 +174,7 @@ export async function sendOrderEmail(to, order) {
       </html>
     `;
 
-    const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
-    console.log('🔵 Remetente:', emailFrom);
-    
-    const result = await transporter.sendMail({
-      from: emailFrom,
+    const result = await sendEmail({
       to,
       subject: "Pedido Recebido - Lunabe Pijamas",
       html,
@@ -181,9 +204,9 @@ export async function sendPaymentConfirmationEmail(to, order) {
     return;
   }
   
-  if (!transporter) {
+  if (!hasSendGrid && !transporter) {
     console.warn('⚠️ Email não configurado - pulando envio de email de pagamento');
-    console.warn('⚠️ Configure EMAIL_USER e EMAIL_PASS no Render para habilitar emails');
+    console.warn('⚠️ Configure SENDGRID_API_KEY (recomendado) ou EMAIL_USER/EMAIL_PASS no Render');
     return;
   }
 
@@ -192,6 +215,7 @@ export async function sendPaymentConfirmationEmail(to, order) {
     console.log('🔵 Destinatário:', to);
     console.log('🔵 Pedido ID:', order._id);
     console.log('🔵 Status:', order.status);
+    
     const html = `
       <!DOCTYPE html>
       <html>
@@ -250,11 +274,7 @@ export async function sendPaymentConfirmationEmail(to, order) {
       </html>
     `;
 
-    const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
-    console.log('🔵 Remetente:', emailFrom);
-    
-    const result = await transporter.sendMail({
-      from: emailFrom,
+    const result = await sendEmail({
       to,
       subject: "Pagamento Confirmado - Lunabe Pijamas",
       html,
@@ -279,8 +299,13 @@ export async function sendPaymentConfirmationEmail(to, order) {
 
 // Email de atualização de status
 export async function sendStatusUpdateEmail(to, order, status) {
-  if (!to || !transporter) {
-    if (!transporter) console.warn('Email não configurado - pulando envio');
+  if (!to) {
+    console.warn('⚠️ Tentativa de enviar email sem destinatário');
+    return;
+  }
+  
+  if (!hasSendGrid && !transporter) {
+    console.warn('⚠️ Email não configurado - pulando envio');
     return;
   }
 
@@ -332,15 +357,14 @@ export async function sendStatusUpdateEmail(to, order, status) {
       </html>
     `;
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    await sendEmail({
       to,
       subject: `Atualização do Pedido - ${status} - Lunabe Pijamas`,
       html,
     });
     
-    console.log(`Email de atualização de status enviado para ${to}`);
+    console.log(`✅ Email de atualização de status enviado para ${to}`);
   } catch (error) {
-    console.error('Erro ao enviar email de atualização:', error);
+    console.error('❌ Erro ao enviar email de atualização:', error);
   }
 }
