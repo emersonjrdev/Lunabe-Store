@@ -130,6 +130,22 @@ class RedeClient {
         console.error('❌ Status HTTP:', error.response?.status);
         console.error('❌ Dados da resposta:', JSON.stringify(error.response?.data, null, 2));
         console.error('❌ Mensagem do erro:', error.message);
+        console.error('❌');
+        console.error('❌ DIAGNÓSTICO:');
+        console.error('❌   clientId (GUID):', this.clientId);
+        console.error('❌   clientSecret (tamanho):', this.clientSecret?.length);
+        console.error('❌   clientSecret (primeiros 10 chars):', this.clientSecret?.substring(0, 10) + '...');
+        console.error('❌');
+        console.error('❌ POSSÍVEIS CAUSAS:');
+        console.error('❌   1. REDE_TOKEN não é a chave correta para OAuth 2.0');
+        console.error('❌   2. Credenciais são de sandbox, não de produção');
+        console.error('❌   3. OAuth 2.0 não está habilitado no portal da Rede');
+        console.error('❌   4. GUID (REDE_PV) não está correto para produção');
+        console.error('❌');
+        console.error('❌ AÇÃO NECESSÁRIA:');
+        console.error('❌   - Verificar no portal userede.com.br se as credenciais são de PRODUÇÃO');
+        console.error('❌   - Confirmar que OAuth 2.0 está habilitado');
+        console.error('❌   - Obter novas credenciais de produção se necessário');
         console.error('❌ =========================================');
 
         const errorMsg = error.response?.data?.error_description 
