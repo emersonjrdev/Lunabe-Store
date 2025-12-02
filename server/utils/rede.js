@@ -400,7 +400,8 @@ class RedeClient {
       console.log('🔵 Payload PIX:', JSON.stringify(payload, null, 2));
       console.log('🔵 Base URL configurada:', this.baseUrl);
       console.log('🔵 Endpoint:', endpoint);
-      console.log('🔵 clientId (PV):', this.clientId ? `${this.clientId.substring(0, 4)}...` : 'NÃO CONFIGURADO');
+      console.log('🔵 clientId (PV) completo:', this.clientId || 'NÃO CONFIGURADO');
+      console.log('🔵 clientId (PV) no payload (affiliation):', payload.affiliation);
       console.log('🔵 Data de expiração:', dateTimeExpiration);
       
       // Obter access_token OAuth 2.0
