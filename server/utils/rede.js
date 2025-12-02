@@ -281,20 +281,9 @@ class RedeClient {
       throw new Error('Valor deve ser maior que zero');
     }
 
-    // Tentar diferentes variações de endpoint para PIX
-    // A API Red-e pode ter endpoint específico para PIX ou usar /v2/transactions
-    // Declarar antes do try para estar disponível no catch
-    // Tentar com PV na URL e sem PV na URL
-    const possibleEndpoints = [
-      `${this.baseUrl}/v2/transactions`,  // Endpoint padrão de transações
-      `${this.baseUrl}/v2/transactions/${this.pv}`,  // Com PV na URL
-      `${this.baseUrl}/v2/pix/charges`,    // Possível endpoint específico PIX
-      `${this.baseUrl}/v2/pix/charges/${this.pv}`,  // Com PV na URL
-      `${this.baseUrl}/pix/charges`,       // Endpoint PIX sem versão
-      `${this.baseUrl}/pix/charges/${this.pv}`,  // Com PV na URL
-      `${this.baseUrl}/v2/pix`,            // Endpoint PIX alternativo
-      `${this.baseUrl}/v2/pix/${this.pv}`,  // Com PV na URL
-    ];
+    // Endpoint único conforme documentação Red-e
+    // POST /v2/transactions com kind: "Pix"
+    const endpoint = `${this.baseUrl}/v2/transactions`;
 
     try {
       console.log('🔵 ========== CRIAR COBRANÇA PIX RED-E ==========');
@@ -303,73 +292,57 @@ class RedeClient {
       console.log('🔵 Referência:', reference);
       console.log('🔵 Descrição:', description);
 
-      // A API Red-e usa o endpoint de transações com kind: 'pix'
-      // Montar payload da cobrança PIX
+      // Calcular data de expiração (máximo 15 dias, padrão: 1 hora se não especificado)
+      const expirationSeconds = expiration || 3600; // Padrão: 1 hora
+      const maxExpirationSeconds = 15 * 24 * 60 * 60; // 15 dias em segundos
+      const finalExpirationSeconds = Math.min(expirationSeconds, maxExpirationSeconds);
+      
+      const expirationDate = new Date();
+      expirationDate.setSeconds(expirationDate.getSeconds() + finalExpirationSeconds);
+      
+      // Formato: YYYY-MM-DDThh:mm:ss
+      const dateTimeExpiration = expirationDate.toISOString().slice(0, 19).replace('T', 'T');
+
+      // Montar payload da cobrança PIX conforme documentação Red-e
+      // kind deve ser "Pix" (com P maiúsculo)
+      // qrCode.dateTimeExpiration é obrigatório
       const payload = {
-        affiliation: this.pv, // PV (Ponto de Venda) é obrigatório no payload
-        capture: true,
-        amount: amount,
+        kind: 'Pix', // Tipo de pagamento PIX (com P maiúsculo conforme documentação)
         reference: reference,
-        kind: 'pix', // Tipo de pagamento PIX
-        description: description || `Pedido ${reference}`,
+        amount: amount,
+        qrCode: {
+          dateTimeExpiration: dateTimeExpiration, // Obrigatório: formato YYYY-MM-DDThh:mm:ss
+        },
       };
+
+      // orderId é opcional, mas pode ser útil
+      if (reference) {
+        payload.orderId = reference;
+      }
 
       console.log('🔵 Payload PIX:', JSON.stringify(payload, null, 2));
       console.log('🔵 Base URL configurada:', this.baseUrl);
+      console.log('🔵 Endpoint:', endpoint);
       console.log('🔵 PV (Ponto de Venda):', this.pv ? `${this.pv.substring(0, 4)}...` : 'NÃO CONFIGURADO');
       console.log('🔵 Token presente:', !!this.token);
+      console.log('🔵 Data de expiração:', dateTimeExpiration);
       
-      // Autenticação Basic Auth
+      // Autenticação Basic Auth (PV:Token)
       const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
       
-      let response;
-      let lastError;
-      let endpointUsed;
+      console.log('🔵 Fazendo POST para:', endpoint);
       
-      // Tentar cada endpoint até encontrar um que funcione
-      for (const endpoint of possibleEndpoints) {
-        try {
-          console.log('🔵 Tentando endpoint:', endpoint);
-          endpointUsed = endpoint;
-          
-          response = await axios.post(
-            endpoint,
-            payload,
-            {
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Basic ${credentials}`,
-              },
-              timeout: 30000,
-              validateStatus: (status) => status < 500, // Não lançar erro para 4xx
-            }
-          );
-          
-          console.log('🔵 Resposta recebida - Status:', response.status);
-          
-          // Se não for 404, usar esta resposta (mesmo que seja erro de validação)
-          if (response.status !== 404) {
-            console.log('✅ Endpoint encontrado! Status:', response.status);
-            break;
-          } else {
-            console.log('❌ Endpoint retornou 404, tentando próximo...');
-            lastError = new Error(`404 - Endpoint não encontrado: ${endpoint}`);
-          }
-        } catch (error) {
-          console.log('❌ Erro ao tentar endpoint:', endpoint, error.message);
-          lastError = error;
-          // Continuar para próximo endpoint
-          continue;
+      const response = await axios.post(
+        endpoint,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Basic ${credentials}`,
+          },
+          timeout: 30000,
         }
-      }
-      
-      // Se nenhum endpoint funcionou, lançar erro
-      if (!response || response.status === 404) {
-        console.error('❌ Nenhum endpoint funcionou. Tentados:', possibleEndpoints);
-        throw lastError || new Error('Todos os endpoints retornaram 404');
-      }
-      
-      console.log('🔵 Endpoint usado com sucesso:', endpointUsed);
+      );
       console.log('🔵 Resposta da API (status):', response.status);
       console.log('🔵 Resposta da API (dados):', response.data ? '✅ Recebida' : '❌ Vazia');
 
@@ -378,59 +351,68 @@ class RedeClient {
         console.log('🔵 Resposta completa:', JSON.stringify(response.data, null, 2));
       }
 
-      // Verificar se a resposta é um erro (status 4xx ou 5xx, ou returnCode presente com returnMessage)
-      if (response.status >= 400 || (response.data?.returnCode && response.data?.returnMessage)) {
+      // Verificar se a resposta é um erro (returnCode presente com returnMessage)
+      if (response.data?.returnCode && response.data?.returnMessage) {
         const errorCode = response.data?.returnCode;
-        const errorMessage = response.data?.returnMessage || 'Erro desconhecido da API Red-e';
+        const errorMessage = response.data?.returnMessage;
         console.error('❌ API Red-e retornou erro:', errorCode, errorMessage);
         throw new Error(`Erro ${errorCode}: ${errorMessage}`);
       }
 
-      // A API Red-e retorna o QR Code em diferentes campos dependendo da estrutura
-      // Pode estar em: qrCode, qrcode, qr_code, pix.qrCode, etc.
-      // NÃO usar returnCode pois ele é usado para códigos de erro
-      const qrCode = response.data?.qrCode 
-        || response.data?.qrcode 
-        || response.data?.qr_code
-        || response.data?.pix?.qrCode
-        || response.data?.pix?.returnCode;
+      // Conforme documentação, o QR Code está em qrCodeResponse
+      // qrCodeResponse.qrCodeData = QR Code em formato EMV (copia e cola)
+      // qrCodeResponse.qrCodeImage = QR Code em base64 (imagem)
+      const qrCodeResponse = response.data?.qrCodeResponse;
+      
+      if (!qrCodeResponse) {
+        console.error('❌ qrCodeResponse não retornado. Resposta completa:', JSON.stringify(response.data, null, 2));
+        throw new Error('QR Code PIX não retornado pela API Red-e (qrCodeResponse ausente)');
+      }
+
+      // Priorizar qrCodeData (formato EMV) para copia e cola
+      // Se não tiver, usar qrCodeImage (base64)
+      const qrCode = qrCodeResponse?.qrCodeData || qrCodeResponse?.qrCodeImage;
 
       if (!qrCode) {
-        console.error('❌ QR Code não retornado. Resposta completa:', JSON.stringify(response.data, null, 2));
-        throw new Error('QR Code PIX não retornado pela API Red-e');
+        console.error('❌ QR Code não encontrado em qrCodeResponse. Resposta completa:', JSON.stringify(response.data, null, 2));
+        throw new Error('QR Code PIX não encontrado na resposta (qrCodeData e qrCodeImage ausentes)');
       }
 
       console.log('✅ Cobrança PIX criada com sucesso');
       console.log('🔵 QR Code gerado:', qrCode.substring(0, 50) + '...');
+      console.log('🔵 TID:', response.data?.tid);
+      console.log('🔵 Status:', qrCodeResponse?.status || 'PENDING');
 
-      // Extrair o ID da transação
-      const transactionId = response.data?.tid 
-        || response.data?.id 
-        || response.data?.transactionId
-        || response.data?.reference;
+      // Extrair o ID da transação (TID)
+      const transactionId = response.data?.tid;
+
+      if (!transactionId) {
+        console.warn('⚠️ TID não retornado na resposta');
+      }
 
       return {
         chargeId: transactionId,
-        qrCode: qrCode,
-        qrCodeBase64: response.data?.qrCodeBase64 || response.data?.pix?.qrCodeBase64 || null,
+        qrCode: qrCode, // Formato EMV (copia e cola) ou base64
+        qrCodeBase64: qrCodeResponse?.qrCodeImage || null, // Imagem em base64 se disponível
         amount: response.data?.amount || amount,
         valor: (response.data?.amount || amount) / 100, // Valor em reais para exibição
-        description: response.data?.description || description,
-        expiration: response.data?.expiration || expiration,
-        status: response.data?.status || response.data?.returnCode ? 'PENDING' : 'PENDING',
+        description: description || `Pedido ${reference}`,
+        expiration: qrCodeResponse?.dateTimeExpiration || dateTimeExpiration,
+        status: qrCodeResponse?.status || 'PENDING',
         reference: response.data?.reference || reference,
+        tid: transactionId,
       };
     } catch (error) {
       console.error('❌ ========== ERRO AO CRIAR COBRANÇA PIX ==========');
-      console.error('❌ URLs tentadas:', possibleEndpoints || [`${this.baseUrl}/v2/transactions`]);
+      console.error('❌ Endpoint usado:', endpoint);
       console.error('❌ Status HTTP:', error.response?.status);
       console.error('❌ Status Text:', error.response?.statusText);
       console.error('❌ Dados da resposta:', JSON.stringify(error.response?.data, null, 2));
       console.error('❌ Mensagem do erro:', error.message);
       console.error('❌ =========================================');
 
-      const errorMsg = error.response?.data?.message 
-        || error.response?.data?.returnMessage 
+      const errorMsg = error.response?.data?.returnMessage 
+        || error.response?.data?.message 
         || error.message;
       
       throw new Error(`Erro ao criar cobrança PIX Red-e: ${errorMsg}`);
