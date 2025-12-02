@@ -174,6 +174,26 @@ router.post("/create-checkout-session", async (req, res) => {
       let paymentLinkData;
       
       try {
+        // Verificar credenciais antes de criar o cliente
+        const clientId = process.env.REDE_AFFILIATION || process.env.REDE_PV;
+        const hasCredentials = clientId && process.env.REDE_TOKEN;
+        
+        console.log('🔵 Validação de credenciais para Link de Pagamento:');
+        console.log('🔵   REDE_AFFILIATION:', process.env.REDE_AFFILIATION || 'NÃO CONFIGURADO');
+        console.log('🔵   REDE_PV:', process.env.REDE_PV || 'NÃO CONFIGURADO');
+        console.log('🔵   REDE_TOKEN:', process.env.REDE_TOKEN ? '✅ Configurado' : '❌ Não configurado');
+        console.log('🔵   clientId final:', clientId || 'NÃO ENCONTRADO');
+        console.log('🔵   hasCredentials:', hasCredentials);
+        
+        if (!hasCredentials) {
+          console.error('❌ Credenciais da API Red-e não configuradas para Link de Pagamento!');
+          return res.status(500).json({
+            error: 'Configuração de pagamento por cartão não disponível',
+            details: 'As credenciais da API Red-e não estão configuradas. Por favor, configure REDE_AFFILIATION (ou REDE_PV) e REDE_TOKEN no servidor.',
+            requiresApi: true,
+          });
+        }
+        
         const paymentLinkClient = new RedePaymentLinkClient();
         
         console.log('🔵 Iniciando criação de Link de Pagamento (cartão)...');
