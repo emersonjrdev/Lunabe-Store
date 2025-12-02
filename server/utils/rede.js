@@ -64,10 +64,22 @@ class RedeClient {
     try {
       console.log('🔵 ========== OBTER ACCESS_TOKEN OAuth 2.0 ==========');
       console.log('🔵 OAuth URL:', this.oauthUrl);
-      console.log('🔵 clientId:', this.clientId ? `${this.clientId.substring(0, 4)}...` : 'NÃO CONFIGURADO');
+      console.log('🔵 clientId (completo):', this.clientId || 'NÃO CONFIGURADO');
+      console.log('🔵 clientId (tamanho):', this.clientId ? this.clientId.length : 0);
+      console.log('🔵 clientSecret (presente):', this.clientSecret ? '✅ SIM' : '❌ NÃO');
+      console.log('🔵 clientSecret (tamanho):', this.clientSecret ? this.clientSecret.length : 0);
+
+      if (!this.clientId || !this.clientSecret) {
+        throw new Error('clientId ou clientSecret não configurados');
+      }
 
       // Basic Auth com clientId:clientSecret
-      const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+      // IMPORTANTE: Não adicionar espaços ou caracteres extras
+      const credentialsString = `${this.clientId}:${this.clientSecret}`;
+      const credentials = Buffer.from(credentialsString).toString('base64');
+      
+      console.log('🔵 Credentials string (primeiros 20 chars):', credentialsString.substring(0, 20) + '...');
+      console.log('🔵 Fazendo POST para:', this.oauthUrl);
 
       const response = await axios.post(
         this.oauthUrl,
