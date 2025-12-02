@@ -260,6 +260,8 @@ class RedePaymentLinkClient {
       console.log('🔵 Base URL:', this.baseUrl);
       console.log('🔵 Endpoint completo:', endpoint);
       console.log('🔵 Ambiente:', this.environment);
+      console.log('🔵 REDE_ENV configurado:', process.env.REDE_ENV || 'NÃO CONFIGURADO (usando sandbox)');
+      console.log('🔵 ⚠️ IMPORTANTE: Para produção, configure REDE_ENV=production no Render');
 
       // Validar company-number antes de enviar
       // IMPORTANTE: Company-number deve ser string numérica, não número
@@ -282,12 +284,17 @@ class RedePaymentLinkClient {
         tamanho: companyNumberStr.length,
       });
 
-      console.log('🔵 Headers da requisição:');
+      console.log('🔵 ========== REQUISIÇÃO COMPLETA PARA SUPORTE ==========');
+      console.log('🔵 Método: POST');
+      console.log('🔵 URL completa:', endpoint);
+      console.log('🔵 Ambiente:', this.environment);
+      console.log('🔵 Headers:');
+      console.log('🔵   Content-Type: application/json');
       console.log('🔵   Authorization: Bearer', accessToken.substring(0, 20) + '...');
       console.log('🔵   Company-number:', companyNumberStr);
-      console.log('🔵   Content-Type: application/json');
-      console.log('🔵   Endpoint completo:', endpoint);
-      console.log('🔵   Payload completo:', JSON.stringify(payload, null, 2));
+      console.log('🔵 Body (Payload completo):');
+      console.log(JSON.stringify(payload, null, 2));
+      console.log('🔵 =========================================');
 
       // Tentar criar o link de pagamento
       // Se receber 401, limpar cache do token e tentar novamente uma vez
