@@ -285,22 +285,24 @@ class RedeClient {
       console.log('🔵 Referência:', reference);
       console.log('🔵 Descrição:', description);
 
+      // A API Red-e usa o endpoint de transações com kind: 'pix'
       // Montar payload da cobrança PIX
       const payload = {
+        capture: true,
         amount: amount,
         reference: reference,
+        kind: 'pix', // Tipo de pagamento PIX
         description: description || `Pedido ${reference}`,
-        expiration: expiration, // Tempo em segundos
       };
 
       console.log('🔵 Payload PIX:', JSON.stringify(payload, null, 2));
-      console.log('🔵 Fazendo POST para:', `${this.baseUrl}/pix/charges`);
+      console.log('🔵 Fazendo POST para:', `${this.baseUrl}/transactions`);
 
       // Autenticação Basic Auth
       const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
 
       const response = await axios.post(
-        `${this.baseUrl}/pix/charges`,
+        `${this.baseUrl}/transactions`,
         payload,
         {
           headers: {
@@ -316,30 +318,45 @@ class RedeClient {
 
       if (response.data) {
         console.log('🔵 Campos na resposta:', Object.keys(response.data));
-        console.log('🔵 QR Code presente:', !!response.data.qrCode);
+        console.log('🔵 Resposta completa:', JSON.stringify(response.data, null, 2));
       }
 
-      if (!response.data || !response.data.qrCode) {
+      // A API Red-e retorna o QR Code em diferentes campos dependendo da estrutura
+      // Pode estar em: qrCode, qrcode, qr_code, pix.qrCode, returnCode, etc.
+      const qrCode = response.data?.qrCode 
+        || response.data?.qrcode 
+        || response.data?.qr_code
+        || response.data?.pix?.qrCode
+        || response.data?.returnCode
+        || response.data?.pix?.returnCode;
+
+      if (!qrCode) {
         console.error('❌ QR Code não retornado. Resposta completa:', JSON.stringify(response.data, null, 2));
         throw new Error('QR Code PIX não retornado pela API Red-e');
       }
 
       console.log('✅ Cobrança PIX criada com sucesso');
-      console.log('🔵 QR Code gerado:', response.data.qrCode.substring(0, 50) + '...');
+      console.log('🔵 QR Code gerado:', qrCode.substring(0, 50) + '...');
+
+      // Extrair o ID da transação
+      const transactionId = response.data?.tid 
+        || response.data?.id 
+        || response.data?.transactionId
+        || response.data?.reference;
 
       return {
-        chargeId: response.data.chargeId || response.data.id,
-        qrCode: response.data.qrCode,
-        qrCodeBase64: response.data.qrCodeBase64 || null,
-        amount: response.data.amount || amount,
-        description: response.data.description || description,
-        expiration: response.data.expiration || expiration,
-        status: response.data.status || 'PENDING',
-        reference: response.data.reference || reference,
+        chargeId: transactionId,
+        qrCode: qrCode,
+        qrCodeBase64: response.data?.qrCodeBase64 || response.data?.pix?.qrCodeBase64 || null,
+        amount: response.data?.amount || amount,
+        description: response.data?.description || description,
+        expiration: response.data?.expiration || expiration,
+        status: response.data?.status || response.data?.returnCode ? 'PENDING' : 'PENDING',
+        reference: response.data?.reference || reference,
       };
     } catch (error) {
       console.error('❌ ========== ERRO AO CRIAR COBRANÇA PIX ==========');
-      console.error('❌ URL tentada:', `${this.baseUrl}/pix/charges`);
+      console.error('❌ URL tentada:', `${this.baseUrl}/transactions`);
       console.error('❌ Status HTTP:', error.response?.status);
       console.error('❌ Status Text:', error.response?.statusText);
       console.error('❌ Dados da resposta:', JSON.stringify(error.response?.data, null, 2));
