@@ -463,12 +463,11 @@ class RedeClient {
         payload.orderId = reference;
       }
 
-      console.log('🔵 Payload PIX:', JSON.stringify(payload, null, 2));
+      console.log('🔵 Payload PIX inicial:', JSON.stringify(payload, null, 2));
       console.log('🔵 Base URL configurada:', this.baseUrl);
       console.log('🔵 Endpoint:', endpoint);
-      console.log('🔵 clientId (PV) completo:', this.clientId || 'NÃO CONFIGURADO');
-      console.log('🔵 clientId (PV) no payload (affiliation):', payload.affiliation);
-      console.log('🔵 Tipo do affiliation:', typeof payload.affiliation);
+      console.log('🔵 clientId (GUID):', this.clientId || 'NÃO CONFIGURADO');
+      console.log('🔵 affiliation (número da filial):', this.affiliation || 'NÃO CONFIGURADO');
       console.log('🔵 Data de expiração:', dateTimeExpiration);
       
       // Obter header de autorização (OAuth 2.0 ou Basic Auth)
@@ -480,7 +479,7 @@ class RedeClient {
       console.log('🔵 Header Authorization (primeiros 30 chars):', authHeader.substring(0, 30) + '...');
       
       // SEMPRE adicionar affiliation no payload - OBRIGATÓRIO
-      // A API Red-e/Itaú requer affiliation no payload, mesmo com Basic Auth
+      // A API Red-e/Itaú requer affiliation no payload, mesmo com OAuth 2.0
       // IMPORTANTE: affiliation deve ser o número da filial (ex: 104847581) e não o GUID
       let finalPayload = { ...payload };
       
