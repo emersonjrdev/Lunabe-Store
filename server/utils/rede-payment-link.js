@@ -38,7 +38,9 @@ class RedePaymentLinkClient {
     } else {
       // Sandbox conforme documentação: https://payments-apisandbox.useredecloud.com.br
       this.baseUrl = 'https://payments-apisandbox.useredecloud.com.br';
-      this.oauthUrl = 'https://rl7-sandbox-api.useredecloud.com.br/oauth2/token';
+      // OAuth URL do sandbox - usar o mesmo endpoint de produção para sandbox também
+      // A documentação não especifica URL diferente para sandbox OAuth
+      this.oauthUrl = 'https://api.userede.com.br/redelabs/oauth2/token';
     }
     
     // Cache do access_token OAuth 2.0
@@ -210,13 +212,21 @@ class RedePaymentLinkClient {
       const descriptionLimited = (description || `Pedido ${reference}`).substring(0, 50);
 
       // Montar payload conforme documentação oficial
-      // Campos obrigatórios: amount, expirationDate, description
-      // Campos opcionais: installments, createdBy, paymentOptions, comments
+      // Campos obrigatórios: amount, expirationDate, description, installments
+      // Campos opcionais: createdBy, paymentOptions, comments
       const payload = {
         amount: amountDecimal, // Valor em decimal (ex: 1.00 ao invés de 100 centavos)
         expirationDate: expirationDateFormatted, // Formato: MM/DD/YYYY
-        description: descriptionLimited, // Máximo 50 caracteres
+        description: descriptionLimited, // Máximo 50 caracteres (obrigatório)
+        installments: 12, // Número de parcelas (1-12, obrigatório conforme documentação)
       };
+      
+      console.log('🔵 ========== PAYLOAD CONFORM DOCUMENTAÇÃO ==========');
+      console.log('🔵 Campos obrigatórios:');
+      console.log('🔵   amount:', payload.amount, '(decimal)');
+      console.log('🔵   expirationDate:', payload.expirationDate, '(MM/DD/YYYY)');
+      console.log('🔵   description:', payload.description, '(max 50 chars)');
+      console.log('🔵   installments:', payload.installments, '(1-12)');
 
       // Adicionar campos opcionais se fornecidos
       if (customerEmail) {
@@ -225,6 +235,8 @@ class RedePaymentLinkClient {
 
       // paymentOptions: array com opções de pagamento (opcional)
       // Por padrão, permitir crédito, débito e PIX
+      // No simulador: credit e/ou pix
+      // Em produção: depende das habilitações do estabelecimento
       payload.paymentOptions = ['credit', 'debit', 'pix'];
 
       // comments: comentários adicionais (opcional)
@@ -241,13 +253,34 @@ class RedePaymentLinkClient {
       console.log('🔵 Payload:', JSON.stringify(payload, null, 2));
 
       // Endpoint: POST /payment-link/v1/create
+      // Conforme documentação: Base URL + /payment-link/v1/create
       const endpoint = `${this.baseUrl}/payment-link/v1/create`;
+      
+      console.log('🔵 ========== ENDPOINT E CONFIGURAÇÃO ==========');
+      console.log('🔵 Base URL:', this.baseUrl);
+      console.log('🔵 Endpoint completo:', endpoint);
+      console.log('🔵 Ambiente:', this.environment);
 
       // Validar company-number antes de enviar
-      const companyNumberStr = String(this.companyNumber);
+      // IMPORTANTE: Company-number deve ser string numérica, não número
+      const companyNumberStr = String(this.companyNumber).trim();
       if (!/^\d{1,10}$/.test(companyNumberStr)) {
-        throw new Error(`Company-number inválido: deve ser numérico e ter no máximo 10 dígitos. Valor atual: ${this.companyNumber}`);
+        console.error('❌ Company-number inválido:', {
+          valor: this.companyNumber,
+          tipo: typeof this.companyNumber,
+          string: companyNumberStr,
+          regexMatch: /^\d{1,10}$/.test(companyNumberStr),
+        });
+        throw new Error(`Company-number inválido: deve ser numérico e ter no máximo 10 dígitos. Valor atual: ${this.companyNumber} (tipo: ${typeof this.companyNumber})`);
       }
+      
+      console.log('🔵 Company-number validado:', {
+        original: this.companyNumber,
+        tipoOriginal: typeof this.companyNumber,
+        string: companyNumberStr,
+        tipoString: typeof companyNumberStr,
+        tamanho: companyNumberStr.length,
+      });
 
       console.log('🔵 Headers da requisição:');
       console.log('🔵   Authorization: Bearer', accessToken.substring(0, 20) + '...');
@@ -375,7 +408,30 @@ class RedePaymentLinkClient {
           this.tokenExpiresAt = null;
           
           // Se o erro for "invalid_client" ou "Partner not allowed", não tentar novamente
-          if (errorData?.error === 'invalid_client' || 
+          // Verificar se é erro de permissão/autorização
+          if (errorData?.message?.includes('not authorized') || 
+              errorData?.message?.includes('explicit deny') ||
+              errorData?.message?.includes('identity-based policy')) {
+            console.error('❌ ========== ERRO: SEM PERMISSÃO PARA LINK DE PAGAMENTO ==========');
+            console.error('❌ A mensagem indica: "User is not authorized to access this resource"');
+            console.error('❌');
+            console.error('❌ SOLUÇÃO: É necessário habilitar o produto Link de Pagamento no portal da Rede');
+            console.error('❌');
+            console.error('❌ Passos necessários:');
+            console.error('❌   1. Acesse o portal da Rede (https://portal.userede.com.br)');
+            console.error('❌   2. Vá na seção "Link de Pagamento"');
+            console.error('❌   3. Habilite o produto Link de Pagamento');
+            console.error('❌   4. Aceite os termos e condições');
+            console.error('❌   5. Aguarde a ativação (pode levar algumas horas)');
+            console.error('❌');
+            console.error('❌ Conforme documentação:');
+            console.error('❌   "Para iniciar a integração com a API do Link de Pagamento,');
+            console.error('❌    é necessário acessar o portal da Rede, habilitar o produto');
+            console.error('❌    e aceitar os termos de uso."');
+            console.error('❌');
+            console.error('❌ Company-number usado:', this.companyNumber);
+            console.error('❌ =========================================');
+          } else if (errorData?.error === 'invalid_client' || 
               errorData?.message?.includes('Partner not allowed')) {
             console.error('❌ ========== ERRO: Credenciais inválidas ==========');
             if (errorData?.message?.includes('Partner not allowed for this company number')) {
