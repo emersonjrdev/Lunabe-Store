@@ -230,9 +230,11 @@ class RedePaymentLinkClient {
       }
 
       console.log('🔵 Headers da requisição:');
-      console.log('🔵   Authorization: Bearer [token]');
+      console.log('🔵   Authorization: Bearer', accessToken.substring(0, 20) + '...');
       console.log('🔵   Company-number:', companyNumberStr);
       console.log('🔵   Content-Type: application/json');
+      console.log('🔵   Endpoint completo:', endpoint);
+      console.log('🔵   Payload completo:', JSON.stringify(payload, null, 2));
 
       const response = await axios.post(
         endpoint,
@@ -262,14 +264,37 @@ class RedePaymentLinkClient {
         message: response.data.message || 'Inserted Successfully',
       };
     } catch (error) {
-      console.error('❌ Erro ao criar link de pagamento:', error.message);
+      console.error('❌ ========== ERRO AO CRIAR LINK DE PAGAMENTO ==========');
+      console.error('❌ Mensagem:', error.message);
+      console.error('❌ Endpoint usado:', `${this.baseUrl}/payment-link/v1/create`);
+      console.error('❌ Ambiente:', this.environment);
+      console.error('❌ Company-number:', this.companyNumber);
+      console.error('❌ clientId (PV):', this.clientId);
+      console.error('❌ clientSecret presente:', !!this.clientSecret);
+      console.error('❌ clientSecret tamanho:', this.clientSecret?.length);
+      
       if (error.response) {
-        console.error('❌ Status:', error.response.status);
-        console.error('❌ Dados:', JSON.stringify(error.response.data, null, 2));
+        console.error('❌ Status HTTP:', error.response.status);
+        console.error('❌ Status Text:', error.response.statusText);
+        console.error('❌ Headers da resposta:', JSON.stringify(error.response.headers, null, 2));
+        console.error('❌ Dados da resposta:', JSON.stringify(error.response.data, null, 2));
         
         // Tratamento específico para erros 401
         if (error.response.status === 401) {
           const errorData = error.response.data;
+          console.error('❌ ========== ERRO 401: Não autorizado ==========');
+          console.error('❌ Possíveis causas:');
+          console.error('❌   1. Token OAuth inválido ou expirado');
+          console.error('❌   2. Company-number incorreto ou sem permissão');
+          console.error('❌   3. Credenciais OAuth incorretas (clientId/clientSecret)');
+          console.error('❌   4. Token não tem permissão para criar Link de Pagamento');
+          console.error('❌');
+          console.error('❌ Dados enviados:');
+          console.error('❌   Company-number:', this.companyNumber);
+          console.error('❌   clientId (PV):', this.clientId);
+          console.error('❌   Ambiente:', this.environment);
+          console.error('❌   OAuth URL:', this.oauthUrl);
+          
           if (errorData?.message?.includes('Partner not allowed for this company number')) {
             console.error('❌ ========== ERRO: Partner not allowed ==========');
             console.error('❌ O token OAuth não tem permissão para acessar este company-number');
