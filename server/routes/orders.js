@@ -162,6 +162,10 @@ router.post("/create-checkout-session", async (req, res) => {
 
     // Processar pagamento baseado no método selecionado
     console.log('🔵 Método de pagamento selecionado:', paymentMethod);
+    console.log('🔵 Tipo do paymentMethod:', typeof paymentMethod);
+    console.log('🔵 Comparação rede:', paymentMethod === 'rede');
+    console.log('🔵 Comparação rede-pix:', paymentMethod === 'rede-pix');
+    console.log('🔵 Comparação itau-pix:', paymentMethod === 'itau-pix');
     
     if (paymentMethod === 'rede') {
       // Pagamento via Red-e (Cartão de Crédito/Débito)
@@ -284,6 +288,10 @@ router.post("/create-checkout-session", async (req, res) => {
           console.error('Erro ao enviar email de confirmação (não crítico):', err);
         });
         
+        // URL do webhook para notificações da Red-e
+        const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'https://lunabe-store.onrender.com';
+        const webhookUrl = `${backendUrl}/api/webhooks/rede-pix`;
+
         return res.json({
           orderId: order._id.toString(),
           paymentMethod: 'rede-pix',
@@ -293,6 +301,7 @@ router.post("/create-checkout-session", async (req, res) => {
           pixValor: pixData.valor,
           pixDescricao: pixData.descricao,
           pixTxId: pixData.chargeId || null,
+          webhookUrl: webhookUrl, // URL para configurar na Red-e
         });
       } catch (pixError) {
         console.error('❌ Erro crítico ao gerar PIX:', pixError);

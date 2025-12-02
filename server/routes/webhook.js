@@ -170,6 +170,98 @@ router.post('/abacatepay', async (req, res) => {
   }
 });
 
+// Webhook endpoint para receber notificações da Red-e (PIX)
+router.post('/rede-pix', async (req, res) => {
+  try {
+    const webhookData = req.body;
+    
+    console.log('🔵 Webhook Red-e PIX recebido:', {
+      headers: req.headers,
+      body: webhookData,
+    });
+
+    // A Red-e pode enviar diferentes tipos de notificações
+    // Verificar se tem chargeId ou reference para identificar o pedido
+    const chargeId = webhookData.chargeId || webhookData.id || webhookData.transactionId;
+    const reference = webhookData.reference || webhookData.orderId;
+    const status = webhookData.status || webhookData.paymentStatus;
+
+    if (!chargeId && !reference) {
+      console.warn('⚠️ Webhook Red-e sem identificador de pedido');
+      return res.status(400).json({ error: 'Dados insuficientes no webhook' });
+    }
+
+    // Buscar pedido pelo chargeId (pixTxId) ou reference
+    let order = null;
+    if (chargeId) {
+      order = await Order.findOne({ pixTxId: chargeId });
+    }
+    
+    if (!order && reference) {
+      order = await Order.findById(reference);
+    }
+
+    if (!order) {
+      console.warn('⚠️ Pedido não encontrado para webhook Red-e:', {
+        chargeId,
+        reference,
+      });
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+
+    const previousStatus = order.status;
+
+    // Atualizar status baseado na notificação
+    if (status === 'PAID' || status === 'APPROVED' || status === 'CONFIRMED') {
+      order.status = 'Pago';
+      order.paidAt = new Date();
+      
+      // Reduzir estoque apenas uma vez
+      if (!order.stockReduced) {
+        await reduceStock(order.items);
+        order.stockReduced = true;
+        console.log(`✅ Estoque reduzido para pedido ${order._id}`);
+      }
+      
+      // Enviar email de confirmação
+      try {
+        await sendPaymentConfirmationEmail(order.email, order);
+      } catch (emailErr) {
+        console.error('Erro ao enviar email de confirmação:', emailErr);
+      }
+    } else if (status === 'CANCELLED' || status === 'CANCELED') {
+      order.status = 'Cancelado';
+      
+      // Restaurar estoque se já foi reduzido
+      if (order.stockReduced) {
+        await restoreStock(order.items);
+        order.stockReduced = false;
+        console.log(`✅ Estoque restaurado para pedido cancelado ${order._id}`);
+      }
+    } else if (status === 'PENDING' || status === 'WAITING') {
+      order.status = 'Aguardando pagamento';
+    } else if (status === 'FAILED' || status === 'REJECTED') {
+      order.status = 'Falha no pagamento';
+      
+      // Restaurar estoque se já foi reduzido
+      if (order.stockReduced) {
+        await restoreStock(order.items);
+        order.stockReduced = false;
+      }
+    }
+
+    await order.save();
+
+    console.log(`✅ Pedido ${order._id} atualizado para status: ${order.status}`);
+
+    // Retornar sucesso para a Red-e
+    res.status(200).json({ received: true, orderId: order._id.toString() });
+  } catch (error) {
+    console.error('❌ Erro ao processar webhook Red-e PIX:', error);
+    res.status(500).json({ error: 'Erro ao processar webhook' });
+  }
+});
+
 // Endpoint legado (deprecated)
 router.post('/webhook', (req, res) => {
   res.status(410).json({ error: 'Stripe webhooks are deprecated. Use /api/webhooks/abacatepay for AbacatePay webhooks' });
