@@ -371,13 +371,21 @@ class RedeClient {
         console.log('🔵 Resposta completa:', JSON.stringify(response.data, null, 2));
       }
 
+      // Verificar se a resposta é um erro (status 4xx ou 5xx, ou returnCode presente com returnMessage)
+      if (response.status >= 400 || (response.data?.returnCode && response.data?.returnMessage)) {
+        const errorCode = response.data?.returnCode;
+        const errorMessage = response.data?.returnMessage || 'Erro desconhecido da API Red-e';
+        console.error('❌ API Red-e retornou erro:', errorCode, errorMessage);
+        throw new Error(`Erro ${errorCode}: ${errorMessage}`);
+      }
+
       // A API Red-e retorna o QR Code em diferentes campos dependendo da estrutura
-      // Pode estar em: qrCode, qrcode, qr_code, pix.qrCode, returnCode, etc.
+      // Pode estar em: qrCode, qrcode, qr_code, pix.qrCode, etc.
+      // NÃO usar returnCode pois ele é usado para códigos de erro
       const qrCode = response.data?.qrCode 
         || response.data?.qrcode 
         || response.data?.qr_code
         || response.data?.pix?.qrCode
-        || response.data?.returnCode
         || response.data?.pix?.returnCode;
 
       if (!qrCode) {
