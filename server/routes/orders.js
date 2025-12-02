@@ -226,25 +226,40 @@ router.post("/create-checkout-session", async (req, res) => {
         let pixData;
         
         try {
+          console.log('🔵 Iniciando geração de PIX via API Itaú...');
+          console.log('🔵 Order ID:', order._id.toString());
+          console.log('🔵 Total (centavos):', totalInCents);
+          console.log('🔵 Total (reais):', (totalInCents / 100).toFixed(2));
+          
           pixData = await generatePixViaApi(order, totalInCents);
+          
           console.log('✅ PIX gerado via API com sucesso:', {
             hasQrCode: !!pixData.qrCode,
             qrCodeLength: pixData.qrCode?.length,
             chave: pixData.chave,
             valor: pixData.valor,
             txId: pixData.txId,
+            location: pixData.location,
           });
         } catch (apiError) {
-          console.error('❌ Erro ao gerar PIX via API Itaú:', apiError.message);
-          console.error('❌ Detalhes do erro:', apiError.response?.data || apiError.stack);
+          console.error('❌ ========== ERRO AO GERAR PIX ==========');
+          console.error('❌ Mensagem:', apiError.message);
+          console.error('❌ Status HTTP:', apiError.response?.status);
+          console.error('❌ Status Text:', apiError.response?.statusText);
+          console.error('❌ Dados da resposta:', JSON.stringify(apiError.response?.data, null, 2));
+          console.error('❌ Stack trace:', apiError.stack);
+          console.error('❌ =========================================');
           
           // Retornar erro detalhado para ajudar no diagnóstico
           const errorDetails = apiError.response?.data || {};
+          const errorMessage = apiError.message || 'Erro desconhecido ao gerar PIX';
+          
           return res.status(500).json({
             error: 'Erro ao gerar código PIX via API Itaú',
-            details: apiError.message,
-            apiError: process.env.NODE_ENV === 'development' ? errorDetails : undefined,
-            suggestion: 'Verifique as credenciais do Itaú e se a chave PIX está cadastrada corretamente.',
+            details: errorMessage,
+            status: apiError.response?.status,
+            apiError: errorDetails,
+            suggestion: 'Verifique as credenciais do Itaú no Render, se a chave PIX está cadastrada, e se o ambiente está correto (production/sandbox).',
           });
         }
         
@@ -572,6 +587,69 @@ router.post('/:id/confirm-payment', async (req, res) => {
   } catch (err) {
     console.error('Erro ao confirmar pagamento:', err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Rota de teste para verificar credenciais do Itaú (apenas para diagnóstico)
+router.get('/test-itau-credentials', async (req, res) => {
+  try {
+    const hasClientId = !!process.env.ITAU_CLIENT_ID;
+    const hasClientSecret = !!process.env.ITAU_CLIENT_SECRET;
+    const pixKey = process.env.ITAU_PIX_KEY || '63824145000127';
+    const environment = process.env.ITAU_ENV || 'sandbox';
+    
+    console.log('🔵 Testando credenciais do Itaú...');
+    
+    if (!hasClientId || !hasClientSecret) {
+      return res.json({
+        success: false,
+        message: 'Credenciais não configuradas',
+        details: {
+          ITAU_CLIENT_ID: hasClientId ? '✅ Configurado' : '❌ Não configurado',
+          ITAU_CLIENT_SECRET: hasClientSecret ? '✅ Configurado' : '❌ Não configurado',
+          ITAU_PIX_KEY: pixKey,
+          ITAU_ENV: environment,
+        },
+        suggestion: 'Configure ITAU_CLIENT_ID e ITAU_CLIENT_SECRET no Render',
+      });
+    }
+    
+    // Tentar obter token
+    const itauPix = (await import('../utils/itau-pix.js')).default;
+    
+    try {
+      const token = await itauPix.getAccessToken();
+      return res.json({
+        success: true,
+        message: 'Credenciais válidas! Token obtido com sucesso.',
+        details: {
+          ITAU_CLIENT_ID: '✅ Configurado',
+          ITAU_CLIENT_SECRET: '✅ Configurado',
+          ITAU_PIX_KEY: pixKey,
+          ITAU_ENV: environment,
+          tokenObtained: '✅ Sim',
+        },
+      });
+    } catch (tokenError) {
+      return res.json({
+        success: false,
+        message: 'Erro ao obter token',
+        details: {
+          ITAU_CLIENT_ID: '✅ Configurado',
+          ITAU_CLIENT_SECRET: '✅ Configurado',
+          ITAU_PIX_KEY: pixKey,
+          ITAU_ENV: environment,
+          error: tokenError.message,
+          apiResponse: tokenError.response?.data,
+        },
+      });
+    }
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao testar credenciais',
+      error: error.message,
+    });
   }
 });
 

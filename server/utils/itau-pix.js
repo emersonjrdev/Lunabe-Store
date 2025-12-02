@@ -43,11 +43,17 @@ class ItauPixClient {
     }
 
     if (!this.clientId || !this.clientSecret) {
+      console.error('❌ Credenciais não configuradas:');
+      console.error('   - ITAU_CLIENT_ID:', this.clientId ? '✅' : '❌');
+      console.error('   - ITAU_CLIENT_SECRET:', this.clientSecret ? '✅' : '❌');
       throw new Error('ITAU_CLIENT_ID e ITAU_CLIENT_SECRET são obrigatórios');
     }
 
     try {
       console.log('🔵 Obtendo token de autenticação Itaú...');
+      console.log('🔵 URL do token:', this.tokenUrl);
+      console.log('🔵 Ambiente:', this.environment);
+      console.log('🔵 Client ID (primeiros 10 chars):', this.clientId.substring(0, 10) + '...');
       
       const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
       
@@ -62,7 +68,11 @@ class ItauPixClient {
         }
       );
 
+      console.log('🔵 Resposta da API (status):', response.status);
+      console.log('🔵 Resposta da API (dados):', response.data ? '✅ Recebida' : '❌ Vazia');
+
       if (!response.data || !response.data.access_token) {
+        console.error('❌ Token não retornado. Resposta completa:', JSON.stringify(response.data, null, 2));
         throw new Error('Token não retornado pela API Itaú');
       }
 
@@ -73,11 +83,20 @@ class ItauPixClient {
       this.tokenCache.token = token;
       this.tokenCache.expiresAt = Date.now() + expiresIn - 60000; // Expirar 1 min antes
 
-      console.log('✅ Token obtido com sucesso');
+      console.log('✅ Token obtido com sucesso (expira em', expiresIn / 1000, 'segundos)');
       return token;
     } catch (error) {
-      console.error('❌ Erro ao obter token Itaú:', error.response?.data || error.message);
-      throw new Error(`Erro ao autenticar na API Itaú: ${error.response?.data?.error_description || error.message}`);
+      console.error('❌ Erro ao obter token Itaú:');
+      console.error('   - Status:', error.response?.status);
+      console.error('   - Status Text:', error.response?.statusText);
+      console.error('   - Dados:', JSON.stringify(error.response?.data, null, 2));
+      console.error('   - Mensagem:', error.message);
+      
+      const errorMsg = error.response?.data?.error_description 
+        || error.response?.data?.error 
+        || error.message;
+      
+      throw new Error(`Erro ao autenticar na API Itaú: ${errorMsg}`);
     }
   }
 
@@ -116,7 +135,9 @@ class ItauPixClient {
       };
 
       console.log('🔵 Criando cobrança PIX no Itaú...');
+      console.log('🔵 URL:', `${this.pixUrl}/${transactionId}`);
       console.log('🔵 Payload:', JSON.stringify(payload, null, 2));
+      console.log('🔵 TxId:', transactionId);
 
       const response = await axios.put(
         `${this.pixUrl}/${transactionId}`,
@@ -129,7 +150,15 @@ class ItauPixClient {
         }
       );
 
+      console.log('🔵 Resposta da API (status):', response.status);
+      console.log('🔵 Resposta da API (dados):', response.data ? '✅ Recebida' : '❌ Vazia');
+      
+      if (response.data) {
+        console.log('🔵 Campos na resposta:', Object.keys(response.data));
+      }
+
       if (!response.data || !response.data.pixCopiaECola) {
+        console.error('❌ QR Code não encontrado na resposta. Resposta completa:', JSON.stringify(response.data, null, 2));
         throw new Error('QR Code PIX não retornado pela API Itaú');
       }
 
