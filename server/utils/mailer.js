@@ -17,27 +17,46 @@ if (!isEmailConfigured) {
 }
 
 const transporter = isEmailConfigured ? nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // true para 465, false para outras portas
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  // Adicionar configurações adicionais para melhor compatibilidade
+  // Configurações para melhor compatibilidade com Render
   tls: {
-    rejectUnauthorized: false
-  }
+    rejectUnauthorized: false,
+    ciphers: 'SSLv3'
+  },
+  // Timeout aumentado para conexões mais lentas
+  connectionTimeout: 60000, // 60 segundos
+  greetingTimeout: 30000, // 30 segundos
+  socketTimeout: 60000, // 60 segundos
+  // Retry logic
+  pool: true,
+  maxConnections: 1,
+  maxMessages: 3
 }) : null;
 
 // Verificar conexão do transporter ao inicializar (apenas uma vez)
+// Não bloquear a inicialização se a verificação falhar
 if (transporter) {
-  transporter.verify().then(() => {
-    console.log('✅ Servidor de email configurado e pronto para enviar emails');
-    console.log('🔵 Email remetente:', process.env.EMAIL_FROM || process.env.EMAIL_USER);
-  }).catch((error) => {
-    console.error('❌ Erro ao verificar configuração de email:', error.message);
-    console.error('❌ Verifique se EMAIL_USER e EMAIL_PASS estão corretos');
-    console.error('❌ Para Gmail, use uma "Senha de App" (não a senha normal)');
-  });
+  // Verificar de forma assíncrona sem bloquear
+  transporter.verify()
+    .then(() => {
+      console.log('✅ Servidor de email configurado e pronto para enviar emails');
+      console.log('🔵 Email remetente:', process.env.EMAIL_FROM || process.env.EMAIL_USER);
+      console.log('🔵 SMTP: smtp.gmail.com:587');
+    })
+    .catch((error) => {
+      console.warn('⚠️ Aviso: Não foi possível verificar conexão SMTP na inicialização');
+      console.warn('⚠️ Erro:', error.message);
+      console.warn('⚠️ Isso não impede o envio de emails - será tentado quando necessário');
+      console.warn('⚠️ Verifique se EMAIL_USER e EMAIL_PASS estão corretos');
+      console.warn('⚠️ Para Gmail, use uma "Senha de App" (não a senha normal)');
+      // Não bloquear - tentará conectar quando enviar email
+    });
 }
 
 // Função auxiliar para formatar itens do pedido
