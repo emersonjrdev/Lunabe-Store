@@ -85,6 +85,9 @@ class RedeClient {
       // Preparar dados do dispositivo para 3DS
       const userAgent = customer?.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
       
+      // URL do backend para callbacks 3DS
+      const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:4001';
+      
       // Montar payload da transação com 3DS e Data Only
       const payload = {
         capture: true, // Captura automática
@@ -113,7 +116,6 @@ class RedeClient {
           challengePreference: 'DATA_ONLY', // Ativar Data Only
         },
         // URLs de callback para 3DS (backend processa e redireciona)
-        const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:4001';
         urls: [
           {
             kind: 'threeDSecureSuccess',
