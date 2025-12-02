@@ -19,11 +19,14 @@ class RedeClient {
     this.environment = process.env.REDE_ENV || 'sandbox';
     
     // URLs da API Red-e
+    // A API Red-e usa a mesma URL para sandbox e production
+    // A diferença está nas credenciais utilizadas
+    // Base URL sem o /erede, será adicionado no endpoint
     if (this.environment === 'production') {
-      this.baseUrl = 'https://api.userede.com.br/erede';
+      this.baseUrl = 'https://api.userede.com.br';
     } else {
-      this.baseUrl = 'https://api.userede.com.br/erede';
-      // Sandbox pode usar a mesma URL, mas com credenciais diferentes
+      // Sandbox usa a mesma URL base
+      this.baseUrl = 'https://api.userede.com.br';
     }
     
     // URL base do frontend para callbacks
@@ -139,13 +142,13 @@ class RedeClient {
       }
 
       console.log('🔵 Payload da transação:', JSON.stringify(payload, null, 2));
-      console.log('🔵 Fazendo POST para:', `${this.baseUrl}/transactions`);
+      console.log('🔵 Fazendo POST para:', `${this.baseUrl}/erede/transactions`);
 
       // Autenticação Basic Auth
       const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
 
       const response = await axios.post(
-        `${this.baseUrl}/transactions`,
+        `${this.baseUrl}/erede/transactions`,
         payload,
         {
           headers: {
@@ -179,7 +182,7 @@ class RedeClient {
       };
     } catch (error) {
       console.error('❌ ========== ERRO AO CRIAR TRANSAÇÃO ==========');
-      console.error('❌ URL tentada:', `${this.baseUrl}/transactions`);
+      console.error('❌ URL tentada:', `${this.baseUrl}/erede/transactions`);
       console.error('❌ Status HTTP:', error.response?.status);
       console.error('❌ Status Text:', error.response?.statusText);
       console.error('❌ Dados da resposta:', JSON.stringify(error.response?.data, null, 2));
@@ -208,7 +211,7 @@ class RedeClient {
       const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
 
       const response = await axios.get(
-        `${this.baseUrl}/transactions/${tid}`,
+        `${this.baseUrl}/erede/transactions/${tid}`,
         {
           headers: {
             'Authorization': `Basic ${credentials}`,
@@ -243,7 +246,7 @@ class RedeClient {
       }
 
       const response = await axios.post(
-        `${this.baseUrl}/transactions/${tid}/refunds`,
+        `${this.baseUrl}/erede/transactions/${tid}/refunds`,
         payload,
         {
           headers: {
@@ -296,13 +299,16 @@ class RedeClient {
       };
 
       console.log('🔵 Payload PIX:', JSON.stringify(payload, null, 2));
-      console.log('🔵 Fazendo POST para:', `${this.baseUrl}/transactions`);
+      
+      // A API Red-e usa o endpoint /erede/transactions
+      const endpoint = `${this.baseUrl}/erede/transactions`;
+      console.log('🔵 Fazendo POST para:', endpoint);
 
       // Autenticação Basic Auth
       const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
 
       const response = await axios.post(
-        `${this.baseUrl}/transactions`,
+        endpoint,
         payload,
         {
           headers: {
@@ -356,7 +362,7 @@ class RedeClient {
       };
     } catch (error) {
       console.error('❌ ========== ERRO AO CRIAR COBRANÇA PIX ==========');
-      console.error('❌ URL tentada:', `${this.baseUrl}/transactions`);
+      console.error('❌ URL tentada:', `${this.baseUrl}/erede/transactions`);
       console.error('❌ Status HTTP:', error.response?.status);
       console.error('❌ Status Text:', error.response?.statusText);
       console.error('❌ Dados da resposta:', JSON.stringify(error.response?.data, null, 2));
