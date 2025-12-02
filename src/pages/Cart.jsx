@@ -19,6 +19,10 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   const [hasPreviousOrders, setHasPreviousOrders] = useState(false)
   const [checkingOrders, setCheckingOrders] = useState(false)
 
+  // IMPORTANTE: Hooks devem ser chamados ANTES de qualquer early return
+  const { addToast } = useToast()
+  const navigate = useNavigate()
+
   useEffect(() => {
     // prefills address from user or saved profile
     if (user?.address) {
@@ -83,8 +87,6 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
       checkPreviousOrders();
     }
   }, [user])
-  const { addToast } = useToast()
-  const navigate = useNavigate()
 
   // Verificar se usuário está logado
   if (!user) {
