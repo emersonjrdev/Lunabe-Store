@@ -15,8 +15,13 @@ export default function PixPayment() {
   const [pixData, setPixData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('pending'); // pending, paid, failed
 
   useEffect(() => {
+    // Limpar carrinho ao entrar na página de pagamento PIX
+    localStorage.removeItem("lunabe-cart");
+    window.dispatchEvent(new Event("storage"));
+
     // Obter dados do PIX do state ou buscar do servidor
     if (location.state?.pixQrCode) {
       setPixData({
@@ -26,6 +31,11 @@ export default function PixPayment() {
         descricao: location.state.pixDescricao,
       });
       setIsLoading(false);
+      
+      // Buscar dados do pedido para verificar status
+      if (orderId) {
+        fetchOrderData();
+      }
     } else if (orderId) {
       // Buscar dados do pedido do servidor
       fetchOrderData();
@@ -34,6 +44,38 @@ export default function PixPayment() {
       navigate('/carrinho');
     }
   }, [orderId, location.state]);
+
+  // Verificar status do pedido periodicamente (a cada 5 segundos)
+  useEffect(() => {
+    if (!orderId || paymentStatus === 'paid') return;
+
+    const checkPaymentStatus = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/orders/${orderId}`);
+        if (!response.ok) return;
+        
+        const orderData = await response.json();
+        setOrder(orderData);
+        
+        // Se o pedido foi pago, atualizar status e redirecionar
+        if (orderData.status === 'Pago' || orderData.status === 'pago') {
+          setPaymentStatus('paid');
+          addToast('Pagamento confirmado! Redirecionando...', 'success');
+          setTimeout(() => {
+            navigate('/minhas-compras');
+          }, 2000);
+        }
+      } catch (error) {
+        console.error('Erro ao verificar status do pagamento:', error);
+      }
+    };
+
+    // Verificar imediatamente e depois a cada 5 segundos
+    checkPaymentStatus();
+    const interval = setInterval(checkPaymentStatus, 5000);
+
+    return () => clearInterval(interval);
+  }, [orderId, paymentStatus, navigate, addToast]);
 
   const fetchOrderData = async () => {
     try {

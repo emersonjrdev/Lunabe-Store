@@ -277,6 +277,13 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
         return
       }
 
+      // Limpar carrinho após criar o pedido (antes de redirecionar)
+      console.log('✅ Pedido criado com sucesso, limpando carrinho...');
+      localStorage.removeItem("lunabe-cart");
+      window.dispatchEvent(new Event("storage"));
+      setCart([]);
+      console.log('✅ Carrinho limpo');
+
       // Processar resposta baseado no método de pagamento
       if (paymentMethod === 'rede') {
         if (orderData.checkoutUrl) {
