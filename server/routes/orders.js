@@ -187,12 +187,17 @@ router.post("/create-checkout-session", async (req, res) => {
         console.error('Erro ao enviar email de confirmação (não crítico):', err);
       });
       
+      // Retornar URL de checkout da Red-e
+      // Conforme solicitado pelo usuário, o pagamento com cartão deve ser através do link meu.userede.com.br
+      const checkoutUrl = 'https://meu.userede.com.br';
+      
       return res.json({
         orderId: order._id.toString(),
         paymentMethod: 'rede',
+        checkoutUrl: checkoutUrl, // URL da Red-e para pagamento com cartão
         requiresCardData: true, // Indica que precisa coletar dados do cartão
         amount: totalInCents,
-        message: 'Pedido criado. Envie os dados do cartão para processar o pagamento.',
+        message: 'Pedido criado. Redirecionando para página de pagamento...',
       });
     } else if (paymentMethod === 'itau-pix' || paymentMethod === 'rede-pix') {
       // Pagamento via PIX Red-e (API)

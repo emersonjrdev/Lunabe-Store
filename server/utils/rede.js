@@ -398,6 +398,7 @@ class RedeClient {
         qrCode: qrCode,
         qrCodeBase64: response.data?.qrCodeBase64 || response.data?.pix?.qrCodeBase64 || null,
         amount: response.data?.amount || amount,
+        valor: (response.data?.amount || amount) / 100, // Valor em reais para exibição
         description: response.data?.description || description,
         expiration: response.data?.expiration || expiration,
         status: response.data?.status || response.data?.returnCode ? 'PENDING' : 'PENDING',
