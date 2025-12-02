@@ -19,22 +19,31 @@ class ItauPixClient {
     // Produção requer certificado mTLS e credenciais específicas de produção
     this.environment = process.env.ITAU_ENV || 'sandbox'; // 'sandbox' ou 'production'
     
-    // URLs da API Itaú
-    // Sandbox: https://api.itau.com.br/sandbox (ou pode ser diferente - verificar documentação)
-    // Produção: https://api.itau.com.br (mas requer certificado mTLS)
+    // URLs da API Itaú (conforme documentação oficial)
+    // IMPORTANTE: Sandbox NÃO usa OAuth 2.0 e NÃO tem mTLS
+    // Produção usa OAuth 2.0 e mTLS
+    // URL de produção para token: sts.itau.com.br/api/oauth/token
     if (this.environment === 'production') {
+      // Produção: requer certificado mTLS e usa STS
       this.baseUrl = 'https://api.itau.com.br';
+      this.tokenBaseUrl = 'https://sts.itau.com.br';
+      this.tokenUrl = `${this.tokenBaseUrl}/api/oauth/token`;
+      this.pixUrl = `${this.baseUrl}/pix/v2/cob`;
       console.warn('⚠️ Ambiente PRODUÇÃO: Requer certificado mTLS configurado');
+      console.warn('⚠️ URL de token (produção):', this.tokenUrl);
     } else {
-      // Tentar URL padrão do sandbox primeiro
+      // Sandbox: NÃO usa OAuth 2.0 padrão
+      // A URL do sandbox pode variar - verificar no portal do Itaú
+      // Por enquanto, vamos tentar a URL que pode estar no portal
       this.baseUrl = 'https://api.itau.com.br/sandbox';
+      this.tokenBaseUrl = this.baseUrl;
+      // Sandbox pode não usar /oauth/v2/token - pode ser diferente
+      this.tokenUrl = `${this.tokenBaseUrl}/oauth/v2/token`;
+      this.pixUrl = `${this.baseUrl}/pix/v2/cob`;
       console.log('🔵 Usando ambiente SANDBOX');
-      console.log('🔵 Base URL sandbox:', this.baseUrl);
+      console.warn('⚠️ ATENÇÃO: Sandbox NÃO usa OAuth 2.0 padrão conforme documentação');
+      console.warn('⚠️ Você precisa obter credenciais válidas do portal: https://devportal.itau.com.br');
     }
-    
-    // URLs dos endpoints
-    this.tokenUrl = `${this.baseUrl}/oauth/v2/token`;
-    this.pixUrl = `${this.baseUrl}/pix/v2/cob`;
     
     // Logs para debug
     console.log('🔵 Base URL configurada:', this.baseUrl);
@@ -136,11 +145,14 @@ class ItauPixClient {
       }
       console.error('❌ =========================================');
       
-      // Se for 404, provavelmente está usando produção com credenciais de sandbox
+      // Se for 404, as credenciais podem não ser válidas ou a URL está incorreta
       if (error.response?.status === 404) {
-        const suggestion = this.environment === 'production' 
-          ? 'Erro 404: URL não encontrada. As credenciais podem ser de SANDBOX. Configure ITAU_ENV=sandbox no Render e reinicie o serviço.'
-          : 'Erro 404: URL não encontrada em SANDBOX. Verifique: 1) Se as credenciais são válidas para sandbox, 2) Se a URL está correta, 3) Se o portal Itaú está acessível.';
+        let suggestion = '';
+        if (this.environment === 'production') {
+          suggestion = 'Erro 404: URL não encontrada em PRODUÇÃO. Verifique: 1) Se as credenciais são válidas de produção, 2) Se o certificado mTLS está configurado, 3) Se a URL está correta (sts.itau.com.br/api/oauth/token).';
+        } else {
+          suggestion = 'Erro 404: URL não encontrada em SANDBOX. IMPORTANTE: Sandbox NÃO usa OAuth 2.0 padrão. Você precisa: 1) Obter credenciais válidas do portal Itaú (https://devportal.itau.com.br), 2) Verificar a URL correta do sandbox no portal, 3) As credenciais fornecidas podem não ser do Itaú.';
+        }
         throw new Error(`Erro ao autenticar na API Itaú (404): ${suggestion}`);
       }
       
