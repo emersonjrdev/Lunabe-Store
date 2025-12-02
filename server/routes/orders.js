@@ -124,7 +124,7 @@ router.post("/create-checkout-session", async (req, res) => {
           phone: sanitizeString(address.phone || customerPhone),
         } : null,
         // Endereço da loja para retirada
-        pickupAddress: deliveryType === 'pickup' ? 'Tv. Joaquim Soares Rodrigues - Jardim Portao Vermelho, Vargem Grande Paulista - SP, 06735-322' : null,
+        pickupAddress: deliveryType === 'pickup' ? 'Rua José Ribeiro da Silva - Jardim Portão Vermelho, Vargem Grande Paulista/SP, 06735-322' : null,
         paymentSessionId: "pending", // será atualizado após criar sessão no AbacatePay
         // Armazenar informações de estoque para uso no webhook
         stockReservations: stockChecks, // Array de {productId, quantity, availableStock}
