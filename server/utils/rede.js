@@ -411,11 +411,17 @@ class RedeClient {
       console.error('❌ Status Text:', error.response?.statusText);
       console.error('❌ Dados da resposta:', JSON.stringify(error.response?.data, null, 2));
       console.error('❌ Mensagem do erro:', error.message);
+      console.error('❌ PV enviado no payload:', this.pv ? `${this.pv.substring(0, 4)}...` : 'NÃO CONFIGURADO');
       console.error('❌ =========================================');
 
       const errorMsg = error.response?.data?.returnMessage 
         || error.response?.data?.message 
         || error.message;
+      
+      // Mensagem mais específica para erro 401 com "Affiliation: Required parameter missing"
+      if (error.response?.status === 401 && errorMsg?.includes('Affiliation')) {
+        throw new Error(`Erro ao criar cobrança PIX Red-e: ${errorMsg}. IMPORTANTE: O PIX da Red-e é disponível apenas para correntistas Itaú. Verifique se: 1) O PV está habilitado para PIX no portal userede.com.br (menu: Para vender > PIX > "quero utilizar o Pix"); 2) As credenciais do sandbox têm permissão para criar transações PIX; 3) A chave PIX Itaú está cadastrada corretamente.`);
+      }
       
       throw new Error(`Erro ao criar cobrança PIX Red-e: ${errorMsg}`);
     }
