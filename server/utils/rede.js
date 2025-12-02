@@ -45,9 +45,9 @@ class RedeClient {
   }
 
   /**
-   * Obtém access_token OAuth 2.0
+   * Obtém access_token OAuth 2.0 ou retorna null para usar Basic Auth (fallback)
    * O token tem validade de 24 minutos, renovar entre 15-23 minutos
-   * @returns {Promise<string>} access_token
+   * @returns {Promise<string|null>} access_token ou null se usar Basic Auth
    */
   async getAccessToken() {
     // Verificar se temos um token válido (renovar se faltar menos de 5 minutos)
@@ -108,6 +108,13 @@ class RedeClient {
 
       return this.accessToken;
     } catch (error) {
+      // Se for erro 401 (invalid_client) no sandbox, usar Basic Auth como fallback
+      if (this.environment === 'sandbox' && error.response?.status === 401) {
+        console.warn('⚠️ OAuth 2.0 não disponível no sandbox, usando Basic Auth como fallback');
+        console.warn('⚠️ Em produção, OAuth 2.0 é obrigatório');
+        return null; // Retorna null para indicar que deve usar Basic Auth
+      }
+
       console.error('❌ ========== ERRO AO OBTER ACCESS_TOKEN ==========');
       console.error('❌ OAuth URL:', this.oauthUrl);
       console.error('❌ Status HTTP:', error.response?.status);
@@ -120,6 +127,22 @@ class RedeClient {
         || error.message;
       
       throw new Error(`Erro ao obter access_token OAuth 2.0: ${errorMsg}`);
+    }
+  }
+
+  /**
+   * Obtém header de autorização (OAuth 2.0 ou Basic Auth)
+   * @returns {Promise<string>} Header Authorization
+   */
+  async getAuthorizationHeader() {
+    const accessToken = await this.getAccessToken();
+    
+    if (accessToken) {
+      return `Bearer ${accessToken}`;
+    } else {
+      // Fallback para Basic Auth (apenas sandbox)
+      const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+      return `Basic ${credentials}`;
     }
   }
 
@@ -229,8 +252,8 @@ class RedeClient {
       console.log('🔵 Payload da transação:', JSON.stringify(payload, null, 2));
       console.log('🔵 Fazendo POST para:', `${this.baseUrl}/v2/transactions`);
 
-      // Obter access_token OAuth 2.0
-      const accessToken = await this.getAccessToken();
+      // Obter header de autorização (OAuth 2.0 ou Basic Auth)
+      const authHeader = await this.getAuthorizationHeader();
 
       const response = await axios.post(
         `${this.baseUrl}/v2/transactions`,
@@ -238,7 +261,7 @@ class RedeClient {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': authHeader,
           },
           timeout: 30000,
         }
@@ -293,14 +316,14 @@ class RedeClient {
     }
 
     try {
-      // Obter access_token OAuth 2.0
-      const accessToken = await this.getAccessToken();
+      // Obter header de autorização (OAuth 2.0 ou Basic Auth)
+      const authHeader = await this.getAuthorizationHeader();
 
       const response = await axios.get(
         `${this.baseUrl}/v2/transactions/${tid}`,
         {
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': authHeader,
           },
         }
       );
@@ -324,8 +347,8 @@ class RedeClient {
     }
 
     try {
-      // Obter access_token OAuth 2.0
-      const accessToken = await this.getAccessToken();
+      // Obter header de autorização (OAuth 2.0 ou Basic Auth)
+      const authHeader = await this.getAuthorizationHeader();
 
       const payload = {};
       if (amount) {
@@ -338,7 +361,7 @@ class RedeClient {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': authHeader,
           },
         }
       );
@@ -416,10 +439,11 @@ class RedeClient {
       console.log('🔵 clientId (PV) no payload (affiliation):', payload.affiliation);
       console.log('🔵 Data de expiração:', dateTimeExpiration);
       
-      // Obter access_token OAuth 2.0
-      const accessToken = await this.getAccessToken();
+      // Obter header de autorização (OAuth 2.0 ou Basic Auth)
+      const authHeader = await this.getAuthorizationHeader();
       
       console.log('🔵 Fazendo POST para:', endpoint);
+      console.log('🔵 Método de autenticação:', authHeader.startsWith('Bearer') ? 'OAuth 2.0' : 'Basic Auth');
       
       const response = await axios.post(
         endpoint,
@@ -427,7 +451,7 @@ class RedeClient {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': authHeader,
           },
           timeout: 30000,
         }
@@ -525,14 +549,14 @@ class RedeClient {
     }
 
     try {
-      // Obter access_token OAuth 2.0
-      const accessToken = await this.getAccessToken();
+      // Obter header de autorização (OAuth 2.0 ou Basic Auth)
+      const authHeader = await this.getAuthorizationHeader();
 
       const response = await axios.get(
         `${this.baseUrl}/v2/transactions/${chargeId}`,
         {
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': authHeader,
           },
         }
       );
