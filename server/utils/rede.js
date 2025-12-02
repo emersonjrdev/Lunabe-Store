@@ -442,14 +442,30 @@ class RedeClient {
       
       // Obter header de autorização (OAuth 2.0 ou Basic Auth)
       const authHeader = await this.getAuthorizationHeader();
+      const isOAuth = authHeader.startsWith('Bearer');
       
       console.log('🔵 Fazendo POST para:', endpoint);
-      console.log('🔵 Método de autenticação:', authHeader.startsWith('Bearer') ? 'OAuth 2.0' : 'Basic Auth');
+      console.log('🔵 Método de autenticação:', isOAuth ? 'OAuth 2.0' : 'Basic Auth');
       console.log('🔵 Header Authorization (primeiros 30 chars):', authHeader.substring(0, 30) + '...');
+      
+      // Quando usando Basic Auth, a API pode extrair o affiliation do header
+      // Tentar sem affiliation primeiro, se falhar, adicionar de volta
+      let finalPayload = { ...payload };
+      
+      // Se usar Basic Auth, tentar sem affiliation no payload primeiro
+      // (a API pode extrair do Basic Auth header)
+      if (!isOAuth) {
+        console.log('🔵 Tentando sem affiliation no payload (API pode extrair do Basic Auth)');
+        const payloadWithoutAffiliation = { ...finalPayload };
+        delete payloadWithoutAffiliation.affiliation;
+        finalPayload = payloadWithoutAffiliation;
+      }
+      
+      console.log('🔵 Payload final a ser enviado:', JSON.stringify(finalPayload, null, 2));
       
       const response = await axios.post(
         endpoint,
-        payload,
+        finalPayload,
         {
           headers: {
             'Content-Type': 'application/json',
