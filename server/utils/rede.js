@@ -89,8 +89,11 @@ class RedeClient {
       const credentialsString = `${this.clientId}:${this.clientSecret}`;
       const credentials = Buffer.from(credentialsString).toString('base64');
       
-      console.log('🔵 Credentials string (primeiros 20 chars):', credentialsString.substring(0, 20) + '...');
+      console.log('🔵 Credentials string (completo):', credentialsString);
+      console.log('🔵 Credentials string (tamanho):', credentialsString.length);
+      console.log('🔵 Credentials base64 (primeiros 30 chars):', credentials.substring(0, 30) + '...');
       console.log('🔵 Fazendo POST para:', this.oauthUrl);
+      console.log('🔵 Body da requisição:', 'grant_type=client_credentials');
 
       const response = await axios.post(
         this.oauthUrl,
