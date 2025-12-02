@@ -16,10 +16,11 @@ if (!isEmailConfigured) {
   console.warn('⚠️ =========================================');
 }
 
+// Tentar múltiplas configurações SMTP para compatibilidade com Render
 const transporter = isEmailConfigured ? nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // true para 465, false para outras portas
+  port: 465, // Porta SSL (mais compatível com alguns firewalls)
+  secure: true, // true para 465, false para 587
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -27,16 +28,19 @@ const transporter = isEmailConfigured ? nodemailer.createTransport({
   // Configurações para melhor compatibilidade com Render
   tls: {
     rejectUnauthorized: false,
-    ciphers: 'SSLv3'
+    minVersion: 'TLSv1.2'
   },
   // Timeout aumentado para conexões mais lentas
-  connectionTimeout: 60000, // 60 segundos
-  greetingTimeout: 30000, // 30 segundos
-  socketTimeout: 60000, // 60 segundos
-  // Retry logic
-  pool: true,
-  maxConnections: 1,
-  maxMessages: 3
+  connectionTimeout: 10000, // 10 segundos (reduzido para falhar mais rápido)
+  greetingTimeout: 10000, // 10 segundos
+  socketTimeout: 10000, // 10 segundos
+  // Não usar pool para evitar problemas de conexão
+  pool: false,
+  // Retry automático
+  retry: {
+    attempts: 2,
+    delay: 1000
+  }
 }) : null;
 
 // Verificar conexão do transporter ao inicializar (apenas uma vez)
