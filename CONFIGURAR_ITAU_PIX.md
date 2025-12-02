@@ -27,49 +27,24 @@ Para usar a API do Itaú para gerar QR Codes PIX dinâmicos, você precisa:
 
 ## ⚙️ Passo 2: Configurar Variáveis de Ambiente
 
-### 🔑 Credenciais Fornecidas
-
-As credenciais da API Itaú já foram configuradas:
-
-- **PIX Client ID**: `128516bc-c758-4bca-b2d9-7856db7f9161`
-- **PIX Client Secret**: `cad08a7baef7476088f4a5ec7e5611e3`
-
-### 📝 Configuração no Render (Produção)
-
-No painel do Render, adicione as seguintes variáveis de ambiente:
+No painel do Render (backend) ou no arquivo `.env` local:
 
 ```env
 # Itaú PIX API - Credenciais
-ITAU_CLIENT_ID=128516bc-c758-4bca-b2d9-7856db7f9161
-ITAU_CLIENT_SECRET=cad08a7baef7476088f4a5ec7e5611e3
+ITAU_CLIENT_ID=seu_client_id_aqui
+ITAU_CLIENT_SECRET=seu_client_secret_aqui
 
 # Itaú PIX - Chave PIX (CNPJ)
 ITAU_PIX_KEY=63824145000127
 
 # Itaú PIX - Ambiente
-ITAU_ENV=production
-```
-
-### 📝 Configuração Local (.env)
-
-Para desenvolvimento local, crie um arquivo `.env` na pasta `server/`:
-
-```env
-# Itaú PIX API - Credenciais
-ITAU_CLIENT_ID=128516bc-c758-4bca-b2d9-7856db7f9161
-ITAU_CLIENT_SECRET=cad08a7baef7476088f4a5ec7e5611e3
-
-# Itaú PIX - Chave PIX (CNPJ)
-ITAU_PIX_KEY=63824145000127
-
-# Itaú PIX - Ambiente
-ITAU_ENV=production  # ou 'sandbox' para testes
+ITAU_ENV=sandbox  # ou 'production' para produção
 ```
 
 **⚠️ IMPORTANTE:**
-- As credenciais acima já estão configuradas e prontas para uso
-- A chave PIX (`ITAU_PIX_KEY`) está cadastrada e ativa no Itaú
-- Use `production` para ambiente real ou `sandbox` para testes
+- Substitua `seu_client_id_aqui` e `seu_client_secret_aqui` pelas credenciais reais
+- A chave PIX (`ITAU_PIX_KEY`) deve estar cadastrada e ativa no Itaú
+- Use `sandbox` para testes e `production` para ambiente real
 
 ## 🔄 Passo 3: Como Funciona
 
