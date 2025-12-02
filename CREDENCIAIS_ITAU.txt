@@ -1,0 +1,32 @@
+============================================
+CREDENCIAIS ITAÚ - CONFIGURAÇÃO RÁPIDA
+============================================
+
+VARIÁVEIS DE AMBIENTE PARA O RENDER:
+
+ITAU_CLIENT_ID=128516bc-c758-4bca-b2d9-7856db7f9161
+ITAU_CLIENT_SECRET=cad08a7baef7476088f4a5ec7e5611e3
+ITAU_PIX_KEY=63824145000127
+ITAU_ENV=production
+
+============================================
+INSTRUÇÕES:
+============================================
+
+1. Acesse: https://dashboard.render.com
+2. Selecione seu serviço backend
+3. Vá em "Environment"
+4. Adicione/atualize as 4 variáveis acima
+5. Salve e aguarde o restart automático
+
+============================================
+NOTAS:
+============================================
+
+- PIX Client ID: 128516bc-c758-4bca-b2d9-7856db7f9161
+- PIX Client Secret: cad08a7baef7476088f4a5ec7e5611e3
+- Chave PIX (CNPJ): 63824145000127
+- Ambiente: production (ou sandbox para testes)
+
+============================================
+
