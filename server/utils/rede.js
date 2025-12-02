@@ -437,6 +437,7 @@ class RedeClient {
       console.log('🔵 Endpoint:', endpoint);
       console.log('🔵 clientId (PV) completo:', this.clientId || 'NÃO CONFIGURADO');
       console.log('🔵 clientId (PV) no payload (affiliation):', payload.affiliation);
+      console.log('🔵 Tipo do affiliation:', typeof payload.affiliation);
       console.log('🔵 Data de expiração:', dateTimeExpiration);
       
       // Obter header de autorização (OAuth 2.0 ou Basic Auth)
@@ -444,6 +445,7 @@ class RedeClient {
       
       console.log('🔵 Fazendo POST para:', endpoint);
       console.log('🔵 Método de autenticação:', authHeader.startsWith('Bearer') ? 'OAuth 2.0' : 'Basic Auth');
+      console.log('🔵 Header Authorization (primeiros 30 chars):', authHeader.substring(0, 30) + '...');
       
       const response = await axios.post(
         endpoint,
@@ -454,8 +456,24 @@ class RedeClient {
             'Authorization': authHeader,
           },
           timeout: 30000,
+          // Adicionar validação de status para capturar erros 4xx
+          validateStatus: (status) => status < 500,
         }
       );
+      
+      console.log('🔵 Resposta recebida - Status:', response.status);
+      
+      // Verificar se a resposta é um erro antes de processar
+      if (response.status >= 400) {
+        console.error('❌ API retornou erro HTTP:', response.status);
+        console.error('❌ Dados da resposta:', JSON.stringify(response.data, null, 2));
+        
+        if (response.data?.returnCode && response.data?.returnMessage) {
+          const errorCode = response.data.returnCode;
+          const errorMessage = response.data.returnMessage;
+          throw new Error(`Erro ${errorCode}: ${errorMessage}`);
+        }
+      }
       console.log('🔵 Resposta da API (status):', response.status);
       console.log('🔵 Resposta da API (dados):', response.data ? '✅ Recebida' : '❌ Vazia');
 
