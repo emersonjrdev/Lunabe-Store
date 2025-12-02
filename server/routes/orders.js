@@ -272,6 +272,13 @@ router.post("/create-checkout-session", async (req, res) => {
         const clientId = process.env.REDE_AFFILIATION || process.env.REDE_PV;
         const hasApiCredentials = clientId && process.env.REDE_TOKEN;
         
+        console.log('🔵 Validação de credenciais Red-e:');
+        console.log('🔵   REDE_AFFILIATION:', process.env.REDE_AFFILIATION || 'NÃO CONFIGURADO');
+        console.log('🔵   REDE_PV:', process.env.REDE_PV || 'NÃO CONFIGURADO');
+        console.log('🔵   REDE_TOKEN:', process.env.REDE_TOKEN ? '✅ Configurado' : '❌ Não configurado');
+        console.log('🔵   clientId final:', clientId || 'NÃO ENCONTRADO');
+        console.log('🔵   hasApiCredentials:', hasApiCredentials);
+        
         if (!hasApiCredentials) {
           console.error('❌ Credenciais da API Red-e não configuradas!');
           console.error('❌ REDE_AFFILIATION:', process.env.REDE_AFFILIATION ? '✅ Configurado' : '❌ Não configurado');
