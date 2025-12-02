@@ -64,7 +64,7 @@ class RedePaymentLinkClient {
     }
 
     if (!this.clientId || !this.clientSecret) {
-      throw new Error('REDE_PV (clientId) e REDE_TOKEN (clientSecret) são obrigatórios para OAuth 2.0');
+      throw new Error('REDE_AFFILIATION (ou REDE_PV) e REDE_TOKEN são obrigatórios para OAuth 2.0. Client ID deve ser o PV (número da filial), não o GUID.');
     }
 
     try {
@@ -154,7 +154,7 @@ class RedePaymentLinkClient {
     expirationDays = 7 
   }) {
     if (!this.clientId || !this.clientSecret) {
-      throw new Error('REDE_PV (clientId) e REDE_TOKEN (clientSecret) são obrigatórios');
+      throw new Error('REDE_AFFILIATION (ou REDE_PV) e REDE_TOKEN são obrigatórios. Client ID deve ser o PV (número da filial), não o GUID.');
     }
 
     if (!amount || amount <= 0) {
