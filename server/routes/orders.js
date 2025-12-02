@@ -267,15 +267,19 @@ router.post("/create-checkout-session", async (req, res) => {
       
       try {
         // Verificar se as credenciais da API Red-e estão configuradas (OBRIGATÓRIO)
-        const hasApiCredentials = process.env.REDE_PV && process.env.REDE_TOKEN;
+        // Client ID pode ser REDE_AFFILIATION (PV numérico) ou REDE_PV (fallback)
+        // Client Secret é REDE_TOKEN
+        const clientId = process.env.REDE_AFFILIATION || process.env.REDE_PV;
+        const hasApiCredentials = clientId && process.env.REDE_TOKEN;
         
         if (!hasApiCredentials) {
           console.error('❌ Credenciais da API Red-e não configuradas!');
+          console.error('❌ REDE_AFFILIATION:', process.env.REDE_AFFILIATION ? '✅ Configurado' : '❌ Não configurado');
           console.error('❌ REDE_PV:', process.env.REDE_PV ? '✅ Configurado' : '❌ Não configurado');
           console.error('❌ REDE_TOKEN:', process.env.REDE_TOKEN ? '✅ Configurado' : '❌ Não configurado');
           return res.status(500).json({
             error: 'Configuração de pagamento PIX não disponível',
-            details: 'As credenciais da API Red-e não estão configuradas. Por favor, configure REDE_PV e REDE_TOKEN no servidor.',
+            details: 'As credenciais da API Red-e não estão configuradas. Por favor, configure REDE_AFFILIATION (ou REDE_PV) e REDE_TOKEN no servidor.',
             requiresApi: true,
           });
         }
