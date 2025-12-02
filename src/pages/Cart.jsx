@@ -12,7 +12,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   const [address, setAddress] = useState({ name: '', street: '', city: '', state: '', zip: '', country: '', phone: '' })
   const [cpf, setCpf] = useState('')
   const [deliveryType, setDeliveryType] = useState('delivery') // 'delivery' ou 'pickup'
-  const [paymentMethod, setPaymentMethod] = useState('rede') // 'rede' (cartão) ou 'rede-pix' (PIX)
+  const [paymentMethod, setPaymentMethod] = useState('rede-pix') // 'rede' (cartão) ou 'rede-pix' (PIX) - Cartão temporariamente indisponível
   const [pickupSchedule, setPickupSchedule] = useState('') // Horário agendado para retirada
   const [shipping, setShipping] = useState(0)
   const [calculatingShipping, setCalculatingShipping] = useState(false)
@@ -585,18 +585,23 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                   <label className="text-sm font-bold text-gray-800 dark:text-white">Método de Pagamento</label>
                 </div>
                 <div className="space-y-3">
-                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'rede' ? '#ec4899' : '#e5e7eb' }}>
+                  <label className="flex items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border-2 cursor-not-allowed opacity-60 transition-all" style={{ borderColor: '#d1d5db' }}>
                     <input
                       type="radio"
                       name="paymentMethod"
                       value="rede"
-                      checked={paymentMethod === 'rede'}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      checked={false}
+                      disabled={true}
                       className="mr-3 text-lunabe-pink"
                     />
                     <div className="flex-grow">
-                      <span className="font-semibold text-gray-800 dark:text-white">Cartão de Crédito/Débito</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Red-e (meu.userede.com.br)</p>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-600 dark:text-gray-400">Cartão de Crédito/Débito</span>
+                        <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs font-semibold rounded">
+                          Temporariamente Indisponível
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">Red-e (meu.userede.com.br)</p>
                     </div>
                   </label>
                   <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'rede-pix' ? '#ec4899' : '#e5e7eb' }}>
@@ -730,7 +735,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                   <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Endereço da Loja:</p>
                     <p className="text-sm font-semibold text-gray-800 dark:text-white">
-                      Tv. Joaquim Soares Rodrigues - Jardim Portao Vermelho
+                      Rua José Ribeiro da Silva - Jardim Portão Vermelho
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Vargem Grande Paulista - SP, 06735-322
