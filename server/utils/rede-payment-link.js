@@ -59,11 +59,16 @@ class RedePaymentLinkClient {
     try {
       console.log('🔵 ========== OBTER ACCESS_TOKEN OAuth 2.0 ==========');
       console.log('🔵 OAuth URL:', this.oauthUrl);
-      console.log('🔵 clientId:', this.clientId?.substring(0, 20) + '...');
+      console.log('🔵 Ambiente:', this.environment);
+      console.log('🔵 clientId (completo):', this.clientId);
+      console.log('🔵 clientId (tamanho):', this.clientId?.length);
       console.log('🔵 clientSecret presente:', !!this.clientSecret);
+      console.log('🔵 clientSecret (tamanho):', this.clientSecret?.length);
+      console.log('🔵 clientSecret (primeiros 10 chars):', this.clientSecret?.substring(0, 10) + '...');
 
       // Criar credenciais Basic Auth (client_id:client_secret)
       const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+      console.log('🔵 Credentials string (primeiros 30 chars):', credentials.substring(0, 30) + '...');
 
       const response = await axios.post(
         this.oauthUrl,
@@ -96,6 +101,23 @@ class RedePaymentLinkClient {
       if (error.response) {
         console.error('❌ Status:', error.response.status);
         console.error('❌ Dados:', JSON.stringify(error.response.data, null, 2));
+        
+        // Se for invalid_client, dar orientações específicas
+        if (error.response.status === 401 && error.response.data?.error === 'invalid_client') {
+          console.error('❌ ========== ERRO: invalid_client ==========');
+          console.error('❌ Isso significa que as credenciais (clientId ou clientSecret) estão incorretas');
+          console.error('❌ ou não estão habilitadas para OAuth 2.0 em produção.');
+          console.error('❌');
+          console.error('❌ Verifique no Render:');
+          console.error('❌   1. REDE_PV (clientId) está correto?');
+          console.error('❌   2. REDE_TOKEN (clientSecret) está correto?');
+          console.error('❌   3. As credenciais são de PRODUÇÃO (não sandbox)?');
+          console.error('❌   4. O OAuth 2.0 está habilitado no portal da Rede?');
+          console.error('❌');
+          console.error('❌ IMPORTANTE: Em produção, OAuth 2.0 é OBRIGATÓRIO');
+          console.error('❌ Não há fallback para Basic Auth em produção.');
+          console.error('❌ =========================================');
+        }
       }
       throw new Error(`Erro ao obter access_token OAuth 2.0: ${error.message}`);
     }
