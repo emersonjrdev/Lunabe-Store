@@ -212,6 +212,12 @@ class RedePaymentLinkClient {
         payload.comments = `Referência: ${reference}`;
       }
 
+      // webhookUrl: URL para receber notificações de pagamento (opcional mas recomendado)
+      const baseUrl = process.env.BACKEND_URL || process.env.RENDER_EXTERNAL_URL || 'https://lunabe-store.onrender.com';
+      const webhookUrl = `${baseUrl}/api/webhooks/rede-payment-link`;
+      payload.webhookUrl = webhookUrl;
+      console.log('🔵 Webhook URL:', webhookUrl);
+
       console.log('🔵 Payload:', JSON.stringify(payload, null, 2));
 
       // Endpoint: POST /payment-link/v1/create
