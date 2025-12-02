@@ -100,18 +100,19 @@ class ItauPixClient {
       // Limitar descrição a 140 caracteres (limite do PIX)
       const pixDescription = (descricao || 'Pagamento Lunabê').substring(0, 140);
       
+      // Formatar valor como string com 2 casas decimais (formato esperado pela API)
+      const valorFormatado = (valor / 100).toFixed(2);
+      
       const payload = {
         calendario: {
           expiracao: expiracao, // 1 hora por padrão
         },
-        devedor: {
-          cpf: '00000000000', // Opcional, pode ser removido se não necessário
-        },
         valor: {
-          original: (valor / 100).toFixed(2), // Converter centavos para reais
+          original: valorFormatado, // Formato: "123.45" (string com 2 decimais)
         },
         chave: this.pixKey,
         solicitacaoPagador: pixDescription,
+        // Removido campo 'devedor' - opcional e pode causar problemas se CPF inválido
       };
 
       console.log('🔵 Criando cobrança PIX no Itaú...');
@@ -148,16 +149,36 @@ class ItauPixClient {
       };
     } catch (error) {
       console.error('❌ Erro ao criar cobrança PIX:', error.response?.data || error.message);
+      console.error('❌ Status HTTP:', error.response?.status);
+      console.error('❌ Headers da resposta:', error.response?.headers);
       
       // Se for erro de autenticação, limpar cache de token
-      if (error.response?.status === 401) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
         this.tokenCache.token = null;
         this.tokenCache.expiresAt = null;
+        console.error('❌ Token invalidado. Limpando cache.');
       }
       
-      throw new Error(
-        `Erro ao criar cobrança PIX: ${error.response?.data?.mensagem || error.response?.data?.detail || error.message}`
-      );
+      // Mensagem de erro mais detalhada
+      let errorMessage = 'Erro ao criar cobrança PIX';
+      if (error.response?.data) {
+        const apiError = error.response.data;
+        if (apiError.mensagem) {
+          errorMessage = apiError.mensagem;
+        } else if (apiError.detail) {
+          errorMessage = apiError.detail;
+        } else if (apiError.error_description) {
+          errorMessage = apiError.error_description;
+        } else if (typeof apiError === 'string') {
+          errorMessage = apiError;
+        } else {
+          errorMessage = JSON.stringify(apiError);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      throw new Error(errorMessage);
     }
   }
 
