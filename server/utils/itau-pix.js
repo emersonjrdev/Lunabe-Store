@@ -15,15 +15,27 @@ class ItauPixClient {
     this.clientId = process.env.ITAU_CLIENT_ID;
     this.clientSecret = process.env.ITAU_CLIENT_SECRET;
     this.pixKey = process.env.ITAU_PIX_KEY || '63824145000127'; // CNPJ padrão
+    // IMPORTANTE: Se as credenciais forem de sandbox, use 'sandbox'
+    // Produção requer certificado mTLS e credenciais específicas de produção
     this.environment = process.env.ITAU_ENV || 'sandbox'; // 'sandbox' ou 'production'
     
     // URLs da API Itaú
-    this.baseUrl = this.environment === 'production' 
-      ? 'https://api.itau.com.br' 
-      : 'https://api.itau.com.br/sandbox';
+    // Sandbox: https://api.itau.com.br/sandbox
+    // Produção: https://api.itau.com.br (mas requer certificado mTLS)
+    if (this.environment === 'production') {
+      this.baseUrl = 'https://api.itau.com.br';
+      console.warn('⚠️ Ambiente PRODUÇÃO: Requer certificado mTLS configurado');
+    } else {
+      this.baseUrl = 'https://api.itau.com.br/sandbox';
+      console.log('🔵 Usando ambiente SANDBOX');
+    }
     
     this.tokenUrl = `${this.baseUrl}/oauth/v2/token`;
     this.pixUrl = `${this.baseUrl}/pix/v2/cob`;
+    
+    console.log('🔵 Base URL configurada:', this.baseUrl);
+    console.log('🔵 Token URL:', this.tokenUrl);
+    console.log('🔵 PIX URL:', this.pixUrl);
     
     // Cache de token (expira em 30 minutos)
     this.tokenCache = {
@@ -90,10 +102,20 @@ class ItauPixClient {
       return token;
     } catch (error) {
       console.error('❌ Erro ao obter token Itaú:');
+      console.error('   - URL tentada:', this.tokenUrl);
+      console.error('   - Ambiente:', this.environment);
       console.error('   - Status:', error.response?.status);
       console.error('   - Status Text:', error.response?.statusText);
       console.error('   - Dados:', JSON.stringify(error.response?.data, null, 2));
       console.error('   - Mensagem:', error.message);
+      
+      // Se for 404, provavelmente está usando produção com credenciais de sandbox
+      if (error.response?.status === 404) {
+        const suggestion = this.environment === 'production' 
+          ? 'Erro 404: URL não encontrada. As credenciais podem ser de SANDBOX. Tente configurar ITAU_ENV=sandbox no Render.'
+          : 'Erro 404: URL não encontrada. Verifique se a URL da API está correta.';
+        throw new Error(`Erro ao autenticar na API Itaú (404): ${suggestion}`);
+      }
       
       const errorMsg = error.response?.data?.error_description 
         || error.response?.data?.error 
