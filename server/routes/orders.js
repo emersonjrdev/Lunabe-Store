@@ -211,33 +211,51 @@ router.post("/create-checkout-session", async (req, res) => {
         const hasApiCredentials = process.env.ITAU_CLIENT_ID && process.env.ITAU_CLIENT_SECRET;
         
         let pixData;
+        let usedApi = false;
         
+        // Tentar usar API do Itaú primeiro (se credenciais estiverem configuradas)
         if (hasApiCredentials) {
-          // Usar API do Itaú para gerar QR Code dinâmico
-          console.log('🔵 Usando API do Itaú para gerar PIX dinâmico...');
-          pixData = await generatePixViaApi(order, totalInCents);
-          console.log('✅ PIX gerado via API com sucesso:', {
-            hasQrCode: !!pixData.qrCode,
-            qrCodeLength: pixData.qrCode?.length,
-            chave: pixData.chave,
-            valor: pixData.valor,
-            txId: pixData.txId,
-          });
-        } else {
-          // Fallback: usar código estático se API não estiver configurada
-          console.warn('⚠️ Credenciais da API Itaú não configuradas. Usando código PIX estático como fallback.');
-          console.log('⚠️ Para usar QR Codes dinâmicos, configure ITAU_CLIENT_ID e ITAU_CLIENT_SECRET no .env');
-          pixData = pixUtils.generatePixForOrder(order, totalInCents);
-          console.log('✅ PIX estático gerado:', {
-            hasQrCode: !!pixData.qrCode,
-            qrCodeLength: pixData.qrCode?.length,
-            chave: pixData.chave,
-            valor: pixData.valor,
-          });
+          try {
+            console.log('🔵 Tentando usar API do Itaú para gerar PIX dinâmico...');
+            pixData = await generatePixViaApi(order, totalInCents);
+            usedApi = true;
+            console.log('✅ PIX gerado via API com sucesso:', {
+              hasQrCode: !!pixData.qrCode,
+              qrCodeLength: pixData.qrCode?.length,
+              chave: pixData.chave,
+              valor: pixData.valor,
+              txId: pixData.txId,
+            });
+          } catch (apiError) {
+            console.error('❌ Erro ao usar API do Itaú:', apiError.message);
+            console.warn('⚠️ Fallback: usando código PIX estático...');
+            // Continuar para usar fallback estático
+          }
         }
         
-        if (!pixData.qrCode) {
-          throw new Error('QR Code PIX não foi gerado');
+        // Se API não foi usada ou falhou, usar código estático
+        if (!usedApi || !pixData || !pixData.qrCode) {
+          if (!hasApiCredentials) {
+            console.warn('⚠️ Credenciais da API Itaú não configuradas. Usando código PIX estático.');
+            console.log('⚠️ Para usar QR Codes dinâmicos, configure ITAU_CLIENT_ID e ITAU_CLIENT_SECRET no .env');
+          }
+          
+          try {
+            pixData = pixUtils.generatePixForOrder(order, totalInCents);
+            console.log('✅ PIX estático gerado:', {
+              hasQrCode: !!pixData.qrCode,
+              qrCodeLength: pixData.qrCode?.length,
+              chave: pixData.chave,
+              valor: pixData.valor,
+            });
+          } catch (staticError) {
+            console.error('❌ Erro ao gerar PIX estático:', staticError);
+            throw new Error(`Erro ao gerar código PIX: ${staticError.message}`);
+          }
+        }
+        
+        if (!pixData || !pixData.qrCode) {
+          throw new Error('QR Code PIX não foi gerado (nem via API nem estático)');
         }
         
         // Atualizar pedido com dados do PIX
@@ -284,9 +302,44 @@ router.post("/create-checkout-session", async (req, res) => {
       } catch (pixError) {
         console.error('❌ Erro ao gerar PIX:', pixError);
         console.error('❌ Stack trace:', pixError.stack);
+        console.error('❌ Tipo do erro:', pixError.constructor.name);
+        console.error('❌ Mensagem completa:', pixError.message);
+        
+        // Tentar gerar código estático como último recurso
+        try {
+          console.log('🔄 Tentando gerar PIX estático como último recurso...');
+          const fallbackPix = pixUtils.generatePixForOrder(order, totalInCents);
+          if (fallbackPix && fallbackPix.qrCode) {
+            console.log('✅ PIX estático gerado como fallback de emergência');
+            
+            // Atualizar pedido com dados do PIX estático
+            order.paymentMethod = 'itau-pix';
+            order.paymentSessionId = order._id.toString();
+            order.pixQrCode = fallbackPix.qrCode;
+            order.pixChave = fallbackPix.chave;
+            order.pixValor = fallbackPix.valor;
+            await order.save();
+            
+            return res.json({
+              orderId: order._id.toString(),
+              paymentMethod: 'itau-pix',
+              pixQrCode: fallbackPix.qrCode,
+              pixQrCodeBase64: null,
+              pixChave: fallbackPix.chave,
+              pixValor: fallbackPix.valor,
+              pixDescricao: fallbackPix.descricao,
+              pixTxId: null,
+              warning: 'QR Code gerado em modo estático (API não disponível)',
+            });
+          }
+        } catch (fallbackError) {
+          console.error('❌ Erro crítico: nem PIX estático pôde ser gerado:', fallbackError);
+        }
+        
         return res.status(500).json({
           error: 'Erro ao gerar código PIX',
           details: pixError.message,
+          suggestion: 'Verifique as credenciais do Itaú ou tente novamente mais tarde',
         });
       }
     } else {
