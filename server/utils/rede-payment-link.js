@@ -169,23 +169,36 @@ class RedePaymentLinkClient {
       // Calcular data de expiração
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + expirationDays);
-      // Formato: MM/DD/YYYY
+      // Formato: MM/DD/YYYY conforme documentação
       const expirationDateFormatted = `${String(expirationDate.getMonth() + 1).padStart(2, '0')}/${String(expirationDate.getDate()).padStart(2, '0')}/${expirationDate.getFullYear()}`;
 
-      // Montar payload conforme documentação
+      // Converter amount de centavos para decimal (ex: 100 centavos = 1.00)
+      const amountDecimal = amount / 100;
+
+      // Limitar description a 50 caracteres (conforme documentação)
+      const descriptionLimited = (description || `Pedido ${reference}`).substring(0, 50);
+
+      // Montar payload conforme documentação oficial
+      // Campos obrigatórios: amount, expirationDate, description
+      // Campos opcionais: installments, createdBy, paymentOptions, comments
       const payload = {
-        amount: amount,
-        description: description || `Pedido ${reference}`,
-        expirationDate: expirationDateFormatted,
-        reference: reference,
-        customer: {
-          email: customerEmail,
-        },
+        amount: amountDecimal, // Valor em decimal (ex: 1.00 ao invés de 100 centavos)
+        expirationDate: expirationDateFormatted, // Formato: MM/DD/YYYY
+        description: descriptionLimited, // Máximo 50 caracteres
       };
 
-      // Adicionar nome do cliente se fornecido
-      if (customerName) {
-        payload.customer.name = customerName;
+      // Adicionar campos opcionais se fornecidos
+      if (customerEmail) {
+        payload.createdBy = customerEmail; // Email de quem criou o link
+      }
+
+      // paymentOptions: array com opções de pagamento (opcional)
+      // Por padrão, permitir crédito, débito e PIX
+      payload.paymentOptions = ['credit', 'debit', 'pix'];
+
+      // comments: comentários adicionais (opcional)
+      if (reference) {
+        payload.comments = `Referência: ${reference}`;
       }
 
       console.log('🔵 Payload:', JSON.stringify(payload, null, 2));
@@ -210,14 +223,15 @@ class RedePaymentLinkClient {
       console.log('🔵 Status:', response.status);
       console.log('🔵 Dados:', JSON.stringify(response.data, null, 2));
 
-      // Retornar dados do link
+      // Retornar dados do link conforme documentação
+      // Resposta esperada: { message, paymentLinkId, url }
       return {
-        paymentLinkId: response.data.paymentLinkId || response.data.id,
-        paymentLinkUrl: response.data.paymentLinkUrl || response.data.url,
-        reference: response.data.reference || reference,
-        amount: response.data.amount || amount,
-        expirationDate: response.data.expirationDate || expirationDateFormatted,
-        status: response.data.status || 'ACTIVE',
+        paymentLinkId: response.data.paymentLinkId,
+        paymentLinkUrl: response.data.url, // URL do link de pagamento
+        reference: reference, // Manter referência original
+        amount: amountDecimal, // Valor em decimal
+        expirationDate: expirationDateFormatted,
+        message: response.data.message || 'Inserted Successfully',
       };
     } catch (error) {
       console.error('❌ Erro ao criar link de pagamento:', error.message);
