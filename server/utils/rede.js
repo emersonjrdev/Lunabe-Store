@@ -558,12 +558,18 @@ class RedeClient {
         console.log('🔵 Resposta completa:', JSON.stringify(response.data, null, 2));
       }
 
-      // Verificar se a resposta é um erro (returnCode presente com returnMessage)
-      if (response.data?.returnCode && response.data?.returnMessage) {
+      // Verificar se a resposta é um erro (returnCode diferente de "00" significa erro)
+      // Na API Red-e, "00" = Success, qualquer outro código = erro
+      if (response.data?.returnCode && response.data?.returnCode !== '00') {
         const errorCode = response.data?.returnCode;
-        const errorMessage = response.data?.returnMessage;
+        const errorMessage = response.data?.returnMessage || 'Erro desconhecido';
         console.error('❌ API Red-e retornou erro:', errorCode, errorMessage);
         throw new Error(`Erro ${errorCode}: ${errorMessage}`);
+      }
+      
+      // Se returnCode é "00", é sucesso!
+      if (response.data?.returnCode === '00') {
+        console.log('✅ API Red-e retornou sucesso (returnCode: 00)');
       }
 
       // Conforme documentação, o QR Code está em qrCodeResponse
