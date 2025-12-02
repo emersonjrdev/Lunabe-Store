@@ -298,26 +298,70 @@ class RedeClient {
       };
 
       console.log('🔵 Payload PIX:', JSON.stringify(payload, null, 2));
+      console.log('🔵 Base URL configurada:', this.baseUrl);
+      console.log('🔵 PV (Ponto de Venda):', this.pv ? `${this.pv.substring(0, 4)}...` : 'NÃO CONFIGURADO');
+      console.log('🔵 Token presente:', !!this.token);
       
-      // A API Red-e usa o endpoint /erede/transactions
-      const endpoint = `${this.baseUrl}/v2/transactions`;
-      console.log('🔵 Fazendo POST para:', endpoint);
-
+      // Tentar diferentes variações de endpoint para PIX
+      // A API Red-e pode ter endpoint específico para PIX ou usar /v2/transactions
+      const possibleEndpoints = [
+        `${this.baseUrl}/v2/transactions`,  // Endpoint padrão de transações
+        `${this.baseUrl}/v2/pix/charges`,    // Possível endpoint específico PIX
+        `${this.baseUrl}/pix/charges`,       // Endpoint PIX sem versão
+        `${this.baseUrl}/v2/pix`,            // Endpoint PIX alternativo
+      ];
+      
       // Autenticação Basic Auth
       const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
-
-      const response = await axios.post(
-        endpoint,
-        payload,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Basic ${credentials}`,
-          },
-          timeout: 30000,
+      
+      let response;
+      let lastError;
+      let endpointUsed;
+      
+      // Tentar cada endpoint até encontrar um que funcione
+      for (const endpoint of possibleEndpoints) {
+        try {
+          console.log('🔵 Tentando endpoint:', endpoint);
+          endpointUsed = endpoint;
+          
+          response = await axios.post(
+            endpoint,
+            payload,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Basic ${credentials}`,
+              },
+              timeout: 30000,
+              validateStatus: (status) => status < 500, // Não lançar erro para 4xx
+            }
+          );
+          
+          console.log('🔵 Resposta recebida - Status:', response.status);
+          
+          // Se não for 404, usar esta resposta (mesmo que seja erro de validação)
+          if (response.status !== 404) {
+            console.log('✅ Endpoint encontrado! Status:', response.status);
+            break;
+          } else {
+            console.log('❌ Endpoint retornou 404, tentando próximo...');
+            lastError = new Error(`404 - Endpoint não encontrado: ${endpoint}`);
+          }
+        } catch (error) {
+          console.log('❌ Erro ao tentar endpoint:', endpoint, error.message);
+          lastError = error;
+          // Continuar para próximo endpoint
+          continue;
         }
-      );
-
+      }
+      
+      // Se nenhum endpoint funcionou, lançar erro
+      if (!response || response.status === 404) {
+        console.error('❌ Nenhum endpoint funcionou. Tentados:', possibleEndpoints);
+        throw lastError || new Error('Todos os endpoints retornaram 404');
+      }
+      
+      console.log('🔵 Endpoint usado com sucesso:', endpointUsed);
       console.log('🔵 Resposta da API (status):', response.status);
       console.log('🔵 Resposta da API (dados):', response.data ? '✅ Recebida' : '❌ Vazia');
 
@@ -361,7 +405,7 @@ class RedeClient {
       };
     } catch (error) {
       console.error('❌ ========== ERRO AO CRIAR COBRANÇA PIX ==========');
-      console.error('❌ URL tentada:', `${this.baseUrl}/v2/transactions`);
+      console.error('❌ URLs tentadas:', possibleEndpoints || [`${this.baseUrl}/v2/transactions`]);
       console.error('❌ Status HTTP:', error.response?.status);
       console.error('❌ Status Text:', error.response?.statusText);
       console.error('❌ Dados da resposta:', JSON.stringify(error.response?.data, null, 2));
