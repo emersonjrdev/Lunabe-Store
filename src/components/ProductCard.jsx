@@ -4,6 +4,16 @@ import LazyImage from './LazyImage'
 import { getFullImageUrl } from '../utils/image'
 
 const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
+  // IMPORTANTE: Early returns devem estar ANTES de todos os hooks
+  if (!product) return null
+  
+  // Garantir que tem ID (usar _id se id não existir)
+  const productId = product.id || product._id;
+  if (!productId) {
+    console.error("Produto sem ID:", product);
+    return null;
+  }
+
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0] || 'Único')
   const [selectedColor, setSelectedColor] = useState(product.colors?.[0] || 'Padrão')
   const [isAdding, setIsAdding] = useState(false)
@@ -15,8 +25,6 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   
   // Distância mínima para considerar um swipe
   const minSwipeDistance = 50
-
-  if (!product) return null
 
   // Função para obter estoque da variante selecionada
   const getVariantStock = () => {
@@ -69,14 +77,6 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   const discountPercentage = originalPriceValue && originalPriceValue > priceValue
     ? Math.round((1 - priceValue / originalPriceValue) * 100)
     : 0
-
-  // Garantir que tem ID (usar _id se id não existir)
-  const productId = product.id || product._id;
-  
-  if (!productId) {
-    console.error("Produto sem ID:", product);
-    return null;
-  }
 
   const productImages = product.images || [];
   const hasMultipleImages = productImages.length > 1;
