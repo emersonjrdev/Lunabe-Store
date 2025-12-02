@@ -175,15 +175,25 @@ class RedePaymentLinkClient {
       console.log('🔵 Company-number:', this.companyNumber);
 
       // Obter access_token OAuth 2.0 (obrigatório)
+      console.log('🔵 ========== OBTER ACCESS_TOKEN ANTES DE CRIAR LINK ==========');
       console.log('🔵 Obtendo access_token OAuth 2.0...');
       let accessToken;
       try {
         accessToken = await this.getAccessToken();
+        if (!accessToken) {
+          throw new Error('Access token não foi retornado');
+        }
         console.log('✅ Access token obtido com sucesso');
         console.log('🔵 Token (primeiros 20 chars):', accessToken.substring(0, 20) + '...');
+        console.log('🔵 Token (tamanho):', accessToken.length);
+        console.log('🔵 Token expira em:', this.tokenExpiresAt?.toISOString() || 'N/A');
       } catch (tokenError) {
+        console.error('❌ ========== ERRO AO OBTER ACCESS_TOKEN ==========');
         console.error('❌ ERRO ao obter access_token:', tokenError.message);
+        console.error('❌ Status HTTP:', tokenError.response?.status);
+        console.error('❌ Dados da resposta:', JSON.stringify(tokenError.response?.data, null, 2));
         console.error('❌ Isso impedirá a criação do Link de Pagamento');
+        console.error('❌ =========================================');
         throw new Error(`Erro ao obter token OAuth 2.0: ${tokenError.message}`);
       }
 
@@ -256,12 +266,29 @@ class RedePaymentLinkClient {
         try {
           // Se for retry, obter novo token
           if (retryCount > 0) {
-            console.log('🔵 Retry: obtendo novo access_token...');
+            console.log('🔵 ========== RETRY: OBTER NOVO TOKEN ==========');
+            console.log('🔵 Retry #' + retryCount + ': obtendo novo access_token...');
             this.accessToken = null;
             this.tokenExpiresAt = null;
-            accessToken = await this.getAccessToken();
-            console.log('✅ Novo access token obtido');
+            try {
+              accessToken = await this.getAccessToken();
+              if (!accessToken) {
+                throw new Error('Novo access token não foi retornado');
+              }
+              console.log('✅ Novo access token obtido');
+              console.log('🔵 Token (primeiros 20 chars):', accessToken.substring(0, 20) + '...');
+            } catch (retryTokenError) {
+              console.error('❌ Erro ao obter novo token no retry:', retryTokenError.message);
+              throw retryTokenError;
+            }
           }
+          
+          console.log('🔵 ========== TENTATIVA DE CRIAR LINK ==========');
+          console.log('🔵 Tentativa #' + (retryCount + 1));
+          console.log('🔵 Endpoint:', endpoint);
+          console.log('🔵 Company-number:', companyNumberStr);
+          console.log('🔵 Token presente:', !!accessToken);
+          console.log('🔵 Token (primeiros 20 chars):', accessToken?.substring(0, 20) + '...');
           
           response = await axios.post(
             endpoint,
@@ -276,9 +303,15 @@ class RedePaymentLinkClient {
             }
           );
           
+          console.log('✅ Requisição bem-sucedida!');
+          console.log('🔵 Status:', response.status);
           // Se chegou aqui, a requisição foi bem-sucedida
           break;
         } catch (retryError) {
+          console.error('❌ Erro na tentativa #' + (retryCount + 1) + ':', retryError.message);
+          console.error('❌ Status HTTP:', retryError.response?.status);
+          console.error('❌ Dados da resposta:', JSON.stringify(retryError.response?.data, null, 2));
+          
           // Se for 401 e ainda não tentou novamente, fazer retry
           if (retryError.response?.status === 401 && retryCount < maxRetries) {
             console.warn('⚠️ Erro 401 recebido, tentando novamente com novo token...');
