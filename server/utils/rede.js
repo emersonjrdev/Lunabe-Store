@@ -289,13 +289,14 @@ class RedeClient {
 
       // A API Red-e usa o endpoint de transações com kind: 'pix'
       // Montar payload da cobrança PIX
-      const payload = {
-        capture: true,
-        amount: amount,
-        reference: reference,
-        kind: 'pix', // Tipo de pagamento PIX
-        description: description || `Pedido ${reference}`,
-      };
+          const payload = {
+            affiliation: this.pv, // PV (Ponto de Venda) é obrigatório no payload
+            capture: true,
+            amount: amount,
+            reference: reference,
+            kind: 'pix', // Tipo de pagamento PIX
+            description: description || `Pedido ${reference}`,
+          };
 
       console.log('🔵 Payload PIX:', JSON.stringify(payload, null, 2));
       console.log('🔵 Base URL configurada:', this.baseUrl);
