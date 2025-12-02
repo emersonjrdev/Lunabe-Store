@@ -88,6 +88,62 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
     }
   }, [user])
 
+  // Calcular frete quando CEP mudar (apenas para entrega)
+  // IMPORTANTE: Este useEffect deve estar ANTES dos early returns
+  useEffect(() => {
+    const calculateShipping = async (cep) => {
+      if (!cep || cep.replace(/\D/g, '').length !== 8) {
+        setShipping(0)
+        return
+      }
+
+      setCalculatingShipping(true)
+      try {
+        // Cálculo simples de frete baseado em faixas de CEP
+        const cleanCep = cep.replace(/\D/g, '')
+        const cepNumber = parseInt(cleanCep)
+        
+        // Exemplo de cálculo: CEPs de SP capital (01000-000 a 05999-999) têm frete menor
+        let calculatedShipping = 15.00 // Frete padrão
+        
+        if (cepNumber >= 1000000 && cepNumber <= 5999999) {
+          // Região metropolitana de SP
+          calculatedShipping = 10.00
+        } else if (cepNumber >= 6000000 && cepNumber <= 6999999) {
+          // Região Nordeste
+          calculatedShipping = 20.00
+        } else if (cepNumber >= 8000000 && cepNumber <= 8999999) {
+          // Região Sul
+          calculatedShipping = 18.00
+        } else if (cepNumber >= 3000000 && cepNumber <= 3999999) {
+          // Região Sudeste (MG, RJ, ES)
+          calculatedShipping = 15.00
+        }
+        
+        // Frete grátis para compras acima de R$ 150
+        if (totalPrice - discount >= 150) {
+          calculatedShipping = 0
+        }
+        
+        setShipping(calculatedShipping)
+      } catch (error) {
+        console.error('Erro ao calcular frete:', error)
+        setShipping(15.00) // Frete padrão em caso de erro
+      } finally {
+        setCalculatingShipping(false)
+      }
+    }
+
+    if (deliveryType === 'delivery' && address.zip) {
+      const timeoutId = setTimeout(() => {
+        calculateShipping(address.zip)
+      }, 500) // Debounce de 500ms
+      return () => clearTimeout(timeoutId)
+    } else if (deliveryType === 'pickup') {
+      setShipping(0) // Sem frete para retirada
+    }
+  }, [address.zip, deliveryType, totalPrice, discount])
+
   // Verificar se usuário está logado
   if (!user) {
     return (
@@ -347,62 +403,6 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
       setIsProcessing(false)
     }
   }
-
-  // Função para calcular frete baseado no CEP
-  const calculateShipping = async (cep) => {
-    if (!cep || cep.replace(/\D/g, '').length !== 8) {
-      setShipping(0)
-      return
-    }
-
-    setCalculatingShipping(true)
-    try {
-      // Cálculo simples de frete baseado em faixas de CEP
-      const cleanCep = cep.replace(/\D/g, '')
-      const cepNumber = parseInt(cleanCep)
-      
-      // Exemplo de cálculo: CEPs de SP capital (01000-000 a 05999-999) têm frete menor
-      let calculatedShipping = 15.00 // Frete padrão
-      
-      if (cepNumber >= 1000000 && cepNumber <= 5999999) {
-        // Região metropolitana de SP
-        calculatedShipping = 10.00
-      } else if (cepNumber >= 6000000 && cepNumber <= 6999999) {
-        // Região Nordeste
-        calculatedShipping = 20.00
-      } else if (cepNumber >= 8000000 && cepNumber <= 8999999) {
-        // Região Sul
-        calculatedShipping = 18.00
-      } else if (cepNumber >= 3000000 && cepNumber <= 3999999) {
-        // Região Sudeste (MG, RJ, ES)
-        calculatedShipping = 15.00
-      }
-      
-      // Frete grátis para compras acima de R$ 150
-      if (totalPrice - discount >= 150) {
-        calculatedShipping = 0
-      }
-      
-      setShipping(calculatedShipping)
-    } catch (error) {
-      console.error('Erro ao calcular frete:', error)
-      setShipping(15.00) // Frete padrão em caso de erro
-    } finally {
-      setCalculatingShipping(false)
-    }
-  }
-
-  // Calcular frete quando CEP mudar (apenas para entrega)
-  useEffect(() => {
-    if (deliveryType === 'delivery' && address.zip) {
-      const timeoutId = setTimeout(() => {
-        calculateShipping(address.zip)
-      }, 500) // Debounce de 500ms
-      return () => clearTimeout(timeoutId)
-    } else if (deliveryType === 'pickup') {
-      setShipping(0) // Sem frete para retirada
-    }
-  }, [address.zip, deliveryType, totalPrice, discount])
 
   // Calcular valores
   const finalPrice = totalPrice - discount
