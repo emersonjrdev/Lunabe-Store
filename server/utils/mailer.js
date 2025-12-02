@@ -75,7 +75,14 @@ async function sendEmail({ to, subject, html }) {
 
   // Priorizar SendGrid se disponível
   if (hasSendGrid) {
+    console.log('🔵 ========== CONFIGURAÇÃO SENDGRID ==========');
+    console.log('🔵 Remetente (from):', emailFrom);
+    console.log('🔵 Destinatário (to):', to);
+    console.log('🔵 EMAIL_FROM no .env:', process.env.EMAIL_FROM || '❌ Não configurado');
+    console.log('🔵 SENDGRID_API_KEY configurada:', hasSendGrid ? '✅ Sim' : '❌ Não');
+    console.log('🔵 ===========================================');
     console.log('🔵 Enviando via SendGrid...');
+    
     const msg = {
       to,
       from: emailFrom,
@@ -83,10 +90,75 @@ async function sendEmail({ to, subject, html }) {
       html,
     };
 
-    const result = await sgMail.send(msg);
-    console.log('✅ Email enviado via SendGrid');
-    console.log('🔵 Status:', result[0]?.statusCode);
-    return { messageId: result[0]?.headers['x-message-id'], response: result[0]?.statusCode };
+    try {
+      const result = await sgMail.send(msg);
+      console.log('✅ Email enviado via SendGrid');
+      console.log('🔵 Status:', result[0]?.statusCode);
+      return { messageId: result[0]?.headers['x-message-id'], response: result[0]?.statusCode };
+    } catch (error) {
+      // Melhorar tratamento de erros do SendGrid
+      console.error('❌ Erro ao enviar via SendGrid:');
+      console.error('❌ Status:', error.code || error.response?.statusCode);
+      console.error('❌ Mensagem:', error.message);
+      
+      if (error.response) {
+        console.error('❌ ========== DETALHES DO ERRO SENDGRID ==========');
+        console.error('❌ Status Code:', error.response.statusCode);
+        console.error('❌ Body completo:', JSON.stringify(error.response.body, null, 2));
+        
+        // Erro 403 geralmente é:
+        // 1. Email remetente não verificado
+        // 2. API Key sem permissões
+        // 3. Domínio não autenticado
+        if (error.response.statusCode === 403) {
+          const errors = error.response.body?.errors || [];
+          console.error('❌ ========== ERROS DETALHADOS ==========');
+          if (errors.length > 0) {
+            errors.forEach((err, index) => {
+              console.error(`❌ Erro ${index + 1}:`);
+              console.error('❌   Mensagem:', err.message || JSON.stringify(err));
+              if (err.field) {
+                console.error('❌   Campo:', err.field);
+              }
+              if (err.help) {
+                console.error('❌   Ajuda:', err.help);
+              }
+              if (err.error_id) {
+                console.error('❌   Error ID:', err.error_id);
+              }
+            });
+          } else {
+            console.error('❌ Nenhum erro detalhado retornado pelo SendGrid');
+            console.error('❌ Body completo:', JSON.stringify(error.response.body, null, 2));
+          }
+          console.error('❌ ============================================');
+          
+          console.error('❌ ========== DIAGNÓSTICO ==========');
+          console.error('❌ Email remetente usado:', emailFrom);
+          console.error('❌ Email destinatário:', to);
+          console.error('❌ API Key configurada:', hasSendGrid ? '✅ Sim' : '❌ Não');
+          console.error('❌ ============================================');
+          
+          console.error('❌ ========== SOLUÇÃO PARA ERRO 403 ==========');
+          console.error('❌ O erro 403 (Forbidden) geralmente significa:');
+          console.error('❌ 1. O email remetente não está verificado no SendGrid');
+          console.error('❌ 2. A API Key não tem permissões de "Mail Send"');
+          console.error('❌ 3. O domínio não está autenticado no SendGrid');
+          console.error('❌');
+          console.error('❌ PASSOS PARA RESOLVER:');
+          console.error('❌ 1. Acesse: https://app.sendgrid.com');
+          console.error('❌ 2. Vá em Settings > Sender Authentication');
+          console.error('❌ 3. Verifique se o email "lunabepijamas@gmail.com" está verificado');
+          console.error('❌ 4. Se não estiver, clique em "Verify a Single Sender" e verifique o email');
+          console.error('❌ 5. Vá em Settings > API Keys e verifique se a API Key tem permissão "Mail Send"');
+          console.error('❌ 6. No Render, verifique se EMAIL_FROM está configurado como:');
+          console.error('❌    Lunabe Pijamas <lunabepijamas@gmail.com>');
+          console.error('❌ ============================================');
+        }
+      }
+      
+      throw error;
+    }
   }
 
   // Fallback para Gmail SMTP

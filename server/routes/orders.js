@@ -576,8 +576,39 @@ router.patch('/:id/status', async (req, res) => {
     if (!adminKey || adminKey !== expectedKey) return res.status(401).json({ error: 'Unauthorized' });
     const { status } = req.body;
     if (!status) return res.status(400).json({ error: 'Missing status' });
-    const order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    
+    // Buscar pedido antes de atualizar para comparar status anterior
+    const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+    
+    const previousStatus = order.status;
+    const isChangingToPaid = status === 'Pago' && previousStatus !== 'Pago';
+    
+    // Atualizar status
+    order.status = status;
+    
+    // Se mudou para "Pago", atualizar paidAt e enviar email
+    if (isChangingToPaid) {
+      order.paidAt = new Date();
+      console.log('🔵 Status mudou para "Pago" - enviando email de confirmação...');
+      
+      // Enviar email de confirmação de pagamento
+      sendPaymentConfirmationEmail(order.email, order).catch(err => {
+        console.error('❌ Erro ao enviar email de confirmação de pagamento (não crítico):', err);
+      });
+    }
+    
+    // Se mudou para outro status (não "Pago"), enviar email de atualização
+    if (previousStatus !== status && status !== 'Pago') {
+      console.log(`🔵 Status mudou de "${previousStatus}" para "${status}" - enviando email de atualização...`);
+      sendStatusUpdateEmail(order.email, order, status).catch(err => {
+        console.error('❌ Erro ao enviar email de atualização (não crítico):', err);
+      });
+    }
+    
+    await order.save();
+    
+    console.log(`✅ Pedido ${order._id} atualizado: ${previousStatus} → ${status}`);
     res.json(order);
   } catch (err) {
     console.error('Erro ao atualizar status:', err);
@@ -683,9 +714,20 @@ router.post('/:id/confirm-payment', async (req, res) => {
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
 
+    const previousStatus = order.status;
+    
     // mark as paid
     order.status = 'Pago';
+    order.paidAt = new Date();
     await order.save();
+
+    // Enviar email de confirmação de pagamento se mudou para "Pago"
+    if (previousStatus !== 'Pago') {
+      console.log('🔵 Status mudou para "Pago" - enviando email de confirmação...');
+      sendPaymentConfirmationEmail(order.email, order).catch(err => {
+        console.error('❌ Erro ao enviar email de confirmação de pagamento (não crítico):', err);
+      });
+    }
 
     // Return the session id (paymentSessionId) so frontend can redirect to success
     res.json({ ok: true, sessionId: order.paymentSessionId || order.stripeSessionId || order._id.toString() });
