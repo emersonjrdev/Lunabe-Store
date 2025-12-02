@@ -306,7 +306,9 @@ class RedeClient {
       // Montar payload da cobrança PIX conforme documentação Red-e
       // kind deve ser "Pix" (com P maiúsculo)
       // qrCode.dateTimeExpiration é obrigatório
+      // affiliation (PV) é obrigatório no payload, mesmo que não esteja na documentação
       const payload = {
+        affiliation: this.pv, // PV (Ponto de Venda) - obrigatório mesmo que não esteja na doc
         kind: 'Pix', // Tipo de pagamento PIX (com P maiúsculo conforme documentação)
         reference: reference,
         amount: amount,
