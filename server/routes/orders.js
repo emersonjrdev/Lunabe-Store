@@ -262,9 +262,15 @@ router.post("/create-checkout-session", async (req, res) => {
       }
       
       // Enviar email de confirmação
-      sendOrderEmail(customerEmail, order).catch(err => {
-        console.error('Erro ao enviar email de confirmação (não crítico):', err);
-      });
+      console.log('🔵 Tentando enviar email de confirmação de pedido...');
+      sendOrderEmail(customerEmail, order)
+        .then(() => {
+          console.log('✅ Email de confirmação de pedido enviado com sucesso');
+        })
+        .catch(err => {
+          console.error('❌ Erro ao enviar email de confirmação:', err.message);
+          console.error('❌ Isso não impede o pedido de ser criado');
+        });
       
       // Retornar dados do Link de Pagamento
       return res.json({
@@ -381,9 +387,15 @@ router.post("/create-checkout-session", async (req, res) => {
         }
         
         // Enviar email de confirmação
-        sendOrderEmail(customerEmail, order).catch(err => {
-          console.error('Erro ao enviar email de confirmação (não crítico):', err);
-        });
+        console.log('🔵 Tentando enviar email de confirmação de pedido PIX...');
+        sendOrderEmail(customerEmail, order)
+          .then(() => {
+            console.log('✅ Email de confirmação de pedido PIX enviado com sucesso');
+          })
+          .catch(err => {
+            console.error('❌ Erro ao enviar email de confirmação PIX:', err.message);
+            console.error('❌ Isso não impede o pedido de ser criado');
+          });
         
         // URL do webhook para notificações da Red-e
         const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'https://lunabe-store.onrender.com';
