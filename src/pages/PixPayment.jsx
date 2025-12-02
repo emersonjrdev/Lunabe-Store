@@ -26,22 +26,19 @@ export default function PixPayment() {
       console.warn('Erro ao limpar carrinho (não crítico):', error);
     }
 
-    // Obter dados do PIX do state ou buscar do servidor
+    // Obter dados do PIX do state (dados já vêm da resposta do createOrder)
     if (location.state?.pixQrCode) {
       setPixData({
         qrCode: location.state.pixQrCode,
         chave: location.state.pixChave,
         valor: location.state.pixValor,
-        descricao: location.state.pixDescricao,
+        descricao: location.state.pixDescricao || `Pedido ${orderId?.slice(-8) || ''} - Lunabê`,
       });
       setIsLoading(false);
-      
-      // Buscar dados do pedido para verificar status
-      if (orderId) {
-        fetchOrderData();
-      }
+      // Não buscar pedido imediatamente se já temos os dados do PIX
+      // A verificação periódica do status vai buscar depois
     } else if (orderId) {
-      // Buscar dados do pedido do servidor
+      // Se não temos os dados no state, tentar buscar do servidor
       fetchOrderData();
     } else {
       addToast('Pedido não encontrado', 'error');
@@ -54,10 +51,20 @@ export default function PixPayment() {
   useEffect(() => {
     if (!orderId || paymentStatus === 'paid') return;
 
+    let intervalId = null;
+
     const checkPaymentStatus = async () => {
       try {
         const response = await fetch(`${API_BASE}/api/orders/${orderId}`);
-        if (!response.ok) return;
+        if (!response.ok) {
+          // Se a rota ainda não estiver disponível, não fazer nada
+          // Apenas logar o erro sem interromper o fluxo
+          if (response.status === 404) {
+            console.warn('Rota de pedido ainda não disponível, aguardando deploy...');
+            return;
+          }
+          return;
+        }
         
         const orderData = await response.json();
         setOrder(orderData);
@@ -71,22 +78,41 @@ export default function PixPayment() {
           }, 2000);
         }
       } catch (error) {
-        console.error('Erro ao verificar status do pagamento:', error);
+        // Não mostrar erro ao usuário, apenas logar
+        // A verificação vai continuar tentando
+        console.warn('Erro ao verificar status do pagamento (não crítico):', error);
       }
     };
 
-    // Verificar imediatamente e depois a cada 5 segundos
-    checkPaymentStatus();
-    const interval = setInterval(checkPaymentStatus, 5000);
+    // Aguardar 2 segundos antes da primeira verificação para dar tempo do deploy
+    // Depois verificar a cada 5 segundos
+    const timeout = setTimeout(() => {
+      checkPaymentStatus();
+      intervalId = setInterval(checkPaymentStatus, 5000);
+    }, 2000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timeout);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, paymentStatus]);
 
   const fetchOrderData = async () => {
     try {
       const response = await fetch(`${API_BASE}/api/orders/${orderId}`);
-      if (!response.ok) throw new Error('Erro ao buscar pedido');
+      if (!response.ok) {
+        // Se a rota não estiver disponível ainda, não mostrar erro
+        // Os dados do PIX já estão no state, então podemos continuar
+        if (response.status === 404) {
+          console.warn('Rota de pedido ainda não disponível, usando dados do state');
+          setIsLoading(false);
+          return;
+        }
+        throw new Error('Erro ao buscar pedido');
+      }
       
       const orderData = await response.json();
       setOrder(orderData);
@@ -100,9 +126,10 @@ export default function PixPayment() {
         });
       }
     } catch (error) {
-      console.error('Erro ao buscar pedido:', error);
-      addToast('Erro ao carregar dados do pagamento', 'error');
-      navigate('/carrinho');
+      console.warn('Erro ao buscar pedido (não crítico):', error);
+      // Não redirecionar se os dados do PIX já estão disponíveis
+      // Apenas marcar como carregado
+      setIsLoading(false);
     } finally {
       setIsLoading(false);
     }
