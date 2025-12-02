@@ -280,35 +280,28 @@ router.post("/create-checkout-session", async (req, res) => {
           });
         }
         
-        // Usar Link de Pagamento da Rede (mais simples e robusto)
-        console.log('🔵 Criando Link de Pagamento via API Red-e...');
-        let paymentLinkData;
+        // Usar API PIX direta da Red-e (não Link de Pagamento)
+        // A URL https://www.lunabe.com.br/pix-payment/{orderId} foi liberada pela Rede
+        console.log('🔵 Gerando PIX dinâmico via API Red-e (PIX direto)...');
+        let pixData;
         
         try {
-          const paymentLinkClient = new RedePaymentLinkClient();
-          
-          console.log('🔵 Iniciando criação de Link de Pagamento...');
+          console.log('🔵 Iniciando geração de PIX via API Red-e...');
           console.log('🔵 Order ID:', order._id.toString());
           console.log('🔵 Total (centavos):', totalInCents);
           console.log('🔵 Total (reais):', (totalInCents / 100).toFixed(2));
-          console.log('🔵 Email do cliente:', customerEmail);
           
-          paymentLinkData = await paymentLinkClient.createPaymentLink({
-            amount: totalInCents,
-            reference: order._id.toString(),
-            description: `Pedido ${order._id.toString().slice(-8)} - Lunabê`,
-            customerEmail: customerEmail,
-            customerName: customerName || null,
-            expirationDays: 7, // Link expira em 7 dias
-          });
+          pixData = await createRedePixCharge(order, totalInCents);
           
-          console.log('✅ Link de Pagamento criado com sucesso:', {
-            paymentLinkId: paymentLinkData.paymentLinkId,
-            paymentLinkUrl: paymentLinkData.paymentLinkUrl,
-            status: paymentLinkData.status,
+          console.log('✅ PIX gerado via API Red-e com sucesso:', {
+            hasQrCode: !!pixData.qrCode,
+            qrCodeLength: pixData.qrCode?.length,
+            chargeId: pixData.chargeId,
+            valor: pixData.valor,
+            status: pixData.status,
           });
         } catch (apiError) {
-          console.error('❌ ========== ERRO AO CRIAR LINK DE PAGAMENTO ==========');
+          console.error('❌ ========== ERRO AO GERAR PIX ==========');
           console.error('❌ Mensagem:', apiError.message);
           console.error('❌ Status HTTP:', apiError.response?.status);
           console.error('❌ Status Text:', apiError.response?.statusText);
@@ -318,29 +311,32 @@ router.post("/create-checkout-session", async (req, res) => {
           
           // Retornar erro detalhado para ajudar no diagnóstico
           const errorDetails = apiError.response?.data || {};
-          const errorMessage = apiError.message || 'Erro desconhecido ao criar link de pagamento';
+          const errorMessage = apiError.message || 'Erro desconhecido ao gerar PIX';
           
           return res.status(500).json({
-            error: 'Erro ao criar link de pagamento via API Red-e',
+            error: 'Erro ao gerar código PIX via API Red-e',
             details: errorMessage,
             status: apiError.response?.status,
             apiError: errorDetails,
-            suggestion: 'Verifique as credenciais da Red-e no Render (REDE_PV, REDE_TOKEN e REDE_AFFILIATION) e se o ambiente está correto (production/sandbox).',
+            suggestion: 'Verifique as credenciais da Red-e no Render (REDE_PV e REDE_TOKEN) e se o ambiente está correto (production/sandbox).',
           });
         }
         
-        if (!paymentLinkData || !paymentLinkData.paymentLinkUrl) {
-          throw new Error('URL do Link de Pagamento não foi retornada pela API Red-e');
+        if (!pixData || !pixData.qrCode) {
+          throw new Error('QR Code PIX não foi retornado pela API Red-e');
         }
         
-        // Atualizar pedido com dados do Link de Pagamento
+        // Atualizar pedido com dados do PIX
         order.paymentMethod = 'rede-pix';
-        order.paymentSessionId = paymentLinkData.paymentLinkId || order._id.toString();
-        order.paymentLinkUrl = paymentLinkData.paymentLinkUrl; // URL do link de pagamento
-        order.paymentLinkId = paymentLinkData.paymentLinkId; // ID do link para consulta
-        order.pixValor = paymentLinkData.amount / 100; // Converter centavos para reais
+        order.paymentSessionId = pixData.chargeId || order._id.toString();
+        order.pixQrCode = pixData.qrCode;
+        order.pixChave = '63824145000127'; // Chave PIX da Red-e
+        order.pixValor = pixData.valor;
+        if (pixData.chargeId) {
+          order.pixTxId = pixData.chargeId; // Salvar chargeId para consulta posterior
+        }
         await order.save();
-        console.log('✅ Pedido atualizado com dados do Link de Pagamento');
+        console.log('✅ Pedido atualizado com dados PIX Red-e');
         
         // Reduzir estoque quando o pedido é criado
         try {
@@ -358,16 +354,21 @@ router.post("/create-checkout-session", async (req, res) => {
           console.error('Erro ao enviar email de confirmação (não crítico):', err);
         });
         
-        // Retornar dados do Link de Pagamento
+        // URL do webhook para notificações da Red-e
+        const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'https://lunabe-store.onrender.com';
+        const webhookUrl = `${backendUrl}/api/webhooks/rede-pix`;
+
+        // Retornar dados do PIX (URL liberada: https://www.lunabe.com.br/pix-payment/{orderId})
         return res.json({
           orderId: order._id.toString(),
           paymentMethod: 'rede-pix',
-          paymentLinkUrl: paymentLinkData.paymentLinkUrl, // URL do link de pagamento
-          paymentLinkId: paymentLinkData.paymentLinkId, // ID para consulta
-          pixValor: paymentLinkData.amount / 100, // Valor em reais
-          reference: paymentLinkData.reference,
-          expirationDate: paymentLinkData.expirationDate,
-          status: paymentLinkData.status,
+          pixQrCode: pixData.qrCode,
+          pixQrCodeBase64: pixData.qrCodeBase64 || null, // Imagem do QR Code se disponível
+          pixChave: '63824145000127',
+          pixValor: pixData.valor,
+          pixDescricao: pixData.descricao,
+          pixTxId: pixData.chargeId || null,
+          webhookUrl: webhookUrl, // URL para configurar na Red-e
         });
       } catch (pixError) {
         console.error('❌ Erro crítico ao gerar PIX:', pixError);
