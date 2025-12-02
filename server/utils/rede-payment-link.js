@@ -14,7 +14,15 @@ class RedePaymentLinkClient {
     // Credenciais OAuth 2.0
     this.clientId = process.env.REDE_PV; // GUID para OAuth
     this.clientSecret = process.env.REDE_TOKEN; // Chave de integração
-    this.companyNumber = process.env.REDE_AFFILIATION || process.env.REDE_PV; // Número da filial (obrigatório no header)
+    // company-number: número do PV (numérico, máximo 10 dígitos) - obrigatório no header
+    // Deve ser o número da filial, não o GUID
+    this.companyNumber = process.env.REDE_AFFILIATION || process.env.REDE_PV;
+    
+    // Validar que company-number é numérico e tem no máximo 10 dígitos
+    if (this.companyNumber && !/^\d{1,10}$/.test(String(this.companyNumber))) {
+      console.warn('⚠️ Company-number deve ser numérico e ter no máximo 10 dígitos');
+      console.warn('⚠️ Valor atual:', this.companyNumber);
+    }
     
     // Ambiente (sandbox ou production)
     this.environment = process.env.REDE_ENV || 'sandbox';
