@@ -20,12 +20,13 @@ class RedePaymentLinkClient {
     this.environment = process.env.REDE_ENV || 'sandbox';
     
     // URLs da API Link de Pagamento conforme documentação
+    // Base URL: apenas o servidor (sem /payment-link)
     if (this.environment === 'production') {
-      this.baseUrl = 'https://payments-api.useredecloud.com.br/payment-link';
+      this.baseUrl = 'https://payments-api.useredecloud.com.br';
       this.oauthUrl = 'https://api.userede.com.br/redelabs/oauth2/token';
     } else {
-      // Sandbox
-      this.baseUrl = 'https://payments-apisandbox.useredecloud.com.br/payment-link';
+      // Sandbox conforme documentação: https://payments-apisandbox.useredecloud.com.br
+      this.baseUrl = 'https://payments-apisandbox.useredecloud.com.br';
       this.oauthUrl = 'https://rl7-sandbox-api.useredecloud.com.br/oauth2/token';
     }
     
@@ -168,7 +169,7 @@ class RedePaymentLinkClient {
       console.log('🔵 Payload:', JSON.stringify(payload, null, 2));
 
       // Endpoint: POST /payment-link/v1/create
-      const endpoint = `${this.baseUrl}/v1/create`;
+      const endpoint = `${this.baseUrl}/payment-link/v1/create`;
 
       const response = await axios.post(
         endpoint,
@@ -220,7 +221,7 @@ class RedePaymentLinkClient {
       const accessToken = await this.getAccessToken();
 
       // Endpoint: GET /payment-link/v1/details/{paymentLinkId}
-      const endpoint = `${this.baseUrl}/v1/details/${paymentLinkId}`;
+      const endpoint = `${this.baseUrl}/payment-link/v1/details/${paymentLinkId}`;
 
       const response = await axios.get(
         endpoint,
@@ -254,7 +255,7 @@ class RedePaymentLinkClient {
       const accessToken = await this.getAccessToken();
 
       // Endpoint: PATCH /payment-link/v1/cancel/{paymentLinkId}
-      const endpoint = `${this.baseUrl}/v1/cancel/${paymentLinkId}`;
+      const endpoint = `${this.baseUrl}/payment-link/v1/cancel/${paymentLinkId}`;
 
       const response = await axios.patch(
         endpoint,
