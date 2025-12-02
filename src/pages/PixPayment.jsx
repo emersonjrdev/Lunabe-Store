@@ -19,8 +19,12 @@ export default function PixPayment() {
 
   useEffect(() => {
     // Limpar carrinho ao entrar na página de pagamento PIX
-    localStorage.removeItem("lunabe-cart");
-    window.dispatchEvent(new Event("storage"));
+    try {
+      localStorage.removeItem("lunabe-cart");
+      window.dispatchEvent(new Event("storage"));
+    } catch (error) {
+      console.warn('Erro ao limpar carrinho (não crítico):', error);
+    }
 
     // Obter dados do PIX do state ou buscar do servidor
     if (location.state?.pixQrCode) {
@@ -43,7 +47,8 @@ export default function PixPayment() {
       addToast('Pedido não encontrado', 'error');
       navigate('/carrinho');
     }
-  }, [orderId, location.state]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
 
   // Verificar status do pedido periodicamente (a cada 5 segundos)
   useEffect(() => {
@@ -75,7 +80,8 @@ export default function PixPayment() {
     const interval = setInterval(checkPaymentStatus, 5000);
 
     return () => clearInterval(interval);
-  }, [orderId, paymentStatus, navigate, addToast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId, paymentStatus]);
 
   const fetchOrderData = async () => {
     try {
