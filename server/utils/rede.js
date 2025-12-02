@@ -11,31 +11,104 @@ dotenv.config();
  */
 class RedeClient {
   constructor() {
-    // Credenciais da API Red-e
-    this.pv = process.env.REDE_PV; // Ponto de Venda
-    this.token = process.env.REDE_TOKEN; // Token de autenticação
+    // Credenciais OAuth 2.0 da API Red-e
+    // PV agora é clientId, Token agora é clientSecret
+    this.clientId = process.env.REDE_PV; // clientId (antigo PV)
+    this.clientSecret = process.env.REDE_TOKEN; // clientSecret (antiga Chave de Integração)
     
     // Ambiente (sandbox ou production)
     this.environment = process.env.REDE_ENV || 'sandbox';
     
-    // URLs da API Red-e conforme documentação oficial
-    // Sandbox: https://sandbox-erede.useredecloud.com.br
-    // Production: https://api.userede.com.br (assumindo, pode precisar ajustar)
+    // URLs da API Red-e conforme documentação oficial OAuth 2.0
     if (this.environment === 'production') {
-      this.baseUrl = 'https://api.userede.com.br';
+      this.baseUrl = 'https://api.userede.com.br/erede';
+      this.oauthUrl = 'https://api.userede.com.br/redelabs/oauth2/token';
     } else {
       // Sandbox conforme documentação
       this.baseUrl = 'https://sandbox-erede.useredecloud.com.br';
+      this.oauthUrl = 'https://rl7-sandbox-api.useredecloud.com.br/oauth2/token';
     }
     
     // URL base do frontend para callbacks
     this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     
-    console.log('🔵 Cliente Red-e inicializado');
+    // Cache do access_token OAuth 2.0
+    this.accessToken = null;
+    this.tokenExpiresAt = null;
+    
+    console.log('🔵 Cliente Red-e inicializado (OAuth 2.0)');
     console.log('🔵 Ambiente:', this.environment);
     console.log('🔵 Base URL:', this.baseUrl);
-    console.log('🔵 PV configurado:', !!this.pv);
-    console.log('🔵 Token configurado:', !!this.token);
+    console.log('🔵 OAuth URL:', this.oauthUrl);
+    console.log('🔵 clientId configurado:', !!this.clientId);
+    console.log('🔵 clientSecret configurado:', !!this.clientSecret);
+  }
+
+  /**
+   * Obtém access_token OAuth 2.0
+   * O token tem validade de 24 minutos, renovar entre 15-23 minutos
+   * @returns {Promise<string>} access_token
+   */
+  async getAccessToken() {
+    // Verificar se temos um token válido (renovar se faltar menos de 5 minutos)
+    const now = Date.now();
+    if (this.accessToken && this.tokenExpiresAt && now < (this.tokenExpiresAt - 5 * 60 * 1000)) {
+      console.log('🔵 Usando access_token em cache');
+      return this.accessToken;
+    }
+
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error('REDE_PV (clientId) e REDE_TOKEN (clientSecret) são obrigatórios. Configure no .env');
+    }
+
+    try {
+      console.log('🔵 ========== OBTER ACCESS_TOKEN OAuth 2.0 ==========');
+      console.log('🔵 OAuth URL:', this.oauthUrl);
+      console.log('🔵 clientId:', this.clientId ? `${this.clientId.substring(0, 4)}...` : 'NÃO CONFIGURADO');
+
+      // Basic Auth com clientId:clientSecret
+      const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+
+      const response = await axios.post(
+        this.oauthUrl,
+        'grant_type=client_credentials',
+        {
+          headers: {
+            'Authorization': `Basic ${credentials}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          timeout: 30000,
+        }
+      );
+
+      if (!response.data?.access_token) {
+        throw new Error('access_token não retornado pela API OAuth 2.0');
+      }
+
+      // Armazenar token e calcular expiração (24 minutos = 1440 segundos)
+      this.accessToken = response.data.access_token;
+      const expiresIn = response.data.expires_in || 1440; // Padrão 24 minutos
+      this.tokenExpiresAt = now + (expiresIn * 1000);
+
+      console.log('✅ access_token obtido com sucesso');
+      console.log('🔵 Token expira em:', expiresIn, 'segundos');
+      console.log('🔵 Token type:', response.data.token_type || 'Bearer');
+
+      return this.accessToken;
+    } catch (error) {
+      console.error('❌ ========== ERRO AO OBTER ACCESS_TOKEN ==========');
+      console.error('❌ OAuth URL:', this.oauthUrl);
+      console.error('❌ Status HTTP:', error.response?.status);
+      console.error('❌ Dados da resposta:', JSON.stringify(error.response?.data, null, 2));
+      console.error('❌ Mensagem do erro:', error.message);
+      console.error('❌ =========================================');
+
+      const errorMsg = error.response?.data?.error_description 
+        || error.response?.data?.error 
+        || error.message;
+      
+      throw new Error(`Erro ao obter access_token OAuth 2.0: ${errorMsg}`);
+    }
   }
 
   /**
@@ -65,8 +138,8 @@ class RedeClient {
     customer,
     orderId,
   }) {
-    if (!this.pv || !this.token) {
-      throw new Error('REDE_PV e REDE_TOKEN são obrigatórios. Configure no .env');
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error('REDE_PV (clientId) e REDE_TOKEN (clientSecret) são obrigatórios. Configure no .env');
     }
 
     if (!amount || amount <= 0) {
@@ -92,7 +165,7 @@ class RedeClient {
       
       // Montar payload da transação com 3DS e Data Only
       const payload = {
-        affiliation: this.pv, // PV (Ponto de Venda) é obrigatório no payload
+        affiliation: this.clientId, // PV (Ponto de Venda) é obrigatório no payload
         capture: true, // Captura automática
         reference: reference,
         amount: amount,
@@ -144,8 +217,8 @@ class RedeClient {
       console.log('🔵 Payload da transação:', JSON.stringify(payload, null, 2));
       console.log('🔵 Fazendo POST para:', `${this.baseUrl}/v2/transactions`);
 
-      // Autenticação Basic Auth
-      const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
+      // Obter access_token OAuth 2.0
+      const accessToken = await this.getAccessToken();
 
       const response = await axios.post(
         `${this.baseUrl}/v2/transactions`,
@@ -153,7 +226,7 @@ class RedeClient {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Basic ${credentials}`,
+            'Authorization': `Bearer ${accessToken}`,
           },
           timeout: 30000,
         }
@@ -203,18 +276,19 @@ class RedeClient {
    * @returns {Object} Dados da transação
    */
   async getTransaction(tid) {
-    if (!this.pv || !this.token) {
-      throw new Error('REDE_PV e REDE_TOKEN são obrigatórios');
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error('REDE_PV (clientId) e REDE_TOKEN (clientSecret) são obrigatórios');
     }
 
     try {
-      const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
+      // Obter access_token OAuth 2.0
+      const accessToken = await this.getAccessToken();
 
       const response = await axios.get(
         `${this.baseUrl}/v2/transactions/${tid}`,
         {
           headers: {
-            'Authorization': `Basic ${credentials}`,
+            'Authorization': `Bearer ${accessToken}`,
           },
         }
       );
@@ -233,12 +307,13 @@ class RedeClient {
    * @returns {Object} Dados do estorno
    */
   async refundTransaction(tid, amount = null) {
-    if (!this.pv || !this.token) {
-      throw new Error('REDE_PV e REDE_TOKEN são obrigatórios');
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error('REDE_PV (clientId) e REDE_TOKEN (clientSecret) são obrigatórios');
     }
 
     try {
-      const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
+      // Obter access_token OAuth 2.0
+      const accessToken = await this.getAccessToken();
 
       const payload = {};
       if (amount) {
@@ -251,7 +326,7 @@ class RedeClient {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Basic ${credentials}`,
+            'Authorization': `Bearer ${accessToken}`,
           },
         }
       );
@@ -273,8 +348,8 @@ class RedeClient {
    * @returns {Object} Dados da cobrança PIX incluindo QR Code
    */
   async createPixCharge({ amount, reference, description, expiration = 3600 }) {
-    if (!this.pv || !this.token) {
-      throw new Error('REDE_PV e REDE_TOKEN são obrigatórios. Configure no .env');
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error('REDE_PV (clientId) e REDE_TOKEN (clientSecret) são obrigatórios. Configure no .env');
     }
 
     if (!amount || amount <= 0) {
@@ -308,7 +383,7 @@ class RedeClient {
       // qrCode.dateTimeExpiration é obrigatório
       // affiliation (PV) é obrigatório no payload, mesmo que não esteja na documentação
       const payload = {
-        affiliation: this.pv, // PV (Ponto de Venda) - obrigatório mesmo que não esteja na doc
+        affiliation: this.clientId, // PV (Ponto de Venda) - obrigatório mesmo que não esteja na doc
         kind: 'Pix', // Tipo de pagamento PIX (com P maiúsculo conforme documentação)
         reference: reference,
         amount: amount,
@@ -325,12 +400,11 @@ class RedeClient {
       console.log('🔵 Payload PIX:', JSON.stringify(payload, null, 2));
       console.log('🔵 Base URL configurada:', this.baseUrl);
       console.log('🔵 Endpoint:', endpoint);
-      console.log('🔵 PV (Ponto de Venda):', this.pv ? `${this.pv.substring(0, 4)}...` : 'NÃO CONFIGURADO');
-      console.log('🔵 Token presente:', !!this.token);
+      console.log('🔵 clientId (PV):', this.clientId ? `${this.clientId.substring(0, 4)}...` : 'NÃO CONFIGURADO');
       console.log('🔵 Data de expiração:', dateTimeExpiration);
       
-      // Autenticação Basic Auth (PV:Token)
-      const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
+      // Obter access_token OAuth 2.0
+      const accessToken = await this.getAccessToken();
       
       console.log('🔵 Fazendo POST para:', endpoint);
       
@@ -340,7 +414,7 @@ class RedeClient {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Basic ${credentials}`,
+            'Authorization': `Bearer ${accessToken}`,
           },
           timeout: 30000,
         }
@@ -411,7 +485,7 @@ class RedeClient {
       console.error('❌ Status Text:', error.response?.statusText);
       console.error('❌ Dados da resposta:', JSON.stringify(error.response?.data, null, 2));
       console.error('❌ Mensagem do erro:', error.message);
-      console.error('❌ PV enviado no payload:', this.pv ? `${this.pv.substring(0, 4)}...` : 'NÃO CONFIGURADO');
+      console.error('❌ clientId (PV) enviado no payload:', this.clientId ? `${this.clientId.substring(0, 4)}...` : 'NÃO CONFIGURADO');
       console.error('❌ =========================================');
 
       const errorMsg = error.response?.data?.returnMessage 
@@ -433,18 +507,19 @@ class RedeClient {
    * @returns {Object} Dados da cobrança PIX
    */
   async getPixCharge(chargeId) {
-    if (!this.pv || !this.token) {
-      throw new Error('REDE_PV e REDE_TOKEN são obrigatórios');
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error('REDE_PV (clientId) e REDE_TOKEN (clientSecret) são obrigatórios');
     }
 
     try {
-      const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
+      // Obter access_token OAuth 2.0
+      const accessToken = await this.getAccessToken();
 
       const response = await axios.get(
-        `${this.baseUrl}/pix/charges/${chargeId}`,
+        `${this.baseUrl}/v2/transactions/${chargeId}`,
         {
           headers: {
-            'Authorization': `Basic ${credentials}`,
+            'Authorization': `Bearer ${accessToken}`,
           },
         }
       );
