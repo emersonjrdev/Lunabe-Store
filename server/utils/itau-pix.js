@@ -57,9 +57,12 @@ class ItauPixClient {
       
       const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
       
+      // Escopos necessários para PIX: cob.write (criar cobrança) e opcionalmente cob.read (consultar)
+      const scopes = 'cob.write cob.read';
+      
       const response = await axios.post(
         this.tokenUrl,
-        'grant_type=client_credentials&scope=cob.write',
+        `grant_type=client_credentials&scope=${encodeURIComponent(scopes)}`,
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -119,19 +122,20 @@ class ItauPixClient {
       // Limitar descrição a 140 caracteres (limite do PIX)
       const pixDescription = (descricao || 'Pagamento Lunabê').substring(0, 140);
       
-      // Formatar valor como string com 2 casas decimais (formato esperado pela API)
+      // Formatar valor: a API do Itaú espera string com 2 casas decimais
+      // Exemplo: "123.45" (não "123,45" e não número)
       const valorFormatado = (valor / 100).toFixed(2);
       
       const payload = {
         calendario: {
-          expiracao: expiracao, // 1 hora por padrão
+          expiracao: expiracao, // Tempo em segundos (3600 = 1 hora)
         },
         valor: {
-          original: valorFormatado, // Formato: "123.45" (string com 2 decimais)
+          original: valorFormatado, // String: "123.45"
         },
-        chave: this.pixKey,
-        solicitacaoPagador: pixDescription,
-        // Removido campo 'devedor' - opcional e pode causar problemas se CPF inválido
+        chave: this.pixKey, // Chave PIX cadastrada no Itaú
+        solicitacaoPagador: pixDescription, // Descrição para o pagador (máx 140 chars)
+        // Campo 'devedor' é opcional e pode causar problemas se CPF inválido
       };
 
       console.log('🔵 Criando cobrança PIX no Itaú...');
@@ -157,19 +161,46 @@ class ItauPixClient {
         console.log('🔵 Campos na resposta:', Object.keys(response.data));
       }
 
-      if (!response.data || !response.data.pixCopiaECola) {
+      // A API do Itaú pode retornar o QR Code diretamente ou via location
+      // Verificar se temos pixCopiaECola ou se precisamos consultar via location
+      let qrCode = response.data.pixCopiaECola;
+      let locationId = response.data.location?.id || response.data.location;
+      
+      // Se não tiver QR Code direto, mas tiver location, consultar
+      if (!qrCode && locationId) {
+        console.log('🔵 QR Code não veio direto. Consultando via location...');
+        try {
+          const locationResponse = await axios.get(
+            `${this.baseUrl}/pix/v2/loc/${locationId}/qrcode`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            }
+          );
+          
+          if (locationResponse.data && locationResponse.data.qrcode) {
+            qrCode = locationResponse.data.qrcode;
+            console.log('✅ QR Code obtido via location');
+          }
+        } catch (locationError) {
+          console.warn('⚠️ Erro ao consultar location:', locationError.message);
+        }
+      }
+      
+      if (!qrCode) {
         console.error('❌ QR Code não encontrado na resposta. Resposta completa:', JSON.stringify(response.data, null, 2));
         throw new Error('QR Code PIX não retornado pela API Itaú');
       }
 
       console.log('✅ Cobrança PIX criada com sucesso');
-      console.log('🔵 QR Code gerado:', response.data.pixCopiaECola.substring(0, 50) + '...');
+      console.log('🔵 QR Code gerado:', qrCode.substring(0, 50) + '...');
 
       return {
         txId: transactionId,
-        qrCode: response.data.pixCopiaECola,
+        qrCode: qrCode,
         qrCodeBase64: response.data.imagemQrcode || null,
-        location: response.data.location || null,
+        location: locationId || null,
         valor: valor / 100,
         descricao: pixDescription,
         chave: this.pixKey,
