@@ -175,7 +175,17 @@ class RedePaymentLinkClient {
       console.log('🔵 Company-number:', this.companyNumber);
 
       // Obter access_token OAuth 2.0 (obrigatório)
-      const accessToken = await this.getAccessToken();
+      console.log('🔵 Obtendo access_token OAuth 2.0...');
+      let accessToken;
+      try {
+        accessToken = await this.getAccessToken();
+        console.log('✅ Access token obtido com sucesso');
+        console.log('🔵 Token (primeiros 20 chars):', accessToken.substring(0, 20) + '...');
+      } catch (tokenError) {
+        console.error('❌ ERRO ao obter access_token:', tokenError.message);
+        console.error('❌ Isso impedirá a criação do Link de Pagamento');
+        throw new Error(`Erro ao obter token OAuth 2.0: ${tokenError.message}`);
+      }
 
       // Calcular data de expiração
       const expirationDate = new Date();
