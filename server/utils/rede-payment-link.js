@@ -214,6 +214,17 @@ class RedePaymentLinkClient {
       // Endpoint: POST /payment-link/v1/create
       const endpoint = `${this.baseUrl}/payment-link/v1/create`;
 
+      // Validar company-number antes de enviar
+      const companyNumberStr = String(this.companyNumber);
+      if (!/^\d{1,10}$/.test(companyNumberStr)) {
+        throw new Error(`Company-number inválido: deve ser numérico e ter no máximo 10 dígitos. Valor atual: ${this.companyNumber}`);
+      }
+
+      console.log('🔵 Headers da requisição:');
+      console.log('🔵   Authorization: Bearer [token]');
+      console.log('🔵   Company-number:', companyNumberStr);
+      console.log('🔵   Content-Type: application/json');
+
       const response = await axios.post(
         endpoint,
         payload,
@@ -221,7 +232,7 @@ class RedePaymentLinkClient {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${accessToken}`,
-            'Company-number': this.companyNumber, // OBRIGATÓRIO: número da filial
+            'Company-number': companyNumberStr, // OBRIGATÓRIO: número da filial (numérico, max 10 dígitos)
           },
           timeout: 30000,
         }
@@ -246,6 +257,34 @@ class RedePaymentLinkClient {
       if (error.response) {
         console.error('❌ Status:', error.response.status);
         console.error('❌ Dados:', JSON.stringify(error.response.data, null, 2));
+        
+        // Tratamento específico para erros 401
+        if (error.response.status === 401) {
+          const errorData = error.response.data;
+          if (errorData?.message?.includes('Partner not allowed for this company number')) {
+            console.error('❌ ========== ERRO: Partner not allowed ==========');
+            console.error('❌ O token OAuth não tem permissão para acessar este company-number');
+            console.error('❌ Company-number usado:', this.companyNumber);
+            console.error('❌');
+            console.error('❌ Verifique:');
+            console.error('❌   1. O company-number está correto?');
+            console.error('❌   2. O token OAuth foi gerado com credenciais do mesmo PV?');
+            console.error('❌   3. O company-number está autorizado no portal da Rede?');
+            console.error('❌ =========================================');
+          }
+        }
+        
+        // Tratamento específico para erros 422 (validação)
+        if (error.response.status === 422) {
+          console.error('❌ ========== ERRO: Validação ==========');
+          console.error('❌ Erros de validação nos campos:');
+          if (Array.isArray(error.response.data)) {
+            error.response.data.forEach(err => {
+              console.error(`❌   - ${err.FailedField}: ${err.Message}`);
+            });
+          }
+          console.error('❌ =========================================');
+        }
       }
       throw new Error(`Erro ao criar link de pagamento: ${error.message}`);
     }
