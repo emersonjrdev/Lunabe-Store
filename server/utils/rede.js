@@ -284,11 +284,16 @@ class RedeClient {
     // Tentar diferentes variações de endpoint para PIX
     // A API Red-e pode ter endpoint específico para PIX ou usar /v2/transactions
     // Declarar antes do try para estar disponível no catch
+    // Tentar com PV na URL e sem PV na URL
     const possibleEndpoints = [
       `${this.baseUrl}/v2/transactions`,  // Endpoint padrão de transações
+      `${this.baseUrl}/v2/transactions/${this.pv}`,  // Com PV na URL
       `${this.baseUrl}/v2/pix/charges`,    // Possível endpoint específico PIX
+      `${this.baseUrl}/v2/pix/charges/${this.pv}`,  // Com PV na URL
       `${this.baseUrl}/pix/charges`,       // Endpoint PIX sem versão
+      `${this.baseUrl}/pix/charges/${this.pv}`,  // Com PV na URL
       `${this.baseUrl}/v2/pix`,            // Endpoint PIX alternativo
+      `${this.baseUrl}/v2/pix/${this.pv}`,  // Com PV na URL
     ];
 
     try {
