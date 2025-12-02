@@ -110,15 +110,16 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   }
 
   // Verificar se carrinho está vazio
-  if (cart.length === 0) {
+  // Usar Array.isArray para garantir que cart é um array antes de verificar length
+  if (!cart || !Array.isArray(cart) || cart.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 animate-fade-in">
         <div className="container mx-auto px-4 py-16 text-center max-w-md">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
             <i className="fas fa-shopping-cart text-6xl text-gray-300 dark:text-gray-600 mb-6"></i>
             <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Seu carrinho está vazio</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">Adicione alguns produtos incríveis ao seu carrinho!</p>
-            <Link to="/" className="btn-primary">
+            <Link to="/" className="btn-primary inline-block">
               <i className="fas fa-shopping-bag mr-2"></i>
               Continuar Comprando
             </Link>
@@ -420,6 +421,8 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                 if (window.confirm('Deseja limpar todo o carrinho?')) {
                   onClearCart()
                   addToast('Carrinho limpo', 'info')
+                  // Forçar atualização do estado para garantir que a tela de carrinho vazio apareça
+                  window.dispatchEvent(new Event("storage"))
                 }
               }}
               className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
