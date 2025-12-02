@@ -969,4 +969,33 @@ router.get('/rede/3ds-failure', async (req, res) => {
   }
 });
 
+// Get order by ID - DEVE vir DEPOIS de todas as rotas específicas
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validar formato do ID (MongoDB ObjectId tem 24 caracteres hexadecimais)
+    if (!id || id.length !== 24) {
+      return res.status(400).json({ error: 'ID do pedido inválido' });
+    }
+    
+    const order = await Order.findById(id);
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+    
+    res.json(order);
+  } catch (err) {
+    console.error('Erro ao buscar pedido:', err);
+    
+    // Se o erro for de formato inválido do ObjectId
+    if (err.name === 'CastError') {
+      return res.status(400).json({ error: 'ID do pedido inválido' });
+    }
+    
+    res.status(500).json({ error: 'Erro ao buscar pedido' });
+  }
+});
+
 export default router;
