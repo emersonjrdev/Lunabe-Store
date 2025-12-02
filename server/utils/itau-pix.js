@@ -62,24 +62,32 @@ class ItauPixClient {
     }
 
     try {
-      console.log('🔵 Obtendo token de autenticação Itaú...');
+      console.log('🔵 ========== OBTER TOKEN ITAÚ ==========');
+      console.log('🔵 Ambiente configurado:', this.environment);
+      console.log('🔵 Base URL:', this.baseUrl);
       console.log('🔵 URL do token:', this.tokenUrl);
-      console.log('🔵 Ambiente:', this.environment);
       console.log('🔵 Client ID (primeiros 10 chars):', this.clientId.substring(0, 10) + '...');
+      console.log('🔵 Client Secret (primeiros 10 chars):', this.clientSecret.substring(0, 10) + '...');
+      console.log('🔵 Chave PIX:', this.pixKey);
       
       const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
       
       // Escopos necessários para PIX: cob.write (criar cobrança) e opcionalmente cob.read (consultar)
       const scopes = 'cob.write cob.read';
+      const requestBody = `grant_type=client_credentials&scope=${encodeURIComponent(scopes)}`;
+      
+      console.log('🔵 Fazendo requisição POST para:', this.tokenUrl);
+      console.log('🔵 Body:', requestBody);
       
       const response = await axios.post(
         this.tokenUrl,
-        `grant_type=client_credentials&scope=${encodeURIComponent(scopes)}`,
+        requestBody,
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Authorization': `Basic ${credentials}`,
           },
+          timeout: 30000, // 30 segundos
         }
       );
 
@@ -101,19 +109,30 @@ class ItauPixClient {
       console.log('✅ Token obtido com sucesso (expira em', expiresIn / 1000, 'segundos)');
       return token;
     } catch (error) {
-      console.error('❌ Erro ao obter token Itaú:');
-      console.error('   - URL tentada:', this.tokenUrl);
-      console.error('   - Ambiente:', this.environment);
-      console.error('   - Status:', error.response?.status);
-      console.error('   - Status Text:', error.response?.statusText);
-      console.error('   - Dados:', JSON.stringify(error.response?.data, null, 2));
-      console.error('   - Mensagem:', error.message);
+      console.error('❌ ========== ERRO AO OBTER TOKEN ==========');
+      console.error('❌ URL tentada:', this.tokenUrl);
+      console.error('❌ Ambiente:', this.environment);
+      console.error('❌ Base URL:', this.baseUrl);
+      console.error('❌ Status HTTP:', error.response?.status);
+      console.error('❌ Status Text:', error.response?.statusText);
+      console.error('❌ Headers da resposta:', JSON.stringify(error.response?.headers, null, 2));
+      console.error('❌ Dados da resposta:', JSON.stringify(error.response?.data, null, 2));
+      console.error('❌ Mensagem do erro:', error.message);
+      console.error('❌ Código do erro:', error.code);
+      if (error.request) {
+        console.error('❌ Request config:', {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers ? Object.keys(error.config.headers) : 'N/A'
+        });
+      }
+      console.error('❌ =========================================');
       
       // Se for 404, provavelmente está usando produção com credenciais de sandbox
       if (error.response?.status === 404) {
         const suggestion = this.environment === 'production' 
-          ? 'Erro 404: URL não encontrada. As credenciais podem ser de SANDBOX. Tente configurar ITAU_ENV=sandbox no Render.'
-          : 'Erro 404: URL não encontrada. Verifique se a URL da API está correta.';
+          ? 'Erro 404: URL não encontrada. As credenciais podem ser de SANDBOX. Configure ITAU_ENV=sandbox no Render e reinicie o serviço.'
+          : 'Erro 404: URL não encontrada em SANDBOX. Verifique: 1) Se as credenciais são válidas para sandbox, 2) Se a URL está correta, 3) Se o portal Itaú está acessível.';
         throw new Error(`Erro ao autenticar na API Itaú (404): ${suggestion}`);
       }
       
