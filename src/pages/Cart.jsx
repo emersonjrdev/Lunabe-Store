@@ -281,7 +281,9 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
       console.log('✅ Pedido criado com sucesso, limpando carrinho...');
       localStorage.removeItem("lunabe-cart");
       window.dispatchEvent(new Event("storage"));
-      setCart([]);
+      if (onClearCart) {
+        onClearCart();
+      }
       console.log('✅ Carrinho limpo');
 
       // Processar resposta baseado no método de pagamento
