@@ -170,7 +170,99 @@ router.post('/abacatepay', async (req, res) => {
   }
 });
 
-// Webhook endpoint para receber notificações da Red-e (PIX)
+// Webhook endpoint para receber notificações do Link de Pagamento da Rede
+router.post('/rede-payment-link', async (req, res) => {
+  try {
+    const webhookData = req.body;
+    
+    console.log('🔵 Webhook Rede Payment Link recebido:', {
+      headers: req.headers,
+      body: webhookData,
+    });
+
+    // O Link de Pagamento pode enviar diferentes tipos de notificações
+    const paymentLinkId = webhookData.paymentLinkId || webhookData.id;
+    const reference = webhookData.reference || webhookData.orderId;
+    const status = webhookData.status || webhookData.paymentStatus;
+    const eventType = webhookData.eventType || webhookData.type;
+
+    if (!paymentLinkId && !reference) {
+      console.warn('⚠️ Webhook Rede Payment Link sem identificador de pedido');
+      return res.status(400).json({ error: 'Dados insuficientes no webhook' });
+    }
+
+    // Buscar pedido pelo paymentLinkId ou reference
+    let order = null;
+    if (paymentLinkId) {
+      order = await Order.findOne({ paymentLinkId: paymentLinkId });
+    }
+    
+    if (!order && reference) {
+      order = await Order.findById(reference);
+    }
+
+    if (!order) {
+      console.warn('⚠️ Pedido não encontrado para webhook Rede Payment Link:', {
+        paymentLinkId,
+        reference,
+      });
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+
+    const previousStatus = order.status;
+
+    // Atualizar status baseado na notificação
+    if (status === 'PAID' || status === 'APPROVED' || status === 'CONFIRMED' || eventType === 'payment.paid') {
+      order.status = 'Pago';
+      order.paidAt = new Date();
+      
+      // Reduzir estoque apenas uma vez
+      if (!order.stockReduced) {
+        await reduceStock(order.items);
+        order.stockReduced = true;
+        console.log(`✅ Estoque reduzido para pedido ${order._id}`);
+      }
+      
+      // Enviar email de confirmação
+      try {
+        await sendPaymentConfirmationEmail(order.email, order);
+      } catch (emailErr) {
+        console.error('Erro ao enviar email de confirmação:', emailErr);
+      }
+    } else if (status === 'CANCELLED' || status === 'CANCELED' || eventType === 'payment.cancelled') {
+      order.status = 'Cancelado';
+      
+      // Restaurar estoque se já foi reduzido
+      if (order.stockReduced) {
+        await restoreStock(order.items);
+        order.stockReduced = false;
+        console.log(`✅ Estoque restaurado para pedido cancelado ${order._id}`);
+      }
+    } else if (status === 'PENDING' || status === 'WAITING' || eventType === 'payment.pending') {
+      order.status = 'Aguardando pagamento';
+    } else if (status === 'FAILED' || status === 'REJECTED' || eventType === 'payment.failed') {
+      order.status = 'Falha no pagamento';
+      
+      // Restaurar estoque se já foi reduzido
+      if (order.stockReduced) {
+        await restoreStock(order.items);
+        order.stockReduced = false;
+      }
+    }
+
+    await order.save();
+
+    console.log(`✅ Pedido ${order._id} atualizado para status: ${order.status}`);
+
+    // Retornar sucesso para a Rede
+    res.status(200).json({ received: true, orderId: order._id.toString() });
+  } catch (error) {
+    console.error('❌ Erro ao processar webhook Rede Payment Link:', error);
+    res.status(500).json({ error: 'Erro ao processar webhook' });
+  }
+});
+
+// Webhook endpoint para receber notificações da Red-e (PIX direto)
 router.post('/rede-pix', async (req, res) => {
   try {
     const webhookData = req.body;

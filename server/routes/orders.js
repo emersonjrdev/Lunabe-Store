@@ -11,6 +11,7 @@ import dotenv from "dotenv";
 import pixUtils from '../utils/pix.js';
 import { generatePixForOrder as generatePixViaApi } from '../utils/itau-pix.js';
 import { createRedeTransaction, createRedePixCharge } from '../utils/rede.js';
+import RedePaymentLinkClient from '../utils/rede-payment-link.js';
 import { sendOrderEmail, sendPaymentConfirmationEmail, sendStatusUpdateEmail } from '../utils/mailer.js';
 import { validateItemsWithStock } from '../utils/orderOptimizer.js';
 import { reduceStock } from '../utils/stockManager.js';
@@ -168,34 +169,93 @@ router.post("/create-checkout-session", async (req, res) => {
     console.log('🔵 Comparação itau-pix:', paymentMethod === 'itau-pix');
     
     if (paymentMethod === 'rede') {
-      // Pagamento via Red-e (Cartão de Crédito/Débito)
-      // NOTA: Para usar a API da Red-e com 3DS e Data Only, os dados do cartão
-      // devem ser coletados no frontend e enviados em uma requisição separada
-      // Esta rota apenas cria o pedido. O pagamento será processado em /process-rede-payment
-      console.log('🔵 Processando pagamento via Red-e...');
+      // Pagamento via Link de Pagamento da Rede (Cartão de Crédito/Débito)
+      console.log('🔵 Criando Link de Pagamento para cartão via API Red-e...');
+      let paymentLinkData;
       
-      // Atualizar pedido
+      try {
+        const paymentLinkClient = new RedePaymentLinkClient();
+        
+        console.log('🔵 Iniciando criação de Link de Pagamento (cartão)...');
+        console.log('🔵 Order ID:', order._id.toString());
+        console.log('🔵 Total (centavos):', totalInCents);
+        console.log('🔵 Total (reais):', (totalInCents / 100).toFixed(2));
+        console.log('🔵 Email do cliente:', customerEmail);
+        
+        paymentLinkData = await paymentLinkClient.createPaymentLink({
+          amount: totalInCents,
+          reference: order._id.toString(),
+          description: `Pedido ${order._id.toString().slice(-8)} - Lunabê`,
+          customerEmail: customerEmail,
+          customerName: customerName || null,
+          expirationDays: 7, // Link expira em 7 dias
+        });
+        
+        console.log('✅ Link de Pagamento criado com sucesso (cartão):', {
+          paymentLinkId: paymentLinkData.paymentLinkId,
+          paymentLinkUrl: paymentLinkData.paymentLinkUrl,
+          status: paymentLinkData.status,
+        });
+      } catch (apiError) {
+        console.error('❌ ========== ERRO AO CRIAR LINK DE PAGAMENTO (CARTÃO) ==========');
+        console.error('❌ Mensagem:', apiError.message);
+        console.error('❌ Status HTTP:', apiError.response?.status);
+        console.error('❌ Status Text:', apiError.response?.statusText);
+        console.error('❌ Dados da resposta:', JSON.stringify(apiError.response?.data, null, 2));
+        console.error('❌ Stack trace:', apiError.stack);
+        console.error('❌ =========================================');
+        
+        // Retornar erro detalhado para ajudar no diagnóstico
+        const errorDetails = apiError.response?.data || {};
+        const errorMessage = apiError.message || 'Erro desconhecido ao criar link de pagamento';
+        
+        return res.status(500).json({
+          error: 'Erro ao criar link de pagamento via API Red-e',
+          details: errorMessage,
+          status: apiError.response?.status,
+          apiError: errorDetails,
+          suggestion: 'Verifique as credenciais da Red-e no Render (REDE_PV, REDE_TOKEN e REDE_AFFILIATION) e se o ambiente está correto (production/sandbox).',
+        });
+      }
+      
+      if (!paymentLinkData || !paymentLinkData.paymentLinkUrl) {
+        throw new Error('URL do Link de Pagamento não foi retornada pela API Red-e');
+      }
+      
+      // Atualizar pedido com dados do Link de Pagamento
       order.paymentMethod = 'rede';
-      order.paymentSessionId = order._id.toString();
+      order.paymentSessionId = paymentLinkData.paymentLinkId || order._id.toString();
+      order.paymentLinkUrl = paymentLinkData.paymentLinkUrl; // URL do link de pagamento
+      order.paymentLinkId = paymentLinkData.paymentLinkId; // ID do link para consulta
       await order.save();
+      console.log('✅ Pedido atualizado com dados do Link de Pagamento (cartão)');
       
-      // NÃO reduzir estoque ainda - só reduzir após confirmação do pagamento
-      // O estoque será reduzido quando o pagamento for confirmado via webhook ou callback
+      // Reduzir estoque quando o pedido é criado
+      try {
+        await reduceStock(order.items);
+        order.stockReduced = true;
+        await order.save();
+        console.log('✅ Estoque reduzido automaticamente ao criar pedido');
+      } catch (stockError) {
+        console.error('❌ Erro ao reduzir estoque (não crítico):', stockError);
+        // Não falhar o pedido se houver erro ao reduzir estoque
+      }
       
-      // Enviar email de confirmação do pedido (sem pagamento ainda)
+      // Enviar email de confirmação
       sendOrderEmail(customerEmail, order).catch(err => {
         console.error('Erro ao enviar email de confirmação (não crítico):', err);
       });
       
-      // Retornar URL de checkout da Red-e
-      // Conforme solicitado pelo usuário, o pagamento com cartão deve ser através do link meu.userede.com.br
-      const checkoutUrl = 'https://meu.userede.com.br';
-      
+      // Retornar dados do Link de Pagamento
       return res.json({
         orderId: order._id.toString(),
         paymentMethod: 'rede',
-        checkoutUrl: checkoutUrl, // URL da Red-e para pagamento com cartão
-        requiresCardData: true, // Indica que precisa coletar dados do cartão
+        checkoutUrl: paymentLinkData.paymentLinkUrl, // URL do link de pagamento
+        paymentLinkUrl: paymentLinkData.paymentLinkUrl, // URL do link de pagamento
+        paymentLinkId: paymentLinkData.paymentLinkId, // ID para consulta
+        reference: paymentLinkData.reference,
+        expirationDate: paymentLinkData.expirationDate,
+        status: paymentLinkData.status,
         amount: totalInCents,
         message: 'Pedido criado. Redirecionando para página de pagamento...',
       });
@@ -220,27 +280,35 @@ router.post("/create-checkout-session", async (req, res) => {
           });
         }
         
-        // Usar API da Red-e para gerar QR Code PIX
-        console.log('🔵 Gerando PIX dinâmico via API Red-e...');
-        let pixData;
+        // Usar Link de Pagamento da Rede (mais simples e robusto)
+        console.log('🔵 Criando Link de Pagamento via API Red-e...');
+        let paymentLinkData;
         
         try {
-          console.log('🔵 Iniciando geração de PIX via API Red-e...');
+          const paymentLinkClient = new RedePaymentLinkClient();
+          
+          console.log('🔵 Iniciando criação de Link de Pagamento...');
           console.log('🔵 Order ID:', order._id.toString());
           console.log('🔵 Total (centavos):', totalInCents);
           console.log('🔵 Total (reais):', (totalInCents / 100).toFixed(2));
+          console.log('🔵 Email do cliente:', customerEmail);
           
-          pixData = await createRedePixCharge(order, totalInCents);
+          paymentLinkData = await paymentLinkClient.createPaymentLink({
+            amount: totalInCents,
+            reference: order._id.toString(),
+            description: `Pedido ${order._id.toString().slice(-8)} - Lunabê`,
+            customerEmail: customerEmail,
+            customerName: customerName || null,
+            expirationDays: 7, // Link expira em 7 dias
+          });
           
-          console.log('✅ PIX gerado via API Red-e com sucesso:', {
-            hasQrCode: !!pixData.qrCode,
-            qrCodeLength: pixData.qrCode?.length,
-            chargeId: pixData.chargeId,
-            valor: pixData.valor,
-            status: pixData.status,
+          console.log('✅ Link de Pagamento criado com sucesso:', {
+            paymentLinkId: paymentLinkData.paymentLinkId,
+            paymentLinkUrl: paymentLinkData.paymentLinkUrl,
+            status: paymentLinkData.status,
           });
         } catch (apiError) {
-          console.error('❌ ========== ERRO AO GERAR PIX ==========');
+          console.error('❌ ========== ERRO AO CRIAR LINK DE PAGAMENTO ==========');
           console.error('❌ Mensagem:', apiError.message);
           console.error('❌ Status HTTP:', apiError.response?.status);
           console.error('❌ Status Text:', apiError.response?.statusText);
@@ -250,32 +318,29 @@ router.post("/create-checkout-session", async (req, res) => {
           
           // Retornar erro detalhado para ajudar no diagnóstico
           const errorDetails = apiError.response?.data || {};
-          const errorMessage = apiError.message || 'Erro desconhecido ao gerar PIX';
+          const errorMessage = apiError.message || 'Erro desconhecido ao criar link de pagamento';
           
           return res.status(500).json({
-            error: 'Erro ao gerar código PIX via API Red-e',
+            error: 'Erro ao criar link de pagamento via API Red-e',
             details: errorMessage,
             status: apiError.response?.status,
             apiError: errorDetails,
-            suggestion: 'Verifique as credenciais da Red-e no Render (REDE_PV e REDE_TOKEN) e se o ambiente está correto (production/sandbox).',
+            suggestion: 'Verifique as credenciais da Red-e no Render (REDE_PV, REDE_TOKEN e REDE_AFFILIATION) e se o ambiente está correto (production/sandbox).',
           });
         }
         
-        if (!pixData || !pixData.qrCode) {
-          throw new Error('QR Code PIX não foi retornado pela API Red-e');
+        if (!paymentLinkData || !paymentLinkData.paymentLinkUrl) {
+          throw new Error('URL do Link de Pagamento não foi retornada pela API Red-e');
         }
         
-        // Atualizar pedido com dados do PIX
+        // Atualizar pedido com dados do Link de Pagamento
         order.paymentMethod = 'rede-pix';
-        order.paymentSessionId = pixData.chargeId || order._id.toString();
-        order.pixQrCode = pixData.qrCode;
-        order.pixChave = '63824145000127'; // Chave PIX da Red-e
-        order.pixValor = pixData.valor;
-        if (pixData.chargeId) {
-          order.pixTxId = pixData.chargeId; // Salvar chargeId para consulta posterior
-        }
+        order.paymentSessionId = paymentLinkData.paymentLinkId || order._id.toString();
+        order.paymentLinkUrl = paymentLinkData.paymentLinkUrl; // URL do link de pagamento
+        order.paymentLinkId = paymentLinkData.paymentLinkId; // ID do link para consulta
+        order.pixValor = paymentLinkData.amount / 100; // Converter centavos para reais
         await order.save();
-        console.log('✅ Pedido atualizado com dados PIX Red-e');
+        console.log('✅ Pedido atualizado com dados do Link de Pagamento');
         
         // Reduzir estoque quando o pedido é criado
         try {
@@ -293,20 +358,16 @@ router.post("/create-checkout-session", async (req, res) => {
           console.error('Erro ao enviar email de confirmação (não crítico):', err);
         });
         
-        // URL do webhook para notificações da Red-e
-        const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'https://lunabe-store.onrender.com';
-        const webhookUrl = `${backendUrl}/api/webhooks/rede-pix`;
-
+        // Retornar dados do Link de Pagamento
         return res.json({
           orderId: order._id.toString(),
           paymentMethod: 'rede-pix',
-          pixQrCode: pixData.qrCode,
-          pixQrCodeBase64: pixData.qrCodeBase64 || null, // Imagem do QR Code se disponível
-          pixChave: '63824145000127',
-          pixValor: pixData.valor,
-          pixDescricao: pixData.descricao,
-          pixTxId: pixData.chargeId || null,
-          webhookUrl: webhookUrl, // URL para configurar na Red-e
+          paymentLinkUrl: paymentLinkData.paymentLinkUrl, // URL do link de pagamento
+          paymentLinkId: paymentLinkData.paymentLinkId, // ID para consulta
+          pixValor: paymentLinkData.amount / 100, // Valor em reais
+          reference: paymentLinkData.reference,
+          expirationDate: paymentLinkData.expirationDate,
+          status: paymentLinkData.status,
         });
       } catch (pixError) {
         console.error('❌ Erro crítico ao gerar PIX:', pixError);

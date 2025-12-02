@@ -289,32 +289,25 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
           setIsProcessing(false);
         }
       } else if (paymentMethod === 'rede-pix' || paymentMethod === 'itau-pix') {
-        console.log('🔵 Processando resposta PIX...');
-        console.log('🔵 pixQrCode presente:', !!orderData.pixQrCode);
+        console.log('🔵 Processando resposta Link de Pagamento...');
+        console.log('🔵 paymentLinkUrl presente:', !!orderData.paymentLinkUrl);
         console.log('🔵 orderId presente:', !!orderData.orderId);
         
-        if (orderData.pixQrCode && orderData.orderId) {
-          // Mostrar QR Code PIX
-          console.log('✅ QR Code PIX gerado, redirecionando...');
-          console.log('🔵 Dados PIX:', {
+        if (orderData.paymentLinkUrl && orderData.orderId) {
+          // Redirecionar para Link de Pagamento
+          console.log('✅ Link de Pagamento gerado, redirecionando...');
+          console.log('🔵 Dados do Link:', {
             orderId: orderData.orderId,
-            pixQrCode: orderData.pixQrCode?.substring(0, 50) + '...',
-            pixChave: orderData.pixChave,
+            paymentLinkUrl: orderData.paymentLinkUrl,
+            paymentLinkId: orderData.paymentLinkId,
             pixValor: orderData.pixValor,
           });
           
-          // Redirecionar para página de pagamento PIX
-          navigate(`/pix-payment/${orderData.orderId}`, { 
-            state: { 
-              pixQrCode: orderData.pixQrCode,
-              pixChave: orderData.pixChave,
-              pixValor: orderData.pixValor,
-              pixDescricao: orderData.pixDescricao,
-            } 
-          });
+          // Redirecionar diretamente para o link de pagamento
+          window.location.href = orderData.paymentLinkUrl;
         } else {
-          console.error('❌ Dados PIX incompletos:', {
-            hasPixQrCode: !!orderData.pixQrCode,
+          console.error('❌ Dados do Link de Pagamento incompletos:', {
+            hasPaymentLinkUrl: !!orderData.paymentLinkUrl,
             hasOrderId: !!orderData.orderId,
             orderData: orderData
           });

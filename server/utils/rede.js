@@ -13,8 +13,19 @@ class RedeClient {
   constructor() {
     // Credenciais OAuth 2.0 da API Red-e
     // PV agora é clientId, Token agora é clientSecret
-    this.clientId = process.env.REDE_PV; // clientId (antigo PV)
+    this.clientId = process.env.REDE_PV; // clientId (antigo PV) - pode ser GUID ou número
     this.clientSecret = process.env.REDE_TOKEN; // clientSecret (antiga Chave de Integração)
+    
+    // Número da filial (affiliation) - pode ser diferente do clientId
+    // Se não configurado, usa o clientId
+    // IMPORTANTE: No portal aparece "Filial 104847581" - esse número deve ser usado aqui
+    this.affiliation = process.env.REDE_AFFILIATION || this.clientId;
+    
+    // Log para debug
+    console.log('🔵 Configuração de affiliation:');
+    console.log('🔵   REDE_AFFILIATION configurado:', !!process.env.REDE_AFFILIATION);
+    console.log('🔵   REDE_AFFILIATION valor:', process.env.REDE_AFFILIATION || 'NÃO CONFIGURADO');
+    console.log('🔵   affiliation final (usado no payload):', this.affiliation);
     
     // Ambiente (sandbox ou production)
     this.environment = process.env.REDE_ENV || 'sandbox';
@@ -108,6 +119,23 @@ class RedeClient {
 
       return this.accessToken;
     } catch (error) {
+      // Em produção, OAuth 2.0 é OBRIGATÓRIO (sem fallback)
+      if (this.environment === 'production') {
+        console.error('❌ ========== ERRO AO OBTER ACCESS_TOKEN (PRODUÇÃO) ==========');
+        console.error('❌ OAuth 2.0 é OBRIGATÓRIO em produção');
+        console.error('❌ OAuth URL:', this.oauthUrl);
+        console.error('❌ Status HTTP:', error.response?.status);
+        console.error('❌ Dados da resposta:', JSON.stringify(error.response?.data, null, 2));
+        console.error('❌ Mensagem do erro:', error.message);
+        console.error('❌ =========================================');
+
+        const errorMsg = error.response?.data?.error_description 
+          || error.response?.data?.error 
+          || error.message;
+        
+        throw new Error(`Erro ao obter access_token OAuth 2.0 (produção): ${errorMsg}`);
+      }
+      
       // Se for erro 401 (invalid_client) no sandbox, usar Basic Auth como fallback
       if (this.environment === 'sandbox' && error.response?.status === 401) {
         console.warn('⚠️ OAuth 2.0 não disponível no sandbox, usando Basic Auth como fallback');
@@ -200,7 +228,7 @@ class RedeClient {
       
       // Montar payload da transação com 3DS e Data Only
       const payload = {
-        affiliation: this.clientId, // PV (Ponto de Venda) é obrigatório no payload
+        affiliation: this.affiliation, // PV (Ponto de Venda) - pode ser número da filial
         capture: true, // Captura automática
         reference: reference,
         amount: amount,
@@ -416,9 +444,8 @@ class RedeClient {
       // Montar payload da cobrança PIX conforme documentação Red-e
       // kind deve ser "Pix" (com P maiúsculo)
       // qrCode.dateTimeExpiration é obrigatório
-      // affiliation (PV) é obrigatório no payload, mesmo que não esteja na documentação
+      // affiliation (PV) pode precisar estar no payload OU ser extraído do Basic Auth
       const payload = {
-        affiliation: this.clientId, // PV (Ponto de Venda) - obrigatório mesmo que não esteja na doc
         kind: 'Pix', // Tipo de pagamento PIX (com P maiúsculo conforme documentação)
         reference: reference,
         amount: amount,
@@ -426,6 +453,10 @@ class RedeClient {
           dateTimeExpiration: dateTimeExpiration, // Obrigatório: formato YYYY-MM-DDThh:mm:ss
         },
       };
+      
+      // Adicionar affiliation apenas se não for Basic Auth
+      // Com Basic Auth, a API pode extrair do header
+      // Tentar com e sem affiliation para ver qual funciona
 
       // orderId é opcional, mas pode ser útil
       if (reference) {
@@ -448,20 +479,31 @@ class RedeClient {
       console.log('🔵 Método de autenticação:', isOAuth ? 'OAuth 2.0' : 'Basic Auth');
       console.log('🔵 Header Authorization (primeiros 30 chars):', authHeader.substring(0, 30) + '...');
       
-      // Quando usando Basic Auth, a API pode extrair o affiliation do header
-      // Tentar sem affiliation primeiro, se falhar, adicionar de volta
+      // SEMPRE adicionar affiliation no payload - OBRIGATÓRIO
+      // A API Red-e/Itaú requer affiliation no payload, mesmo com Basic Auth
+      // IMPORTANTE: affiliation deve ser o número da filial (ex: 104847581) e não o GUID
       let finalPayload = { ...payload };
       
-      // Se usar Basic Auth, tentar sem affiliation no payload primeiro
-      // (a API pode extrair do Basic Auth header)
-      if (!isOAuth) {
-        console.log('🔵 Tentando sem affiliation no payload (API pode extrair do Basic Auth)');
-        const payloadWithoutAffiliation = { ...finalPayload };
-        delete payloadWithoutAffiliation.affiliation;
-        finalPayload = payloadWithoutAffiliation;
+      // Garantir que affiliation está presente
+      if (!this.affiliation) {
+        throw new Error('affiliation não configurado. Configure REDE_AFFILIATION ou REDE_PV no .env');
       }
       
-      console.log('🔵 Payload final a ser enviado:', JSON.stringify(finalPayload, null, 2));
+      finalPayload.affiliation = this.affiliation; // Usar affiliation configurado (número da filial)
+      
+      if (isOAuth) {
+        console.log('🔵 Usando OAuth 2.0 - affiliation adicionado ao payload');
+      } else {
+        console.log('🔵 Usando Basic Auth - affiliation OBRIGATÓRIO no payload');
+      }
+      
+      console.log('🔵 ========== PAYLOAD FINAL ==========');
+      console.log('🔵 Payload completo:', JSON.stringify(finalPayload, null, 2));
+      console.log('🔵 Affiliation no payload:', finalPayload.affiliation);
+      console.log('🔵 Tipo do affiliation:', typeof finalPayload.affiliation);
+      console.log('🔵 clientId (GUID para OAuth):', this.clientId);
+      console.log('🔵 affiliation (número da filial para payload):', this.affiliation);
+      console.log('🔵 ====================================');
       
       const response = await axios.post(
         endpoint,
