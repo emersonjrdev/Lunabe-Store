@@ -92,6 +92,7 @@ class RedeClient {
       
       // Montar payload da transação com 3DS e Data Only
       const payload = {
+        affiliation: this.pv, // PV (Ponto de Venda) é obrigatório no payload
         capture: true, // Captura automática
         reference: reference,
         amount: amount,
@@ -280,6 +281,16 @@ class RedeClient {
       throw new Error('Valor deve ser maior que zero');
     }
 
+    // Tentar diferentes variações de endpoint para PIX
+    // A API Red-e pode ter endpoint específico para PIX ou usar /v2/transactions
+    // Declarar antes do try para estar disponível no catch
+    const possibleEndpoints = [
+      `${this.baseUrl}/v2/transactions`,  // Endpoint padrão de transações
+      `${this.baseUrl}/v2/pix/charges`,    // Possível endpoint específico PIX
+      `${this.baseUrl}/pix/charges`,       // Endpoint PIX sem versão
+      `${this.baseUrl}/v2/pix`,            // Endpoint PIX alternativo
+    ];
+
     try {
       console.log('🔵 ========== CRIAR COBRANÇA PIX RED-E ==========');
       console.log('🔵 Ambiente:', this.environment);
@@ -289,28 +300,19 @@ class RedeClient {
 
       // A API Red-e usa o endpoint de transações com kind: 'pix'
       // Montar payload da cobrança PIX
-          const payload = {
-            affiliation: this.pv, // PV (Ponto de Venda) é obrigatório no payload
-            capture: true,
-            amount: amount,
-            reference: reference,
-            kind: 'pix', // Tipo de pagamento PIX
-            description: description || `Pedido ${reference}`,
-          };
+      const payload = {
+        affiliation: this.pv, // PV (Ponto de Venda) é obrigatório no payload
+        capture: true,
+        amount: amount,
+        reference: reference,
+        kind: 'pix', // Tipo de pagamento PIX
+        description: description || `Pedido ${reference}`,
+      };
 
       console.log('🔵 Payload PIX:', JSON.stringify(payload, null, 2));
       console.log('🔵 Base URL configurada:', this.baseUrl);
       console.log('🔵 PV (Ponto de Venda):', this.pv ? `${this.pv.substring(0, 4)}...` : 'NÃO CONFIGURADO');
       console.log('🔵 Token presente:', !!this.token);
-      
-      // Tentar diferentes variações de endpoint para PIX
-      // A API Red-e pode ter endpoint específico para PIX ou usar /v2/transactions
-      const possibleEndpoints = [
-        `${this.baseUrl}/v2/transactions`,  // Endpoint padrão de transações
-        `${this.baseUrl}/v2/pix/charges`,    // Possível endpoint específico PIX
-        `${this.baseUrl}/pix/charges`,       // Endpoint PIX sem versão
-        `${this.baseUrl}/v2/pix`,            // Endpoint PIX alternativo
-      ];
       
       // Autenticação Basic Auth
       const credentials = Buffer.from(`${this.pv}:${this.token}`).toString('base64');
