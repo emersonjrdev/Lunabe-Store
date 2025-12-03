@@ -784,12 +784,26 @@ const Admin = () => {
                     <div className="mt-3">
                       <h4 className="font-semibold">Itens</h4>
                       <ul className="mt-2">
-                        {o.items.map((it, idx) => (
-                          <li key={idx} className="flex justify-between py-1 border-b last:border-b-0">
-                            <span>{it.name} x{it.quantity}</span>
-                            <span>R$ {(it.price * it.quantity).toFixed(2)}</span>
-                          </li>
-                        ))}
+                        {o.items.map((it, idx) => {
+                          const specs = [];
+                          if (it.selectedSize) specs.push(`Tamanho: ${it.selectedSize}`);
+                          if (it.selectedColor) specs.push(`Cor: ${it.selectedColor}`);
+                          const specsText = specs.length > 0 ? ` (${specs.join(', ')})` : '';
+                          
+                          return (
+                            <li key={idx} className="flex justify-between py-2 border-b last:border-b-0">
+                              <div className="flex-1">
+                                <span className="font-medium">{it.name} x{it.quantity}</span>
+                                {specsText && (
+                                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    {specsText}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="font-semibold">R$ {(it.price * it.quantity).toFixed(2)}</span>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
 

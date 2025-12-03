@@ -52,17 +52,25 @@ const transporter = hasGmail && !hasSendGrid ? nodemailer.createTransport({
 // Função auxiliar para formatar itens do pedido
 function formatOrderItems(items) {
   if (!items || items.length === 0) return '<p>Nenhum item</p>';
-  return items.map(item => `
+  return items.map(item => {
+    const specs = [];
+    if (item.selectedSize) specs.push(`Tamanho: ${item.selectedSize}`);
+    if (item.selectedColor) specs.push(`Cor: ${item.selectedColor}`);
+    const specsText = specs.length > 0 ? `<br><small style="color: #666;">${specs.join(' • ')}</small>` : '';
+    
+    return `
     <tr>
       <td style="padding: 8px; border-bottom: 1px solid #eee;">
         <strong>${item.name || 'Produto sem nome'}</strong><br>
         <small>Quantidade: ${item.quantity || 1}</small>
+        ${specsText}
       </td>
       <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">
         R$ ${Number(item.price || 0).toFixed(2)}
       </td>
     </tr>
-  `).join('');
+    `;
+  }).join('');
 }
 
 // Função auxiliar para enviar email (usa SendGrid ou Gmail SMTP)
