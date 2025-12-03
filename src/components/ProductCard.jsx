@@ -98,10 +98,30 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   };
 
   const onTouchMove = (e) => {
-    if (!hasMultipleImages) return;
+    if (!hasMultipleImages || !touchStart || touchStartY === null) return;
+    
     const touch = e.targetTouches[0];
-    setTouchEnd(touch.clientX);
-    setTouchEndY(touch.clientY);
+    const currentX = touch.clientX;
+    const currentY = touch.clientY;
+    
+    // Calcular distâncias
+    const distanceX = Math.abs(touchStart - currentX);
+    const distanceY = Math.abs(touchStartY - currentY);
+    
+    // Se movimento vertical for maior que horizontal, permitir scroll
+    // Não fazer preventDefault para permitir scroll natural
+    if (distanceY > distanceX) {
+      // Movimento mais vertical - permitir scroll
+      return;
+    }
+    
+    // Se movimento horizontal for significativo, prevenir scroll para permitir swipe
+    if (distanceX > 10) {
+      e.preventDefault();
+    }
+    
+    setTouchEnd(currentX);
+    setTouchEndY(currentY);
   };
 
   const onTouchEnd = () => {
@@ -117,9 +137,9 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
     const distanceX = touchStart - touchEnd;
     const distanceY = Math.abs(touchStartY - touchEndY);
     
-    // Só ativar swipe se o movimento horizontal for maior que o vertical
+    // Só ativar swipe se o movimento horizontal for pelo menos 2x maior que o vertical
     // Isso evita conflito com scroll vertical da página
-    if (Math.abs(distanceX) < distanceY) {
+    if (Math.abs(distanceX) < distanceY * 2) {
       // Movimento mais vertical que horizontal - permitir scroll
       setTouchStart(null);
       setTouchEnd(null);
@@ -155,7 +175,8 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
       >
         {/* Container da imagem com aspect ratio vertical (corpo todo) */}
         <div 
-          className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-gray-900 touch-none"
+          className="relative w-full aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-gray-900"
+          style={{ touchAction: 'pan-y pinch-zoom' }}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
