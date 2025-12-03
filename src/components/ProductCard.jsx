@@ -22,6 +22,8 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   // Estados para touch/swipe
   const [touchStart, setTouchStart] = useState(null)
   const [touchEnd, setTouchEnd] = useState(null)
+  const [touchStartY, setTouchStartY] = useState(null)
+  const [touchEndY, setTouchEndY] = useState(null)
   
   // Distância mínima para considerar um swipe
   const minSwipeDistance = 50
@@ -88,21 +90,46 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
   // Funções para touch/swipe
   const onTouchStart = (e) => {
     if (!hasMultipleImages) return;
+    const touch = e.targetTouches[0];
     setTouchEnd(null); // Reset touchEnd
-    setTouchStart(e.targetTouches[0].clientX);
+    setTouchEndY(null); // Reset touchEndY
+    setTouchStart(touch.clientX);
+    setTouchStartY(touch.clientY);
   };
 
   const onTouchMove = (e) => {
     if (!hasMultipleImages) return;
-    setTouchEnd(e.targetTouches[0].clientX);
+    const touch = e.targetTouches[0];
+    setTouchEnd(touch.clientX);
+    setTouchEndY(touch.clientY);
   };
 
   const onTouchEnd = () => {
-    if (!hasMultipleImages || !touchStart || !touchEnd) return;
+    if (!hasMultipleImages || !touchStart || !touchEnd || touchStartY === null || touchEndY === null) {
+      // Reset se dados incompletos
+      setTouchStart(null);
+      setTouchEnd(null);
+      setTouchStartY(null);
+      setTouchEndY(null);
+      return;
+    }
     
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
+    const distanceX = touchStart - touchEnd;
+    const distanceY = Math.abs(touchStartY - touchEndY);
+    
+    // Só ativar swipe se o movimento horizontal for maior que o vertical
+    // Isso evita conflito com scroll vertical da página
+    if (Math.abs(distanceX) < distanceY) {
+      // Movimento mais vertical que horizontal - permitir scroll
+      setTouchStart(null);
+      setTouchEnd(null);
+      setTouchStartY(null);
+      setTouchEndY(null);
+      return;
+    }
+    
+    const isLeftSwipe = distanceX > minSwipeDistance;
+    const isRightSwipe = distanceX < -minSwipeDistance;
 
     if (isLeftSwipe) {
       // Swipe para esquerda = próxima imagem
@@ -115,6 +142,8 @@ const ProductCard = ({ product, onAddToCart, user, onLoginClick }) => {
     // Reset
     setTouchStart(null);
     setTouchEnd(null);
+    setTouchStartY(null);
+    setTouchEndY(null);
   };
 
   return (
