@@ -60,3 +60,6 @@ Se após habilitar o produto o erro persistir:
 Conforme a documentação da Rede:
 > "⚠️ Atenção: Para iniciar a integração com a API do Link de Pagamento, é necessário acessar o portal da Rede, habilitar o produto e aceitar os termos de uso. Somente após essa etapa será possível avançar para a integração técnica."
 
+
+
+

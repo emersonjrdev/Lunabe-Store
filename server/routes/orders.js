@@ -12,7 +12,7 @@ import pixUtils from '../utils/pix.js';
 import { generatePixForOrder as generatePixViaApi } from '../utils/itau-pix.js';
 import { createRedeTransaction, createRedePixCharge } from '../utils/rede.js';
 import RedePaymentLinkClient from '../utils/rede-payment-link.js';
-import { sendOrderEmail, sendPaymentConfirmationEmail, sendStatusUpdateEmail } from '../utils/mailer.js';
+import { sendOrderEmail, sendPaymentConfirmationEmail, sendStatusUpdateEmail, sendReturnRequestEmail } from '../utils/mailer.js';
 import { validateItemsWithStock } from '../utils/orderOptimizer.js';
 import { reduceStock } from '../utils/stockManager.js';
 
@@ -1020,6 +1020,150 @@ router.get('/rede/3ds-failure', async (req, res) => {
   } catch (error) {
     console.error('❌ Erro no callback 3DS Failure:', error);
     return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/cart?error=callback_error`);
+  }
+});
+
+// Solicitar devolução de um pedido
+router.post('/:id/request-return', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    // Validar formato do ID
+    if (!id || id.length !== 24) {
+      return res.status(400).json({ error: 'ID do pedido inválido' });
+    }
+    
+    const order = await Order.findById(id);
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+    
+    // Verificar se já existe uma solicitação de devolução
+    if (order.returnRequest && order.returnRequest.requestedAt) {
+      return res.status(400).json({ 
+        error: 'Já existe uma solicitação de devolução para este pedido',
+        returnRequest: order.returnRequest 
+      });
+    }
+    
+    // Verificar se o pedido está elegível para devolução
+    // Deve estar pago e dentro de 30 dias
+    const statusLower = (order.status || '').toLowerCase();
+    const isPaid = statusLower.includes('pago') || statusLower.includes('paid') || statusLower.includes('aprovado');
+    
+    if (!isPaid) {
+      return res.status(400).json({ 
+        error: 'Apenas pedidos pagos podem solicitar devolução' 
+      });
+    }
+    
+    // Verificar se está dentro de 30 dias
+    const paidDate = order.paidAt || order.createdAt;
+    if (!paidDate) {
+      return res.status(400).json({ 
+        error: 'Não foi possível determinar a data de pagamento' 
+      });
+    }
+    
+    const daysSincePurchase = Math.floor((new Date() - new Date(paidDate)) / (1000 * 60 * 60 * 24));
+    
+    if (daysSincePurchase > 30) {
+      return res.status(400).json({ 
+        error: 'O prazo de 30 dias para solicitar devolução já expirou',
+        daysSincePurchase 
+      });
+    }
+    
+    // Criar solicitação de devolução
+    order.returnRequest = {
+      requestedAt: new Date(),
+      reason: reason || 'Não informado',
+      status: 'pending',
+    };
+    
+    await order.save();
+    
+    // Enviar email para a Lunabê
+    try {
+      await sendReturnRequestEmail(order, reason);
+    } catch (emailError) {
+      console.error('❌ Erro ao enviar email de devolução:', emailError);
+      // Não falhar a requisição se o email falhar, apenas logar
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Solicitação de devolução enviada com sucesso',
+      returnRequest: order.returnRequest,
+      daysSincePurchase 
+    });
+  } catch (err) {
+    console.error('Erro ao solicitar devolução:', err);
+    
+    if (err.name === 'CastError') {
+      return res.status(400).json({ error: 'ID do pedido inválido' });
+    }
+    
+    res.status(500).json({ error: 'Erro ao processar solicitação de devolução' });
+  }
+});
+
+// Atualizar status da devolução (Admin)
+router.patch('/:id/return-status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, notes } = req.body;
+    const adminKey = req.headers['x-admin-key'];
+    
+    // Verificar autenticação admin
+    if (adminKey !== 'lunabe25') {
+      return res.status(401).json({ error: 'Não autorizado' });
+    }
+    
+    // Validar formato do ID
+    if (!id || id.length !== 24) {
+      return res.status(400).json({ error: 'ID do pedido inválido' });
+    }
+    
+    // Validar status
+    const validStatuses = ['pending', 'approved', 'rejected', 'completed'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Status inválido' });
+    }
+    
+    const order = await Order.findById(id);
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+    
+    if (!order.returnRequest || !order.returnRequest.requestedAt) {
+      return res.status(400).json({ error: 'Este pedido não possui solicitação de devolução' });
+    }
+    
+    // Atualizar status da devolução
+    order.returnRequest.status = status;
+    if (notes) {
+      order.returnRequest.notes = notes;
+    }
+    
+    await order.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Status da devolução atualizado',
+      returnRequest: order.returnRequest
+    });
+  } catch (err) {
+    console.error('Erro ao atualizar status da devolução:', err);
+    
+    if (err.name === 'CastError') {
+      return res.status(400).json({ error: 'ID do pedido inválido' });
+    }
+    
+    res.status(500).json({ error: 'Erro ao atualizar status da devolução' });
   }
 });
 

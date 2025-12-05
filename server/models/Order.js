@@ -55,6 +55,13 @@ const orderSchema = new mongoose.Schema({
     availableStock: { type: Number },
   }],
   stockReduced: { type: Boolean, default: false }, // Flag para evitar redução duplicada
+  // Solicitação de devolução
+  returnRequest: {
+    requestedAt: { type: Date },
+    reason: { type: String },
+    status: { type: String, enum: ['pending', 'approved', 'rejected', 'completed'], default: 'pending' },
+    notes: { type: String }, // Notas do admin
+  },
   createdAt: { type: Date, default: Date.now },
 });
 

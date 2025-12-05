@@ -81,3 +81,6 @@ O código tem fallback automático:
 
 Após configurar `SENDGRID_API_KEY` no Render, os emails começarão a funcionar automaticamente!
 
+
+
+

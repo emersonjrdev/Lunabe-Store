@@ -71,3 +71,6 @@ O sistema envia automaticamente:
 - O Gmail pode marcar como spam inicialmente
 - Com o tempo, a reputação melhora
 
+
+
+

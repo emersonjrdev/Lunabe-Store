@@ -107,3 +107,6 @@ Se não encontrar onde adicionar DNS no Hostinger:
 
 O **Vercel** é apenas para hospedar o frontend. Os registros DNS do SendGrid devem ser adicionados no **Hostinger** (onde o domínio está registrado), não no Vercel.
 
+
+
+

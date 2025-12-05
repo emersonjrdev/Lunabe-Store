@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import PaymentService from '../services/paymentService'
+import { useToast } from '../hooks/useToast'
 
 export default function OrderDetail() {
   const { id } = useParams()
@@ -8,6 +9,8 @@ export default function OrderDetail() {
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [requestingReturn, setRequestingReturn] = useState(false)
+  const { addToast, ToastContainer } = useToast()
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -86,6 +89,51 @@ export default function OrderDetail() {
   const orderDate = order.createdAt ? new Date(order.createdAt) : new Date()
   const paidDate = order.paidAt ? new Date(order.paidAt) : null
 
+  // Função para verificar se pedido é elegível para devolução
+  const isEligibleForReturn = () => {
+    const statusLower = (order.status || '').toLowerCase();
+    const isPaid = statusLower.includes('pago') || statusLower.includes('paid') || statusLower.includes('aprovado');
+    
+    if (!isPaid) return false;
+    
+    // Verificar se já tem solicitação de devolução
+    if (order.returnRequest && order.returnRequest.requestedAt) {
+      return false;
+    }
+    
+    // Verificar se está dentro de 30 dias
+    const paidDate = order.paidAt || order.createdAt;
+    if (!paidDate) return false;
+    
+    const daysSincePurchase = Math.floor((new Date() - new Date(paidDate)) / (1000 * 60 * 60 * 24));
+    return daysSincePurchase <= 30;
+  };
+
+  // Função para solicitar devolução
+  const handleRequestReturn = async () => {
+    const reason = prompt('Por favor, informe o motivo da devolução:');
+    if (!reason || reason.trim() === '') {
+      addToast('Por favor, informe o motivo da devolução', 'warning');
+      return;
+    }
+
+    setRequestingReturn(true);
+    
+    try {
+      await PaymentService.requestReturn(id, reason.trim());
+      addToast('Solicitação de devolução enviada com sucesso! Entraremos em contato em breve.', 'success');
+      
+      // Atualizar o pedido
+      const updatedOrder = await PaymentService.getOrderById(id);
+      setOrder(updatedOrder);
+    } catch (error) {
+      console.error('Erro ao solicitar devolução:', error);
+      addToast(error.message || 'Erro ao solicitar devolução. Tente novamente.', 'error');
+    } finally {
+      setRequestingReturn(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <div className="mb-6">
@@ -142,6 +190,54 @@ export default function OrderDetail() {
                   minute: "2-digit"
                 })}
               </p>
+            )}
+
+            {/* Solicitação de devolução existente */}
+            {order.returnRequest && order.returnRequest.requestedAt && (
+              <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-2 flex items-center gap-2">
+                  <i className="fas fa-undo"></i>
+                  Solicitação de Devolução
+                </p>
+                <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-1">
+                  Status: {order.returnRequest.status === 'pending' ? 'Aguardando análise' : 
+                           order.returnRequest.status === 'approved' ? 'Aprovada' :
+                           order.returnRequest.status === 'rejected' ? 'Rejeitada' : 'Concluída'}
+                </p>
+                {order.returnRequest.reason && (
+                  <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-1">
+                    Motivo: {order.returnRequest.reason}
+                  </p>
+                )}
+                {order.returnRequest.requestedAt && (
+                  <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-1">
+                    Solicitado em: {new Date(order.returnRequest.requestedAt).toLocaleString('pt-BR')}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Botão de solicitar devolução */}
+            {isEligibleForReturn() && (
+              <div className="mt-4">
+                <button
+                  onClick={handleRequestReturn}
+                  disabled={requestingReturn}
+                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                >
+                  {requestingReturn ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i>
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-undo"></i>
+                      Solicitar Devolução (até 30 dias)
+                    </>
+                  )}
+                </button>
+              </div>
             )}
 
             {/* Timeline do pedido */}
@@ -329,6 +425,7 @@ export default function OrderDetail() {
           </div>
         </div>
       </div>
+      <ToastContainer />
     </div>
   )
 }

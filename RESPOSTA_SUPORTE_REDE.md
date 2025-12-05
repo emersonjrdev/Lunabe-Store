@@ -72,3 +72,6 @@ O erro `"User is not authorized to access this resource with an explicit deny in
 - [ ] Link de Pagamento habilitado no portal da Rede
 - [ ] Permissões OAuth 2.0 configuradas para Payment Link API
 
+
+
+

@@ -114,3 +114,6 @@ Se não souber onde está o DNS do seu domínio:
 3. Procure por **"Name Servers"** ou **"Servidores DNS"**
 4. Isso mostrará onde o DNS está gerenciado
 
+
+
+

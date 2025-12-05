@@ -130,6 +130,31 @@ class PaymentService {
       throw error;
     }
   }
+
+  // Solicitar devolução de um pedido
+  static async requestReturn(orderId, reason) {
+    try {
+      const token = localStorage.getItem('lunabe-token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      
+      const response = await fetch(`${API_URL}/api/orders/${orderId}/request-return`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ reason }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+        throw new Error(errorData.error || 'Erro ao solicitar devolução');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao solicitar devolução:', error);
+      throw error;
+    }
+  }
 }
 
 export default PaymentService;

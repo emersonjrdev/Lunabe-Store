@@ -448,3 +448,127 @@ export async function sendStatusUpdateEmail(to, order, status) {
     console.error('❌ Erro ao enviar email de atualização:', error);
   }
 }
+
+// Email de solicitação de devolução para a Lunabê
+export async function sendReturnRequestEmail(order, reason) {
+  const lunabeEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'lunabepijamas@gmail.com';
+  
+  if (!hasSendGrid && !transporter) {
+    console.warn('⚠️ Email não configurado - pulando envio de email de devolução');
+    return;
+  }
+
+  try {
+    console.log('🔵 ========== ENVIAR EMAIL DE SOLICITAÇÃO DE DEVOLUÇÃO ==========');
+    console.log('🔵 Destinatário (Lunabê):', lunabeEmail);
+    console.log('🔵 Pedido ID:', order._id);
+    console.log('🔵 Cliente:', order.email);
+    console.log('🔵 Motivo:', reason);
+    
+    const orderDate = order.createdAt ? new Date(order.createdAt) : new Date();
+    const paidDate = order.paidAt ? new Date(order.paidAt) : null;
+    const daysSincePurchase = paidDate 
+      ? Math.floor((new Date() - paidDate) / (1000 * 60 * 60 * 24))
+      : null;
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
+          .order-info { background: white; padding: 15px; margin: 15px 0; border-radius: 5px; border-left: 4px solid #f59e0b; }
+          .alert-box { background: #fef3c7; border: 1px solid #fbbf24; padding: 15px; border-radius: 5px; margin: 15px 0; }
+          table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+          .total { font-size: 18px; font-weight: bold; color: #f59e0b; }
+          .reason-box { background: #fff7ed; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #f59e0b; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔄 Solicitação de Devolução</h1>
+          </div>
+          <div class="content">
+            <div class="alert-box">
+              <strong>⚠️ Nova solicitação de devolução recebida!</strong>
+            </div>
+            
+            <div class="order-info">
+              <h3>Informações do Cliente</h3>
+              <p><strong>Email do Cliente:</strong> ${order.email}</p>
+              <p><strong>ID do Pedido:</strong> ${order._id}</p>
+              <p><strong>Data do Pedido:</strong> ${orderDate.toLocaleString('pt-BR')}</p>
+              ${paidDate ? `<p><strong>Data do Pagamento:</strong> ${paidDate.toLocaleString('pt-BR')}</p>` : ''}
+              ${daysSincePurchase !== null ? `<p><strong>Dias desde a compra:</strong> ${daysSincePurchase} dias</p>` : ''}
+              <p><strong>Status Atual:</strong> ${order.status || 'N/A'}</p>
+            </div>
+            
+            <div class="reason-box">
+              <h3>📝 Motivo da Devolução</h3>
+              <p>${reason || 'Não informado'}</p>
+            </div>
+            
+            <div class="order-info">
+              <h3>Itens do Pedido</h3>
+              <table>
+                ${formatOrderItems(order.items)}
+                <tr>
+                  <td style="padding: 8px; border-top: 2px solid #f59e0b;"><strong>Total</strong></td>
+                  <td style="padding: 8px; border-top: 2px solid #f59e0b; text-align: right;" class="total">
+                    R$ ${Number(order.total || 0).toFixed(2)}
+                  </td>
+                </tr>
+              </table>
+            </div>
+            
+            ${order.address ? `
+              <div class="order-info">
+                <h3>Endereço de Entrega</h3>
+                <p>${order.address.street || ''}</p>
+                <p>${order.address.city || ''} - ${order.address.state || ''}</p>
+                <p>CEP: ${order.address.zip || ''}</p>
+                ${order.address.phone ? `<p>Telefone: ${order.address.phone}</p>` : ''}
+              </div>
+            ` : order.deliveryType === 'pickup' ? `
+              <div class="order-info">
+                <h3>Retirada na Loja</h3>
+                <p>${order.pickupAddress || 'Endereço não informado'}</p>
+              </div>
+            ` : ''}
+            
+            <div class="alert-box">
+              <p><strong>⚠️ Ação necessária:</strong></p>
+              <p>Por favor, acesse o painel administrativo para revisar e processar esta solicitação de devolução.</p>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const result = await sendEmail({
+      to: lunabeEmail,
+      subject: `🔄 Solicitação de Devolução - Pedido #${order._id?.slice(-8).toUpperCase() || 'N/A'}`,
+      html,
+    });
+    
+    console.log('✅ Email de solicitação de devolução enviado com sucesso');
+    console.log('🔵 Message ID:', result.messageId);
+    console.log('🔵 Destinatário:', lunabeEmail);
+    console.log('🔵 =========================================');
+  } catch (error) {
+    console.error('❌ ========== ERRO AO ENVIAR EMAIL DE DEVOLUÇÃO ==========');
+    console.error('❌ Erro:', error.message);
+    console.error('❌ Código do erro:', error.code);
+    if (error.response) {
+      console.error('❌ Resposta do servidor:', error.response);
+    }
+    console.error('❌ =========================================');
+    throw error; // Lançar erro para que o endpoint possa tratar
+  }
+}

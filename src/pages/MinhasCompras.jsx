@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
 import PaymentService from '../services/paymentService'
 import { Link } from 'react-router-dom'
+import { useToast } from '../hooks/useToast'
 
 const MinhasCompras = ({ user }) => {
   const [compras, setCompras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [requestingReturn, setRequestingReturn] = useState({});
+  const { addToast, ToastContainer } = useToast();
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -59,6 +62,52 @@ const MinhasCompras = ({ user }) => {
 
     fetchOrders();
   }, [user]);
+
+  // Função para verificar se pedido é elegível para devolução
+  const isEligibleForReturn = (compra) => {
+    const statusLower = (compra.status || '').toLowerCase();
+    const isPaid = statusLower.includes('pago') || statusLower.includes('paid') || statusLower.includes('aprovado');
+    
+    if (!isPaid) return false;
+    
+    // Verificar se já tem solicitação de devolução
+    if (compra.returnRequest && compra.returnRequest.requestedAt) {
+      return false;
+    }
+    
+    // Verificar se está dentro de 30 dias
+    const paidDate = compra.paidAt || compra.createdAt;
+    if (!paidDate) return false;
+    
+    const daysSincePurchase = Math.floor((new Date() - new Date(paidDate)) / (1000 * 60 * 60 * 24));
+    return daysSincePurchase <= 30;
+  };
+
+  // Função para solicitar devolução
+  const handleRequestReturn = async (orderId) => {
+    const reason = prompt('Por favor, informe o motivo da devolução:');
+    if (!reason || reason.trim() === '') {
+      addToast('Por favor, informe o motivo da devolução', 'warning');
+      return;
+    }
+
+    setRequestingReturn(prev => ({ ...prev, [orderId]: true }));
+    
+    try {
+      await PaymentService.requestReturn(orderId, reason.trim());
+      addToast('Solicitação de devolução enviada com sucesso! Entraremos em contato em breve.', 'success');
+      
+      // Atualizar a lista de compras
+      const orders = await PaymentService.getUserOrders(user?.email || JSON.parse(localStorage.getItem('lunabe-user') || '{}').email);
+      const ordersArray = Array.isArray(orders) ? orders : (orders ? [orders] : []);
+      setCompras(ordersArray);
+    } catch (error) {
+      console.error('Erro ao solicitar devolução:', error);
+      addToast(error.message || 'Erro ao solicitar devolução. Tente novamente.', 'error');
+    } finally {
+      setRequestingReturn(prev => ({ ...prev, [orderId]: false }));
+    }
+  };
 
   if (loading) {
     return (
@@ -305,6 +354,26 @@ const MinhasCompras = ({ user }) => {
                 )}
               </div>
 
+              {/* Solicitação de devolução existente */}
+              {compra.returnRequest && compra.returnRequest.requestedAt && (
+                <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-1 flex items-center gap-2">
+                    <i className="fas fa-undo"></i>
+                    Solicitação de Devolução
+                  </p>
+                  <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                    Status: {compra.returnRequest.status === 'pending' ? 'Aguardando análise' : 
+                             compra.returnRequest.status === 'approved' ? 'Aprovada' :
+                             compra.returnRequest.status === 'rejected' ? 'Rejeitada' : 'Concluída'}
+                  </p>
+                  {compra.returnRequest.reason && (
+                    <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-1">
+                      Motivo: {compra.returnRequest.reason}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Total */}
               <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <p className="text-lg font-semibold text-gray-800 dark:text-white">
@@ -313,19 +382,39 @@ const MinhasCompras = ({ user }) => {
                     R$ {(compra.total || 0).toFixed(2)}
                   </span>
                 </p>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <Link
                     to={`/orders/${orderId}`}
                     className="btn-primary text-sm px-6 py-2"
                   >
                     Ver detalhes
                   </Link>
+                  {isEligibleForReturn(compra) && (
+                    <button
+                      onClick={() => handleRequestReturn(orderId)}
+                      disabled={requestingReturn[orderId]}
+                      className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white text-sm px-6 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
+                    >
+                      {requestingReturn[orderId] ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          Enviando...
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-undo"></i>
+                          Solicitar Devolução
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           );
         })}
       </div>
+      <ToastContainer />
     </div>
   );
 };

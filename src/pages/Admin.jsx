@@ -712,6 +712,113 @@ const Admin = () => {
 
         {showOrders && (
           <div>
+            {/* Solicitações de Devolução */}
+            {orders.filter(o => o.returnRequest && o.returnRequest.requestedAt).length > 0 && (
+              <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-xl p-6">
+                <h2 className="text-2xl font-semibold text-yellow-800 dark:text-yellow-300 mb-4 flex items-center gap-2">
+                  <i className="fas fa-undo"></i>
+                  Solicitações de Devolução ({orders.filter(o => o.returnRequest && o.returnRequest.requestedAt).length})
+                </h2>
+                <div className="space-y-4">
+                  {orders
+                    .filter(o => o.returnRequest && o.returnRequest.requestedAt)
+                    .map((o) => (
+                      <div key={o._id} className="p-4 border-2 border-yellow-300 dark:border-yellow-700 rounded-lg bg-white dark:bg-gray-800">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <p className="font-bold text-lg text-yellow-900 dark:text-yellow-200">
+                              Pedido #{o._id.slice(-8)}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {o.email} • {new Date(o.createdAt).toLocaleString('pt-BR')}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              Solicitado em: {new Date(o.returnRequest.requestedAt).toLocaleString('pt-BR')}
+                            </p>
+                          </div>
+                          <div className="text-sm">
+                            <span className={`px-3 py-1 rounded-full font-semibold ${
+                              o.returnRequest.status === 'pending' 
+                                ? 'bg-yellow-200 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200'
+                                : o.returnRequest.status === 'approved'
+                                ? 'bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200'
+                                : o.returnRequest.status === 'rejected'
+                                ? 'bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200'
+                                : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                            }`}>
+                              {o.returnRequest.status === 'pending' ? 'Aguardando Análise' :
+                               o.returnRequest.status === 'approved' ? 'Aprovada' :
+                               o.returnRequest.status === 'rejected' ? 'Rejeitada' : 'Concluída'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded">
+                          <p className="font-semibold text-yellow-900 dark:text-yellow-200 mb-1">Motivo da Devolução:</p>
+                          <p className="text-sm text-yellow-800 dark:text-yellow-300">{o.returnRequest.reason || 'Não informado'}</p>
+                        </div>
+
+                        <div className="mt-3">
+                          <h4 className="font-semibold mb-2">Itens do Pedido:</h4>
+                          <ul className="space-y-1">
+                            {o.items.map((it, idx) => {
+                              const specs = [];
+                              if (it.selectedSize) specs.push(`Tamanho: ${it.selectedSize}`);
+                              if (it.selectedColor) specs.push(`Cor: ${it.selectedColor}`);
+                              const specsText = specs.length > 0 ? ` (${specs.join(', ')})` : '';
+                              
+                              return (
+                                <li key={idx} className="flex justify-between py-1 text-sm">
+                                  <span>{it.name} x{it.quantity}{specsText}</span>
+                                  <span className="font-semibold">R$ {(it.price * it.quantity).toFixed(2)}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                          <p className="mt-2 font-bold text-lg">
+                            Total: R$ {(o.total || 0).toFixed(2)}
+                          </p>
+                        </div>
+
+                        <div className="mt-4 flex gap-2 flex-wrap">
+                          <select 
+                            id={`return-status-${o._id}`} 
+                            defaultValue={o.returnRequest.status}
+                            className="p-2 border rounded bg-white dark:bg-gray-700"
+                          >
+                            <option value="pending">Aguardando Análise</option>
+                            <option value="approved">Aprovar</option>
+                            <option value="rejected">Rejeitar</option>
+                            <option value="completed">Concluir</option>
+                          </select>
+                          <button 
+                            onClick={async () => {
+                              const status = document.getElementById(`return-status-${o._id}`)?.value;
+                              const notes = prompt('Adicione uma nota (opcional):') || '';
+                              try {
+                                await axios.patch(
+                                  `${API_BASE}/api/orders/${o._id}/return-status`, 
+                                  { status, notes }, 
+                                  { headers: { 'x-admin-key': adminPassword } }
+                                );
+                                fetchOrders();
+                                alert('Status da devolução atualizado');
+                              } catch (err) {
+                                console.error(err);
+                                alert('Erro ao atualizar status da devolução');
+                              }
+                            }}
+                            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg"
+                          >
+                            Atualizar Status
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-semibold">Pedidos ({orders.length})</h2>
               <div className="flex gap-2">
