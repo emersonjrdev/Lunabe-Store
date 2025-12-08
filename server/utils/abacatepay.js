@@ -89,61 +89,11 @@ class AbacatePayClient {
       console.log('🔵 Base URL:', this.baseURL);
       console.log('🔵 Payload:', JSON.stringify(payload, null, 2));
       
-      // Baseado na documentação do AbacatePay (docs.abacatepay.com)
-      // O SDK Python usa client.billing.create(), então o endpoint é /billing
-      // Ajustar o payload conforme a documentação oficial
-      
-      // Reformatar payload para o formato esperado pelo AbacatePay
-      // Conforme documentação: https://docs.abacatepay.com/api-reference/criar-uma-nova-cobranca
-      
-      // Validar CPF do metadata
-      const customerTaxId = (payload.metadata && payload.metadata.customerTaxId) 
-        ? payload.metadata.customerTaxId.replace(/\D/g, '') // Remove caracteres não numéricos
-        : '';
-      
-      // Se o CPF não tiver 11 dígitos, usar um genérico (apenas para desenvolvimento)
-      const finalTaxId = (customerTaxId.length === 11) ? customerTaxId : '11111111111';
-      
-      // Limpar e validar URLs
-      const cleanSuccessUrl = payload.success_url 
-        ? payload.success_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '')
-        : '';
-      const cleanCancelUrl = payload.cancel_url 
-        ? payload.cancel_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '')
-        : cleanSuccessUrl;
-      
-      if (!cleanSuccessUrl) {
-        throw new Error('URL de sucesso é obrigatória');
-      }
-      
-      // Formato que funcionava no commit 940e061
-      const abacatepayPayload = {
-        amount: Math.round(amount), // garantir que está em centavos
-        currency,
-        customer: {
-          email: payload.customer.email,
-          name: payload.customer.name,
-          phone: payload.customer.phone,
-        },
-        items: payload.items.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          unit_price: Math.round(item.unit_price), // converter para centavos
-        })),
-        metadata: payload.metadata,
-        payment_methods: ['pix', 'credit_card', 'boleto'], // métodos suportados (minúsculas como no commit que funcionava)
-        success_url: payload.success_url,
-        cancel_url: payload.cancel_url,
-        webhook_url: payload.webhook_url,
-      };
-      
-      console.log('🔵 Payload formatado para AbacatePay:', JSON.stringify(abacatepayPayload, null, 2));
-      
       // Endpoint que funcionava no commit 940e061
       const endpoint = '/checkout/sessions';
       console.log(`🔵 Chamando endpoint: ${this.baseURL}${endpoint}`);
       
-      const response = await this.client.post(endpoint, abacatepayPayload);
+      const response = await this.client.post(endpoint, payload);
       
       console.log('✅ Resposta recebida do AbacatePay:', {
         status: response.status,
