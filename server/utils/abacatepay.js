@@ -46,6 +46,7 @@ class AbacatePayClient {
         successUrl,
         cancelUrl,
         webhookUrl,
+        isPix = false, // Se é pagamento PIX ou cartão
       } = paymentData;
 
       if (!amount || amount <= 0) {
@@ -115,43 +116,31 @@ class AbacatePayClient {
         throw new Error('URL de sucesso é obrigatória');
       }
       
-      // Formato simplificado conforme documentação da AbacatePay
-      // A API espera um formato mais simples e direto
-      const itemsDescription = payload.items && payload.items.length > 0
-        ? payload.items.map(i => i.name).join(', ')
-        : 'Pedido Lunabê';
-      
+      // Formato que funcionava no commit 940e061
       const abacatepayPayload = {
-        amount: Math.round(amount), // valor total em centavos
-        description: `Pedido Lunabê - ${itemsDescription}`.substring(0, 255),
+        amount: Math.round(amount), // garantir que está em centavos
+        currency,
         customer: {
           email: payload.customer.email,
-          name: payload.customer.name || 'Cliente',
-          cellphone: payload.customer.phone || '',
-          taxId: finalTaxId,
+          name: payload.customer.name,
+          phone: payload.customer.phone,
         },
-        returnUrl: cleanSuccessUrl,
-        completionUrl: cleanCancelUrl,
-        frequency: 'ONE_TIME',
-        methods: ['PIX', 'CREDIT_CARD'], // métodos de pagamento (PIX e CREDIT_CARD conforme documentação)
-        metadata: payload.metadata || {}
+        items: payload.items.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          unit_price: Math.round(item.unit_price), // converter para centavos
+        })),
+        metadata: payload.metadata,
+        payment_methods: ['pix', 'credit_card', 'boleto'], // métodos suportados (minúsculas como no commit que funcionava)
+        success_url: payload.success_url,
+        cancel_url: payload.cancel_url,
+        webhook_url: payload.webhook_url,
       };
-      
-      // Se houver produtos individuais, adicionar ao payload
-      if (payload.items && payload.items.length > 0) {
-        abacatepayPayload.products = payload.items.map((item, index) => ({
-          externalId: `prod_${index}_${Date.now()}`,
-          name: item.name || 'Produto',
-          quantity: item.quantity || 1,
-          price: Math.round(item.unit_price), // em centavos
-          description: item.name || 'Produto'
-        }));
-      }
       
       console.log('🔵 Payload formatado para AbacatePay:', JSON.stringify(abacatepayPayload, null, 2));
       
-      // Endpoint correto conforme documentação: /billing/create
-      const endpoint = '/billing/create';
+      // Endpoint que funcionava no commit 940e061
+      const endpoint = '/checkout/sessions';
       console.log(`🔵 Chamando endpoint: ${this.baseURL}${endpoint}`);
       
       const response = await this.client.post(endpoint, abacatepayPayload);
@@ -162,37 +151,14 @@ class AbacatePayClient {
         dataKeys: response.data ? Object.keys(response.data) : []
       });
       
-      // Mapear resposta do AbacatePay para o formato esperado
-      // A resposta do billing.create() retorna: { data: { url, id, ... }, error: null }
-      const responseData = response.data;
-      
-      // Verificar se há erro na resposta
-      if (responseData.error) {
-        throw new Error(responseData.error.message || responseData.error || 'Erro na resposta da API');
-      }
-      
-      const billingData = responseData.data;
-      
-      if (!billingData) {
-        throw new Error('Resposta da API não contém dados válidos');
-      }
-      
-      console.log('🔵 Dados da cobrança recebidos:', JSON.stringify(billingData, null, 2));
-      console.log('🔵 Chaves disponíveis:', billingData ? Object.keys(billingData) : []);
-      
-      // A resposta conforme documentação tem: id, url, amount, status, methods, customer, etc.
-      // Para PIX, pode haver dados adicionais no objeto customer ou em payment_methods
-      const pixData = billingData.pix || billingData.payment_methods?.pix || billingData.customer?.pix || {};
-      
+      // Mapear resposta do AbacatePay para o formato esperado (formato do commit que funcionava)
       return {
-        checkoutUrl: billingData.url, // URL do checkout conforme documentação
-        sessionId: billingData.id, // ID da cobrança
-        paymentId: billingData.id, // ID da cobrança (mesmo que sessionId)
-        qrCode: pixData?.qr_code || pixData?.pix_copy_paste || pixData?.code || null,
-        qrCodeBase64: pixData?.qr_code_base64 || pixData?.base64 || null,
-        expiresAt: pixData?.expires_at || billingData.expiresAt || null,
-        amount: billingData.amount,
-        status: billingData.status,
+        checkoutUrl: response.data.checkout_url || response.data.url,
+        sessionId: response.data.session_id || response.data.id,
+        paymentId: response.data.payment_id,
+        qrCode: response.data.qr_code, // para PIX
+        qrCodeBase64: response.data.qr_code_base64,
+        expiresAt: response.data.expires_at,
       };
     } catch (error) {
       console.error('❌ ========== ERRO DETALHADO ABACATEPAY ==========');
