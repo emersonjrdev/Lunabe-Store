@@ -46,7 +46,6 @@ class AbacatePayClient {
         successUrl,
         cancelUrl,
         webhookUrl,
-        isPix = false, // Se é pagamento PIX ou cartão
       } = paymentData;
 
       if (!amount || amount <= 0) {
