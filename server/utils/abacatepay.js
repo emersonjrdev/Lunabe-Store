@@ -100,14 +100,30 @@ class AbacatePayClient {
         dataKeys: response.data ? Object.keys(response.data) : []
       });
       
-      // Mapear resposta do AbacatePay para o formato esperado (formato do commit que funcionava)
+      // Mapear resposta do AbacatePay para o formato esperado
+      // A resposta do billing.create() retorna: { data: { url, id, ... }, error: null }
+      const responseData = response.data;
+      
+      // Verificar se há erro na resposta
+      if (responseData.error) {
+        throw new Error(responseData.error.message || responseData.error || 'Erro na resposta da API');
+      }
+      
+      const billingData = responseData.data || responseData;
+      
+      if (!billingData) {
+        throw new Error('Resposta da API não contém dados válidos');
+      }
+      
+      console.log('🔵 Dados da cobrança recebidos:', JSON.stringify(billingData, null, 2));
+      
       return {
-        checkoutUrl: response.data.checkout_url || response.data.url,
-        sessionId: response.data.session_id || response.data.id,
-        paymentId: response.data.payment_id,
-        qrCode: response.data.qr_code, // para PIX
-        qrCodeBase64: response.data.qr_code_base64,
-        expiresAt: response.data.expires_at,
+        checkoutUrl: billingData.url || billingData.checkout_url,
+        sessionId: billingData.id || billingData.session_id,
+        paymentId: billingData.id || billingData.payment_id,
+        qrCode: billingData.qr_code || billingData.pix?.qr_code || null,
+        qrCodeBase64: billingData.qr_code_base64 || billingData.pix?.qr_code_base64 || null,
+        expiresAt: billingData.expires_at || billingData.pix?.expires_at || null,
       };
     } catch (error) {
       console.error('❌ ========== ERRO DETALHADO ABACATEPAY ==========');
