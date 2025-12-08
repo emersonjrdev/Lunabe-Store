@@ -64,24 +64,29 @@ class AbacatePayClient {
         throw new Error('URL de cancelamento inválida');
       }
 
+      // Formato para /billing/create conforme documentação
       const payload = {
-        amount: Math.round(amount), // garantir que está em centavos
-        currency,
+        amount: Math.round(amount), // valor total em centavos
         customer: {
           email: customerEmail,
-          name: customerName,
-          phone: customerPhone,
+          name: customerName || 'Cliente',
+          cellphone: customerPhone || '',
+          // taxId pode ser necessário - usar do metadata se disponível
+          taxId: (metadata && metadata.customerTaxId) 
+            ? metadata.customerTaxId.replace(/\D/g, '').substring(0, 11) 
+            : '11111111111', // CPF genérico se não fornecido
         },
-        items: items.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          unit_price: Math.round(item.price * 100), // converter para centavos
+        products: items.map(item => ({
+          name: item.name || 'Produto',
+          quantity: item.quantity || 1,
+          price: Math.round(item.price * 100), // em centavos
+          description: item.name || 'Produto'
         })),
-        metadata,
-        payment_methods: ['pix', 'credit_card', 'boleto'], // métodos suportados
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        webhook_url: webhookUrl,
+        returnUrl: successUrl,
+        completionUrl: cancelUrl,
+        frequency: 'ONE_TIME',
+        methods: ['PIX', 'CREDIT_CARD'], // métodos de pagamento (maiúsculas conforme documentação)
+        metadata: metadata || {}
       };
 
       console.log('🔵 Fazendo POST para endpoint do AbacatePay');
