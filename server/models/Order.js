@@ -7,7 +7,7 @@ const orderSchema = new mongoose.Schema({
   // kept for backwards compatibility in case older records still contain stripeSessionId
   stripeSessionId: { type: String },
   // Método de pagamento
-  paymentMethod: { type: String }, // 'rede', 'itau-pix'
+  paymentMethod: { type: String }, // 'abacatepay' (cartão), 'abacatepay-pix' (PIX)
   // PIX Itaú fields
   pixQrCode: { type: String }, // QR Code PIX (código copia-e-cola)
   pixChave: { type: String }, // Chave PIX

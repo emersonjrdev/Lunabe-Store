@@ -8,10 +8,7 @@ import Order from "../models/Order.js"; // modelo do pedido
 import Product from "../models/Product.js"; // modelo do produto
 import dotenv from "dotenv";
 // Utilitários de pagamento
-import pixUtils from '../utils/pix.js';
-import { generatePixForOrder as generatePixViaApi } from '../utils/itau-pix.js';
-import { createRedeTransaction, createRedePixCharge } from '../utils/rede.js';
-import RedePaymentLinkClient from '../utils/rede-payment-link.js';
+import abacatepayClient from '../utils/abacatepay.js';
 import { sendOrderEmail, sendPaymentConfirmationEmail, sendStatusUpdateEmail, sendReturnRequestEmail } from '../utils/mailer.js';
 import { validateItemsWithStock } from '../utils/orderOptimizer.js';
 import { reduceStock } from '../utils/stockManager.js';
@@ -164,216 +161,85 @@ router.post("/create-checkout-session", async (req, res) => {
     // Processar pagamento baseado no método selecionado
     console.log('🔵 Método de pagamento selecionado:', paymentMethod);
     console.log('🔵 Tipo do paymentMethod:', typeof paymentMethod);
-    console.log('🔵 Comparação rede:', paymentMethod === 'rede');
-    console.log('🔵 Comparação rede-pix:', paymentMethod === 'rede-pix');
-    console.log('🔵 Comparação itau-pix:', paymentMethod === 'itau-pix');
+    console.log('🔵 Comparação abacatepay:', paymentMethod === 'abacatepay');
+    console.log('🔵 Comparação abacatepay-pix:', paymentMethod === 'abacatepay-pix');
     
-    if (paymentMethod === 'rede') {
-      // Pagamento via Link de Pagamento da Rede (Cartão de Crédito/Débito)
-      console.log('🔵 Criando Link de Pagamento para cartão via API Red-e...');
-      let paymentLinkData;
+    if (paymentMethod === 'abacatepay' || paymentMethod === 'abacatepay-pix') {
+      // Pagamento via AbacatePay (Cartão ou PIX)
+      const isPix = paymentMethod === 'abacatepay-pix';
+      console.log(`🔵 Criando sessão de checkout AbacatePay (${isPix ? 'PIX' : 'Cartão'})...`);
       
       try {
-        // Verificar credenciais antes de criar o cliente
-        const clientId = process.env.REDE_AFFILIATION || process.env.REDE_PV;
-        const hasCredentials = clientId && process.env.REDE_TOKEN;
-        
-        console.log('🔵 Validação de credenciais para Link de Pagamento:');
-        console.log('🔵   REDE_AFFILIATION:', process.env.REDE_AFFILIATION || 'NÃO CONFIGURADO');
-        console.log('🔵   REDE_PV:', process.env.REDE_PV || 'NÃO CONFIGURADO');
-        console.log('🔵   REDE_TOKEN:', process.env.REDE_TOKEN ? '✅ Configurado' : '❌ Não configurado');
-        console.log('🔵   clientId final:', clientId || 'NÃO ENCONTRADO');
-        console.log('🔵   hasCredentials:', hasCredentials);
-        
-        if (!hasCredentials) {
-          console.error('❌ Credenciais da API Red-e não configuradas para Link de Pagamento!');
+        // Verificar credenciais do AbacatePay
+        if (!process.env.ABACATEPAY_API_KEY) {
+          console.error('❌ ABACATEPAY_API_KEY não configurada!');
           return res.status(500).json({
-            error: 'Configuração de pagamento por cartão não disponível',
-            details: 'As credenciais da API Red-e não estão configuradas. Por favor, configure REDE_AFFILIATION (ou REDE_PV) e REDE_TOKEN no servidor.',
+            error: 'Configuração de pagamento não disponível',
+            details: 'As credenciais do AbacatePay não estão configuradas. Por favor, configure ABACATEPAY_API_KEY no servidor.',
             requiresApi: true,
           });
         }
         
-        const paymentLinkClient = new RedePaymentLinkClient();
+        // Preparar URLs de retorno
+        const frontendUrl = cleanFront;
+        const backendUrl = cleanBackend;
+        const webhookUrl = `${backendUrl}/api/webhooks/abacatepay`;
+        const successUrl = `${frontendUrl}/checkout/${order._id.toString()}?status=success`;
+        const cancelUrl = `${frontendUrl}/carrinho?status=cancelled`;
         
-        console.log('🔵 Iniciando criação de Link de Pagamento (cartão)...');
+        // Preparar dados do pagamento para AbacatePay
+        const paymentData = {
+          amount: totalInCents,
+          currency: 'BRL',
+          customerEmail: customerEmail,
+          customerName: customerName || 'Cliente',
+          customerPhone: customerPhone || '',
+          items: validatedItems.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price, // em reais, será convertido para centavos no cliente
+          })),
+          metadata: {
+            orderId: order._id.toString(),
+            customerTaxId: cpf || '',
+          },
+          successUrl: successUrl,
+          cancelUrl: cancelUrl,
+          webhookUrl: webhookUrl,
+        };
+        
+        console.log('🔵 Criando sessão de checkout AbacatePay...');
         console.log('🔵 Order ID:', order._id.toString());
         console.log('🔵 Total (centavos):', totalInCents);
         console.log('🔵 Total (reais):', (totalInCents / 100).toFixed(2));
         console.log('🔵 Email do cliente:', customerEmail);
+        console.log('🔵 Método:', isPix ? 'PIX' : 'Cartão');
         
-        paymentLinkData = await paymentLinkClient.createPaymentLink({
-          amount: totalInCents,
-          reference: order._id.toString(),
-          description: `Pedido ${order._id.toString().slice(-8)} - Lunabê`,
-          customerEmail: customerEmail,
-          customerName: customerName || null,
-          expirationDays: 7, // Link expira em 7 dias
+        // Criar sessão de checkout no AbacatePay
+        const checkoutSession = await abacatepayClient.createCheckoutSession(paymentData);
+        
+        console.log('✅ Sessão de checkout AbacatePay criada com sucesso:', {
+          sessionId: checkoutSession.sessionId,
+          paymentId: checkoutSession.paymentId,
+          hasCheckoutUrl: !!checkoutSession.checkoutUrl,
+          hasQrCode: !!checkoutSession.qrCode,
         });
         
-        console.log('✅ Link de Pagamento criado com sucesso (cartão):', {
-          paymentLinkId: paymentLinkData.paymentLinkId,
-          paymentLinkUrl: paymentLinkData.paymentLinkUrl,
-          status: paymentLinkData.status,
-        });
-      } catch (apiError) {
-        console.error('❌ ========== ERRO AO CRIAR LINK DE PAGAMENTO (CARTÃO) ==========');
-        console.error('❌ Mensagem:', apiError.message);
-        console.error('❌ Status HTTP:', apiError.response?.status);
-        console.error('❌ Status Text:', apiError.response?.statusText);
-        console.error('❌ Dados da resposta:', JSON.stringify(apiError.response?.data, null, 2));
-        console.error('❌ Stack trace:', apiError.stack);
-        console.error('❌ =========================================');
+        // Atualizar pedido com dados do AbacatePay
+        order.paymentMethod = paymentMethod;
+        order.paymentSessionId = checkoutSession.sessionId || checkoutSession.paymentId || order._id.toString();
+        order.abacatepayPaymentId = checkoutSession.paymentId || checkoutSession.sessionId;
         
-        // Retornar erro detalhado para ajudar no diagnóstico
-        const errorDetails = apiError.response?.data || {};
-        const errorMessage = apiError.message || 'Erro desconhecido ao criar link de pagamento';
+        // Se for PIX, salvar dados do QR Code
+        if (isPix && checkoutSession.qrCode) {
+          order.abacatepayQrCode = checkoutSession.qrCode;
+          if (checkoutSession.qrCodeBase64) {
+            order.abacatepayQrCodeBase64 = checkoutSession.qrCodeBase64;
+          }
+        }
         
-        return res.status(500).json({
-          error: 'Erro ao criar link de pagamento via API Red-e',
-          details: errorMessage,
-          status: apiError.response?.status,
-          apiError: errorDetails,
-          suggestion: 'Verifique as credenciais da Red-e no Render (REDE_PV, REDE_TOKEN e REDE_AFFILIATION) e se o ambiente está correto (production/sandbox).',
-        });
-      }
-      
-      if (!paymentLinkData || !paymentLinkData.paymentLinkUrl) {
-        throw new Error('URL do Link de Pagamento não foi retornada pela API Red-e');
-      }
-      
-      // Atualizar pedido com dados do Link de Pagamento
-      order.paymentMethod = 'rede';
-      order.paymentSessionId = paymentLinkData.paymentLinkId || order._id.toString();
-      order.paymentLinkUrl = paymentLinkData.paymentLinkUrl; // URL do link de pagamento
-      order.paymentLinkId = paymentLinkData.paymentLinkId; // ID do link para consulta
-      await order.save();
-      console.log('✅ Pedido atualizado com dados do Link de Pagamento (cartão)');
-      
-      // Reduzir estoque quando o pedido é criado
-      try {
-        await reduceStock(order.items);
-        order.stockReduced = true;
         await order.save();
-        console.log('✅ Estoque reduzido automaticamente ao criar pedido');
-      } catch (stockError) {
-        console.error('❌ Erro ao reduzir estoque (não crítico):', stockError);
-        // Não falhar o pedido se houver erro ao reduzir estoque
-      }
-      
-      // Enviar email de confirmação
-      console.log('🔵 Tentando enviar email de confirmação de pedido...');
-      sendOrderEmail(customerEmail, order)
-        .then(() => {
-          console.log('✅ Email de confirmação de pedido enviado com sucesso');
-        })
-        .catch(err => {
-          console.error('❌ Erro ao enviar email de confirmação:', err.message);
-          console.error('❌ Isso não impede o pedido de ser criado');
-        });
-      
-      // Retornar dados do Link de Pagamento
-      return res.json({
-        orderId: order._id.toString(),
-        paymentMethod: 'rede',
-        checkoutUrl: paymentLinkData.paymentLinkUrl, // URL do link de pagamento
-        paymentLinkUrl: paymentLinkData.paymentLinkUrl, // URL do link de pagamento
-        paymentLinkId: paymentLinkData.paymentLinkId, // ID para consulta
-        reference: paymentLinkData.reference,
-        expirationDate: paymentLinkData.expirationDate,
-        status: paymentLinkData.status,
-        amount: totalInCents,
-        message: 'Pedido criado. Redirecionando para página de pagamento...',
-      });
-    } else if (paymentMethod === 'itau-pix' || paymentMethod === 'rede-pix') {
-      // Pagamento via PIX Red-e (API)
-      console.log('🔵 Processando pagamento via PIX Red-e (API)...');
-      console.log('🔵 Total em centavos:', totalInCents);
-      console.log('🔵 Order ID:', order._id.toString());
-      
-      try {
-        // Verificar se as credenciais da API Red-e estão configuradas (OBRIGATÓRIO)
-        // Client ID pode ser REDE_AFFILIATION (PV numérico) ou REDE_PV (fallback)
-        // Client Secret é REDE_TOKEN
-        const clientId = process.env.REDE_AFFILIATION || process.env.REDE_PV;
-        const hasApiCredentials = clientId && process.env.REDE_TOKEN;
-        
-        console.log('🔵 Validação de credenciais Red-e:');
-        console.log('🔵   REDE_AFFILIATION:', process.env.REDE_AFFILIATION || 'NÃO CONFIGURADO');
-        console.log('🔵   REDE_PV:', process.env.REDE_PV || 'NÃO CONFIGURADO');
-        console.log('🔵   REDE_TOKEN:', process.env.REDE_TOKEN ? '✅ Configurado' : '❌ Não configurado');
-        console.log('🔵   clientId final:', clientId || 'NÃO ENCONTRADO');
-        console.log('🔵   hasApiCredentials:', hasApiCredentials);
-        
-        if (!hasApiCredentials) {
-          console.error('❌ Credenciais da API Red-e não configuradas!');
-          console.error('❌ REDE_AFFILIATION:', process.env.REDE_AFFILIATION ? '✅ Configurado' : '❌ Não configurado');
-          console.error('❌ REDE_PV:', process.env.REDE_PV ? '✅ Configurado' : '❌ Não configurado');
-          console.error('❌ REDE_TOKEN:', process.env.REDE_TOKEN ? '✅ Configurado' : '❌ Não configurado');
-          return res.status(500).json({
-            error: 'Configuração de pagamento PIX não disponível',
-            details: 'As credenciais da API Red-e não estão configuradas. Por favor, configure REDE_AFFILIATION (ou REDE_PV) e REDE_TOKEN no servidor.',
-            requiresApi: true,
-          });
-        }
-        
-        // Usar API PIX direta da Red-e (não Link de Pagamento)
-        // A URL https://www.lunabe.com.br/pix-payment/{orderId} foi liberada pela Rede
-        console.log('🔵 Gerando PIX dinâmico via API Red-e (PIX direto)...');
-        let pixData;
-        
-        try {
-          console.log('🔵 Iniciando geração de PIX via API Red-e...');
-          console.log('🔵 Order ID:', order._id.toString());
-          console.log('🔵 Total (centavos):', totalInCents);
-          console.log('🔵 Total (reais):', (totalInCents / 100).toFixed(2));
-          
-          pixData = await createRedePixCharge(order, totalInCents);
-          
-          console.log('✅ PIX gerado via API Red-e com sucesso:', {
-            hasQrCode: !!pixData.qrCode,
-            qrCodeLength: pixData.qrCode?.length,
-            chargeId: pixData.chargeId,
-            valor: pixData.valor,
-            status: pixData.status,
-          });
-        } catch (apiError) {
-          console.error('❌ ========== ERRO AO GERAR PIX ==========');
-          console.error('❌ Mensagem:', apiError.message);
-          console.error('❌ Status HTTP:', apiError.response?.status);
-          console.error('❌ Status Text:', apiError.response?.statusText);
-          console.error('❌ Dados da resposta:', JSON.stringify(apiError.response?.data, null, 2));
-          console.error('❌ Stack trace:', apiError.stack);
-          console.error('❌ =========================================');
-          
-          // Retornar erro detalhado para ajudar no diagnóstico
-          const errorDetails = apiError.response?.data || {};
-          const errorMessage = apiError.message || 'Erro desconhecido ao gerar PIX';
-          
-          return res.status(500).json({
-            error: 'Erro ao gerar código PIX via API Red-e',
-            details: errorMessage,
-            status: apiError.response?.status,
-            apiError: errorDetails,
-            suggestion: 'Verifique as credenciais da Red-e no Render (REDE_PV e REDE_TOKEN) e se o ambiente está correto (production/sandbox).',
-          });
-        }
-        
-        if (!pixData || !pixData.qrCode) {
-          throw new Error('QR Code PIX não foi retornado pela API Red-e');
-        }
-        
-        // Atualizar pedido com dados do PIX
-        order.paymentMethod = 'rede-pix';
-        order.paymentSessionId = pixData.chargeId || order._id.toString();
-        order.pixQrCode = pixData.qrCode;
-        order.pixChave = '63824145000127'; // Chave PIX da Red-e
-        order.pixValor = pixData.valor;
-        if (pixData.chargeId) {
-          order.pixTxId = pixData.chargeId; // Salvar chargeId para consulta posterior
-        }
-        await order.save();
-        console.log('✅ Pedido atualizado com dados PIX Red-e');
+        console.log('✅ Pedido atualizado com dados do AbacatePay');
         
         // Reduzir estoque quando o pedido é criado
         try {
@@ -387,49 +253,52 @@ router.post("/create-checkout-session", async (req, res) => {
         }
         
         // Enviar email de confirmação
-        console.log('🔵 Tentando enviar email de confirmação de pedido PIX...');
+        console.log('🔵 Tentando enviar email de confirmação de pedido...');
         sendOrderEmail(customerEmail, order)
           .then(() => {
-            console.log('✅ Email de confirmação de pedido PIX enviado com sucesso');
+            console.log('✅ Email de confirmação de pedido enviado com sucesso');
           })
           .catch(err => {
-            console.error('❌ Erro ao enviar email de confirmação PIX:', err.message);
+            console.error('❌ Erro ao enviar email de confirmação:', err.message);
             console.error('❌ Isso não impede o pedido de ser criado');
           });
         
-        // URL do webhook para notificações da Red-e
-        const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'https://lunabe-store.onrender.com';
-        const webhookUrl = `${backendUrl}/api/webhooks/rede-pix`;
-
-        // Retornar dados do PIX (URL liberada: https://www.lunabe.com.br/pix-payment/{orderId})
+        // Retornar dados do checkout
         return res.json({
           orderId: order._id.toString(),
-          paymentMethod: 'rede-pix',
-          pixQrCode: pixData.qrCode,
-          pixQrCodeBase64: pixData.qrCodeBase64 || null, // Imagem do QR Code se disponível
-          pixChave: '63824145000127',
-          pixValor: pixData.valor,
-          pixDescricao: pixData.descricao,
-          pixTxId: pixData.chargeId || null,
-          webhookUrl: webhookUrl, // URL para configurar na Red-e
+          paymentMethod: paymentMethod,
+          sessionId: checkoutSession.sessionId || checkoutSession.paymentId,
+          checkoutUrl: checkoutSession.checkoutUrl, // URL do checkout (se disponível)
+          qrCode: checkoutSession.qrCode || null, // QR Code PIX (se PIX)
+          qrCodeBase64: checkoutSession.qrCodeBase64 || null, // QR Code em base64 (se PIX)
+          amount: totalInCents,
+          message: 'Pedido criado. Redirecionando para página de pagamento...',
         });
-      } catch (pixError) {
-        console.error('❌ Erro crítico ao gerar PIX:', pixError);
-        console.error('❌ Stack trace:', pixError.stack);
-        console.error('❌ Tipo do erro:', pixError.constructor.name);
-        console.error('❌ Mensagem completa:', pixError.message);
+      } catch (apiError) {
+        console.error('❌ ========== ERRO AO CRIAR SESSÃO ABACATEPAY ==========');
+        console.error('❌ Mensagem:', apiError.message);
+        console.error('❌ Status HTTP:', apiError.response?.status);
+        console.error('❌ Status Text:', apiError.response?.statusText);
+        console.error('❌ Dados da resposta:', JSON.stringify(apiError.response?.data, null, 2));
+        console.error('❌ Stack trace:', apiError.stack);
+        console.error('❌ =========================================');
+        
+        // Retornar erro detalhado para ajudar no diagnóstico
+        const errorDetails = apiError.response?.data || {};
+        const errorMessage = apiError.message || 'Erro desconhecido ao criar sessão de pagamento';
         
         return res.status(500).json({
-          error: 'Erro ao gerar código PIX',
-          details: pixError.message,
-          suggestion: 'Verifique as credenciais da Red-e (REDE_PV e REDE_TOKEN) no servidor.',
-          requiresApi: true,
+          error: 'Erro ao criar sessão de pagamento no AbacatePay',
+          details: errorMessage,
+          status: apiError.response?.status,
+          apiError: errorDetails,
+          suggestion: 'Verifique as credenciais do AbacatePay no servidor (ABACATEPAY_API_KEY).',
         });
       }
     } else {
       return res.status(400).json({
         error: 'Método de pagamento inválido',
-        details: `Método "${paymentMethod}" não é suportado. Use "rede" (cartão) ou "rede-pix" (PIX).`,
+        details: `Método "${paymentMethod}" não é suportado. Use "abacatepay" (cartão) ou "abacatepay-pix" (PIX).`,
       });
     }
   } catch (err) {

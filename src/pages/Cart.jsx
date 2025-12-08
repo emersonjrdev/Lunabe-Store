@@ -12,7 +12,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
   const [address, setAddress] = useState({ name: '', street: '', city: '', state: '', zip: '', country: '', phone: '' })
   const [cpf, setCpf] = useState('')
   const [deliveryType, setDeliveryType] = useState('delivery') // 'delivery' ou 'pickup'
-  const [paymentMethod, setPaymentMethod] = useState('rede-pix') // 'rede' (cartão) ou 'rede-pix' (PIX) - Cartão temporariamente indisponível
+  const [paymentMethod, setPaymentMethod] = useState('abacatepay-pix') // 'abacatepay' (cartão) ou 'abacatepay-pix' (PIX)
   const [pickupSchedule, setPickupSchedule] = useState('') // Horário agendado para retirada
   const [shipping, setShipping] = useState(0)
   const [calculatingShipping, setCalculatingShipping] = useState(false)
@@ -346,44 +346,48 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
       console.log('✅ Carrinho limpo');
 
       // Processar resposta baseado no método de pagamento
-      if (paymentMethod === 'rede') {
+      if (paymentMethod === 'abacatepay') {
+        // Pagamento via AbacatePay (cartão de crédito/débito)
         if (orderData.checkoutUrl) {
-          // Redirecionar para Red-e (cartão)
-          console.log('✅ Redirecionando para Red-e:', orderData.checkoutUrl);
+          // Redirecionar para checkout do AbacatePay
+          console.log('✅ Redirecionando para AbacatePay:', orderData.checkoutUrl);
           window.location.href = orderData.checkoutUrl;
+        } else if (orderData.sessionId) {
+          // Se não houver checkoutUrl, redirecionar para página de checkout do AbacatePay
+          console.log('✅ Redirecionando para página de checkout AbacatePay:', orderData.sessionId);
+          navigate(`/checkout/${orderData.sessionId}`);
         } else {
-          console.error('❌ checkoutUrl não encontrado na resposta Red-e:', orderData);
+          console.error('❌ checkoutUrl ou sessionId não encontrado na resposta AbacatePay:', orderData);
           addToast('Erro: URL de checkout não retornada. Verifique os logs.', 'error');
           setIsProcessing(false);
         }
-      } else if (paymentMethod === 'rede-pix' || paymentMethod === 'itau-pix') {
-        console.log('🔵 Processando resposta PIX...');
-        console.log('🔵 pixQrCode presente:', !!orderData.pixQrCode);
+      } else if (paymentMethod === 'abacatepay-pix') {
+        // Pagamento via PIX AbacatePay
+        console.log('🔵 Processando resposta PIX AbacatePay...');
+        console.log('🔵 qrCode presente:', !!orderData.qrCode);
         console.log('🔵 orderId presente:', !!orderData.orderId);
+        console.log('🔵 sessionId presente:', !!orderData.sessionId);
         
-        if (orderData.pixQrCode && orderData.orderId) {
-          // Mostrar QR Code PIX
+        if (orderData.sessionId) {
+          // Redirecionar para página de checkout do AbacatePay que mostrará o QR Code PIX
+          console.log('✅ Redirecionando para checkout AbacatePay PIX:', orderData.sessionId);
+          navigate(`/checkout/${orderData.sessionId}`);
+        } else if (orderData.qrCode && orderData.orderId) {
+          // Fallback: se tiver QR Code direto, usar página de PIX
           console.log('✅ QR Code PIX gerado, redirecionando...');
-          console.log('🔵 Dados PIX:', {
-            orderId: orderData.orderId,
-            pixQrCode: orderData.pixQrCode?.substring(0, 50) + '...',
-            pixChave: orderData.pixChave,
-            pixValor: orderData.pixValor,
-          });
-          
-          // Redirecionar para página de pagamento PIX (URL liberada pela Rede)
           navigate(`/pix-payment/${orderData.orderId}`, { 
             state: { 
-              pixQrCode: orderData.pixQrCode,
-              pixChave: orderData.pixChave,
-              pixValor: orderData.pixValor,
-              pixDescricao: orderData.pixDescricao,
+              pixQrCode: orderData.qrCode,
+              pixChave: orderData.pixChave || 'AbacatePay',
+              pixValor: orderData.amount ? (orderData.amount / 100) : order.total,
+              pixDescricao: orderData.description || `Pedido ${orderData.orderId?.slice(-8)} - Lunabê`,
             } 
           });
         } else {
           console.error('❌ Dados PIX incompletos:', {
-            hasPixQrCode: !!orderData.pixQrCode,
+            hasQrCode: !!orderData.qrCode,
             hasOrderId: !!orderData.orderId,
+            hasSessionId: !!orderData.sessionId,
             orderData: orderData
           });
           addToast('Erro: Dados do PIX não retornados. Verifique os logs.', 'error');
@@ -590,37 +594,32 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                   <label className="text-sm font-bold text-gray-800 dark:text-white">Método de Pagamento</label>
                 </div>
                 <div className="space-y-3">
-                  <label className="flex items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border-2 cursor-not-allowed opacity-60 transition-all" style={{ borderColor: '#d1d5db' }}>
+                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'abacatepay' ? '#ec4899' : '#e5e7eb' }}>
                     <input
                       type="radio"
                       name="paymentMethod"
-                      value="rede"
-                      checked={false}
-                      disabled={true}
+                      value="abacatepay"
+                      checked={paymentMethod === 'abacatepay'}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
                       className="mr-3 text-lunabe-pink"
                     />
                     <div className="flex-grow">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-600 dark:text-gray-400">Cartão de Crédito/Débito</span>
-                        <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs font-semibold rounded">
-                          Temporariamente Indisponível
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">Red-e (meu.userede.com.br)</p>
+                      <span className="font-semibold text-gray-800 dark:text-white">Cartão de Crédito/Débito</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">AbacatePay - Parcele em até 12x</p>
                     </div>
                   </label>
-                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'rede-pix' ? '#ec4899' : '#e5e7eb' }}>
+                  <label className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all hover:border-lunabe-pink" style={{ borderColor: paymentMethod === 'abacatepay-pix' ? '#ec4899' : '#e5e7eb' }}>
                     <input
                       type="radio"
                       name="paymentMethod"
-                      value="rede-pix"
-                      checked={paymentMethod === 'rede-pix'}
+                      value="abacatepay-pix"
+                      checked={paymentMethod === 'abacatepay-pix'}
                       onChange={(e) => setPaymentMethod(e.target.value)}
                       className="mr-3 text-lunabe-pink"
                     />
                     <div className="flex-grow">
                       <span className="font-semibold text-gray-800 dark:text-white">PIX</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Red-e - Pagamento instantâneo</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">AbacatePay - Pagamento instantâneo</p>
                     </div>
                   </label>
                 </div>
