@@ -88,8 +88,8 @@ class AbacatePayClient {
       console.log('🔵 Base URL:', this.baseURL);
       console.log('🔵 Payload:', JSON.stringify(payload, null, 2));
       
-      // Endpoint que funcionava no commit 940e061
-      const endpoint = '/checkout/sessions';
+      // Endpoint correto conforme documentação: /billing/create
+      const endpoint = '/billing/create';
       console.log(`🔵 Chamando endpoint: ${this.baseURL}${endpoint}`);
       
       const response = await this.client.post(endpoint, payload);
