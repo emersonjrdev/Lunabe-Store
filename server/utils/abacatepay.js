@@ -115,14 +115,15 @@ class AbacatePayClient {
         throw new Error('URL de sucesso é obrigatória');
       }
       
+      // Formato simplificado conforme documentação da AbacatePay
+      // A API espera um formato mais simples e direto
+      const itemsDescription = payload.items && payload.items.length > 0
+        ? payload.items.map(i => i.name).join(', ')
+        : 'Pedido Lunabê';
+      
       const abacatepayPayload = {
-        products: payload.items.map((item, index) => ({
-          externalId: item.name?.replace(/\s+/g, '_').toLowerCase().substring(0, 50) || `product_${index}`,
-          name: item.name || 'Produto',
-          quantity: item.quantity || 1,
-          price: Math.round(item.unit_price), // garantir que está em centavos
-          description: item.name || 'Produto'
-        })),
+        amount: Math.round(amount), // valor total em centavos
+        description: `Pedido Lunabê - ${itemsDescription}`.substring(0, 255),
         customer: {
           email: payload.customer.email,
           name: payload.customer.name || 'Cliente',
@@ -132,9 +133,20 @@ class AbacatePayClient {
         returnUrl: cleanSuccessUrl,
         completionUrl: cleanCancelUrl,
         frequency: 'ONE_TIME',
-        methods: ['PIX', 'CREDIT_CARD', 'BOLETO'], // métodos de pagamento disponíveis
+        methods: ['PIX', 'CARD'], // métodos de pagamento (PIX e CARD conforme documentação)
         metadata: payload.metadata || {}
       };
+      
+      // Se houver produtos individuais, adicionar ao payload
+      if (payload.items && payload.items.length > 0) {
+        abacatepayPayload.products = payload.items.map((item, index) => ({
+          externalId: `prod_${index}_${Date.now()}`,
+          name: item.name || 'Produto',
+          quantity: item.quantity || 1,
+          price: Math.round(item.unit_price), // em centavos
+          description: item.name || 'Produto'
+        }));
+      }
       
       console.log('🔵 Payload formatado para AbacatePay:', JSON.stringify(abacatepayPayload, null, 2));
       
@@ -152,21 +164,35 @@ class AbacatePayClient {
       
       // Mapear resposta do AbacatePay para o formato esperado
       // A resposta do billing.create() retorna: { data: { url, id, ... }, error: null }
-      const billingData = response.data?.data || response.data;
+      const responseData = response.data;
+      
+      // Verificar se há erro na resposta
+      if (responseData.error) {
+        throw new Error(responseData.error.message || responseData.error || 'Erro na resposta da API');
+      }
+      
+      const billingData = responseData.data;
+      
+      if (!billingData) {
+        throw new Error('Resposta da API não contém dados válidos');
+      }
       
       console.log('🔵 Dados da cobrança recebidos:', JSON.stringify(billingData, null, 2));
       console.log('🔵 Chaves disponíveis:', billingData ? Object.keys(billingData) : []);
       
-      // Extrair dados do PIX se disponíveis (pode estar em diferentes formatos)
-      const pixData = billingData.pix || billingData.payment_methods?.pix || {};
+      // A resposta conforme documentação tem: id, url, amount, status, methods, customer, etc.
+      // Para PIX, pode haver dados adicionais no objeto customer ou em payment_methods
+      const pixData = billingData.pix || billingData.payment_methods?.pix || billingData.customer?.pix || {};
       
       return {
-        checkoutUrl: billingData.url || billingData.checkout_url || billingData.payment_url,
-        sessionId: billingData.id || billingData.session_id || billingData.billing_id,
-        paymentId: billingData.id || billingData.payment_id || billingData.billing_id,
-        qrCode: pixData?.qr_code || pixData?.pix_copy_paste || billingData.qr_code || billingData.pix_qrcode_text || billingData.pix_copy_paste,
-        qrCodeBase64: pixData?.qr_code_base64 || billingData.qr_code_base64 || billingData.pix_qrcode_base64,
-        expiresAt: pixData?.expires_at || billingData.expires_at || billingData.pix_expires_at,
+        checkoutUrl: billingData.url, // URL do checkout conforme documentação
+        sessionId: billingData.id, // ID da cobrança
+        paymentId: billingData.id, // ID da cobrança (mesmo que sessionId)
+        qrCode: pixData?.qr_code || pixData?.pix_copy_paste || pixData?.code || null,
+        qrCodeBase64: pixData?.qr_code_base64 || pixData?.base64 || null,
+        expiresAt: pixData?.expires_at || billingData.expiresAt || null,
+        amount: billingData.amount,
+        status: billingData.status,
       };
     } catch (error) {
       console.error('❌ ========== ERRO DETALHADO ABACATEPAY ==========');
