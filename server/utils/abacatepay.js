@@ -133,7 +133,7 @@ class AbacatePayClient {
         returnUrl: cleanSuccessUrl,
         completionUrl: cleanCancelUrl,
         frequency: 'ONE_TIME',
-        methods: ['PIX', 'CARD'], // métodos de pagamento (PIX e CARD conforme documentação)
+        methods: ['PIX', 'CREDIT_CARD'], // métodos de pagamento (PIX e CREDIT_CARD conforme documentação)
         metadata: payload.metadata || {}
       };
       
