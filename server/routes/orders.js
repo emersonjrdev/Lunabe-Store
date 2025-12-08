@@ -216,14 +216,36 @@ router.post("/create-checkout-session", async (req, res) => {
         console.log('🔵 Método:', isPix ? 'PIX' : 'Cartão');
         
         // Criar sessão de checkout no AbacatePay
-        const checkoutSession = await abacatepayClient.createCheckoutSession(paymentData);
-        
-        console.log('✅ Sessão de checkout AbacatePay criada com sucesso:', {
-          sessionId: checkoutSession.sessionId,
-          paymentId: checkoutSession.paymentId,
-          hasCheckoutUrl: !!checkoutSession.checkoutUrl,
-          hasQrCode: !!checkoutSession.qrCode,
-        });
+        let checkoutSession;
+        try {
+          checkoutSession = await abacatepayClient.createCheckoutSession(paymentData);
+          
+          console.log('✅ Sessão de checkout AbacatePay criada com sucesso:', {
+            sessionId: checkoutSession.sessionId,
+            paymentId: checkoutSession.paymentId,
+            hasCheckoutUrl: !!checkoutSession.checkoutUrl,
+            hasQrCode: !!checkoutSession.qrCode,
+          });
+        } catch (abacatepayError) {
+          console.error('❌ ========== ERRO AO CRIAR SESSÃO ABACATEPAY ==========');
+          console.error('❌ Mensagem:', abacatepayError.message);
+          console.error('❌ Stack:', abacatepayError.stack);
+          console.error('❌ Response status:', abacatepayError.response?.status);
+          console.error('❌ Response data:', JSON.stringify(abacatepayError.response?.data, null, 2));
+          console.error('❌ =========================================');
+          
+          // Retornar erro detalhado
+          const errorDetails = abacatepayError.response?.data || {};
+          const errorMessage = abacatepayError.message || 'Erro desconhecido ao criar sessão de pagamento';
+          
+          return res.status(500).json({
+            error: 'Erro ao criar sessão de pagamento no AbacatePay',
+            details: errorMessage,
+            status: abacatepayError.response?.status,
+            apiError: errorDetails,
+            suggestion: 'Verifique as credenciais do AbacatePay (ABACATEPAY_API_KEY) e se o formato do payload está correto.',
+          });
+        }
         
         // Atualizar pedido com dados do AbacatePay
         order.paymentMethod = paymentMethod;

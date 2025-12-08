@@ -10,7 +10,7 @@ class AbacatePayClient {
   constructor() {
     // URL da API do AbacatePay (mesmo endpoint para dev e produção)
     // O ambiente é determinado pela chave de API utilizada
-    this.baseURL = process.env.ABACATEPAY_API_URL || 'https://api.abacatepay.com/v1';
+    this.baseURL = process.env.ABACATEPAY_API_URL || 'https://api.abacatepay.com/v1';;
     this.apiKey = process.env.ABACATEPAY_API_KEY;
     
     if (!this.apiKey) {
@@ -94,33 +94,46 @@ class AbacatePayClient {
       
       // Reformatar payload para o formato esperado pelo AbacatePay
       // Conforme documentação: https://docs.abacatepay.com/api-reference/criar-uma-nova-cobranca
+      
+      // Validar CPF do metadata
+      const customerTaxId = (payload.metadata && payload.metadata.customerTaxId) 
+        ? payload.metadata.customerTaxId.replace(/\D/g, '') // Remove caracteres não numéricos
+        : '';
+      
+      // Se o CPF não tiver 11 dígitos, usar um genérico (apenas para desenvolvimento)
+      const finalTaxId = (customerTaxId.length === 11) ? customerTaxId : '11111111111';
+      
+      // Limpar e validar URLs
+      const cleanSuccessUrl = payload.success_url 
+        ? payload.success_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '')
+        : '';
+      const cleanCancelUrl = payload.cancel_url 
+        ? payload.cancel_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '')
+        : cleanSuccessUrl;
+      
+      if (!cleanSuccessUrl) {
+        throw new Error('URL de sucesso é obrigatória');
+      }
+      
       const abacatepayPayload = {
-        products: payload.items.map(item => ({
-          externalId: item.name?.replace(/\s+/g, '_').toLowerCase() || 'product',
-          name: item.name,
-          quantity: item.quantity,
-          price: item.unit_price, // já está em centavos
+        products: payload.items.map((item, index) => ({
+          externalId: item.name?.replace(/\s+/g, '_').toLowerCase().substring(0, 50) || `product_${index}`,
+          name: item.name || 'Produto',
+          quantity: item.quantity || 1,
+          price: Math.round(item.unit_price), // garantir que está em centavos
           description: item.name || 'Produto'
         })),
         customer: {
           email: payload.customer.email,
           name: payload.customer.name || 'Cliente',
           cellphone: payload.customer.phone || '',
-          // taxId é obrigatório no AbacatePay - usar CPF do metadata
-          // Formato esperado: apenas números (11 dígitos para CPF)
-          // Se não houver CPF válido, usar um CPF genérico válido (11111111111)
-          taxId: (payload.metadata && payload.metadata.customerTaxId && payload.metadata.customerTaxId.length === 11) 
-            ? payload.metadata.customerTaxId 
-            : '11111111111', // CPF genérico válido (não é um CPF real)
+          taxId: finalTaxId,
         },
-        // Garantir que as URLs são válidas (sem placeholders e sem trailing slash)
-        // returnUrl: URL de retorno após pagamento bem-sucedido
-        // completionUrl: URL de retorno após conclusão (pode ser cancelamento)
-        returnUrl: payload.success_url ? payload.success_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '') : '',
-        completionUrl: payload.cancel_url ? payload.cancel_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '') : (payload.success_url ? payload.success_url.replace(/{SESSION_ID}/g, '').replace(/\/$/, '') : ''),
+        returnUrl: cleanSuccessUrl,
+        completionUrl: cleanCancelUrl,
         frequency: 'ONE_TIME',
         methods: ['PIX', 'CREDIT_CARD', 'BOLETO'], // métodos de pagamento disponíveis
-        metadata: payload.metadata
+        metadata: payload.metadata || {}
       };
       
       console.log('🔵 Payload formatado para AbacatePay:', JSON.stringify(abacatepayPayload, null, 2));
@@ -156,12 +169,29 @@ class AbacatePayClient {
         expiresAt: pixData?.expires_at || billingData.expires_at || billingData.pix_expires_at,
       };
     } catch (error) {
-      console.error('Erro ao criar sessão de checkout AbacatePay:', error.response?.data || error.message);
-      throw new Error(
-        error.response?.data?.message || 
-        error.response?.data?.error || 
-        'Erro ao criar sessão de pagamento no AbacatePay'
-      );
+      console.error('❌ ========== ERRO DETALHADO ABACATEPAY ==========');
+      console.error('❌ Mensagem:', error.message);
+      console.error('❌ Status HTTP:', error.response?.status);
+      console.error('❌ Status Text:', error.response?.statusText);
+      console.error('❌ Response Data:', JSON.stringify(error.response?.data, null, 2));
+      console.error('❌ Request URL:', error.config?.url);
+      console.error('❌ Request Method:', error.config?.method);
+      console.error('❌ Request Headers:', JSON.stringify(error.config?.headers, null, 2));
+      console.error('❌ Stack:', error.stack);
+      console.error('❌ =========================================');
+      
+      // Preservar o erro original para melhor diagnóstico
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          error.message ||
+                          'Erro ao criar sessão de pagamento no AbacatePay';
+      
+      const enhancedError = new Error(errorMessage);
+      enhancedError.originalError = error;
+      enhancedError.responseData = error.response?.data;
+      enhancedError.statusCode = error.response?.status;
+      
+      throw enhancedError;
     }
   }
 
