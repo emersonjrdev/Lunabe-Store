@@ -34,17 +34,15 @@ router.post("/create-checkout-session", async (req, res) => {
   console.log('🔵 Recebida requisição para /create-checkout-session');
   try {
     let { items, customerEmail, address, customerName, customerPhone, cpf, deliveryType, shipping, paymentMethod, pickupSchedule } = req.body;
-    console.log('🔵 Dados recebidos:', { 
-      itemsCount: items?.length, 
-      customerEmail, 
-      hasAddress: !!address,
-      hasCpf: !!cpf,
-      cpfLength: cpf?.length,
-      address: address ? { street: address.street, city: address.city, zip: address.zip } : null,
-      deliveryType,
-      pickupSchedule,
-      pickupScheduleType: typeof pickupSchedule
-    });
+    console.log('🔵 ========== DADOS RECEBIDOS ==========');
+    console.log('🔵 itemsCount:', items?.length);
+    console.log('🔵 customerEmail:', customerEmail);
+    console.log('🔵 deliveryType:', deliveryType);
+    console.log('🔵 pickupSchedule:', pickupSchedule);
+    console.log('🔵 pickupScheduleType:', typeof pickupSchedule);
+    console.log('🔵 hasAddress:', !!address);
+    console.log('🔵 hasCpf:', !!cpf);
+    console.log('🔵 =====================================');
 
     // Validações básicas
     if (!items || items.length === 0) {
@@ -102,7 +100,9 @@ router.post("/create-checkout-session", async (req, res) => {
 
     // Criar pedido no banco de dados primeiro (status: Aguardando pagamento)
     // Armazenar informações de estoque no pedido para uso posterior no webhook
-    console.log('🔵 Criando pedido no banco de dados...');
+    console.log('🔵 ========== CRIANDO PEDIDO ==========');
+    console.log('🔵 deliveryType:', deliveryType);
+    console.log('🔵 pickupSchedule recebido:', pickupSchedule);
     console.log('🔵 Total calculado:', total);
     console.log('🔵 Frete:', shippingCost);
     console.log('🔵 Total com frete:', total + shippingCost);
