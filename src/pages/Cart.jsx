@@ -411,10 +411,18 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
         console.log('🔵 sessionId presente:', !!orderData.sessionId);
         console.log('🔵 checkoutUrl presente:', !!orderData.checkoutUrl);
         
-        // Para PIX, sempre redirecionar para a página de checkout que buscará o QR Code
+        // Para PIX, redirecionar diretamente para a URL do checkout do AbacatePay
+        // que mostrará o QR Code na página deles
+        if (orderData.checkoutUrl && orderData.checkoutUrl.startsWith('http')) {
+          console.log('✅ Redirecionando diretamente para checkout AbacatePay PIX:', orderData.checkoutUrl);
+          window.location.href = orderData.checkoutUrl;
+          return;
+        }
+        
+        // Fallback: se não tiver checkoutUrl, tentar usar sessionId
         if (orderData.sessionId || orderData.orderId) {
           const redirectId = orderData.sessionId || orderData.orderId;
-          console.log('✅ Redirecionando para checkout PIX:', redirectId);
+          console.log('✅ Redirecionando para checkout PIX (fallback):', redirectId);
           
           // Se tiver QR Code direto na resposta, passar via state
           if (orderData.qrCode || orderData.qrCodeBase64) {
@@ -435,6 +443,7 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
             hasQrCodeBase64: !!orderData.qrCodeBase64,
             hasOrderId: !!orderData.orderId,
             hasSessionId: !!orderData.sessionId,
+            hasCheckoutUrl: !!orderData.checkoutUrl,
             orderData: orderData
           });
           addToast('Erro: Dados do PIX não retornados. Verifique os logs.', 'error');
