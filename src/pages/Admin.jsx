@@ -878,7 +878,13 @@ const Admin = () => {
                           // Tentar obter o pickupSchedule de diferentes formas
                           const schedule = o.pickupSchedule || o.pickup_schedule;
                           
+                          console.log('🔵 Verificando pickupSchedule para pedido:', o._id);
+                          console.log('🔵 pickupSchedule:', schedule);
+                          console.log('🔵 Tipo:', typeof schedule);
+                          console.log('🔵 É Date?', schedule instanceof Date);
+                          
                           if (!schedule) {
+                            console.log('⚠️ pickupSchedule não encontrado');
                             return (
                               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
                                 Horário não agendado
@@ -896,12 +902,18 @@ const Admin = () => {
                             } else if (schedule.$date) {
                               // Formato MongoDB
                               scheduleDate = new Date(schedule.$date);
+                            } else if (schedule.toString) {
+                              scheduleDate = new Date(schedule.toString());
                             } else {
                               scheduleDate = new Date(schedule);
                             }
                             
+                            console.log('🔵 Data convertida:', scheduleDate);
+                            console.log('🔵 É válida?', !isNaN(scheduleDate.getTime()));
+                            
                             // Verificar se a data é válida
                             if (isNaN(scheduleDate.getTime())) {
+                              console.error('❌ Data inválida:', schedule);
                               return (
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
                                   Data inválida: {String(schedule)}
@@ -933,10 +945,10 @@ const Admin = () => {
                               </div>
                             );
                           } catch (error) {
-                            console.error('Erro ao processar pickupSchedule:', error, schedule);
+                            console.error('❌ Erro ao processar pickupSchedule:', error, schedule);
                             return (
                               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
-                                Erro ao exibir agendamento
+                                Erro ao exibir agendamento: {error.message}
                               </p>
                             );
                           }
