@@ -540,6 +540,36 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+// Buscar pedido por sessionId (usado pelo frontend para exibir checkout)
+router.get('/session/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const order = await Order.findOne({ paymentSessionId: sessionId });
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+    
+    // Se for PIX e tiver checkoutUrl mas não tiver QR Code, construir a URL
+    let checkoutUrl = null;
+    if (order.paymentMethod === 'abacatepay-pix' && order.abacatepayPaymentId) {
+      // Construir URL do checkout do AbacatePay
+      checkoutUrl = `https://abacatepay.com/pay/${order.abacatepayPaymentId}`;
+    }
+    
+    // Retornar pedido com checkoutUrl se necessário
+    const orderData = order.toObject();
+    if (checkoutUrl) {
+      orderData.checkoutUrl = checkoutUrl;
+    }
+    
+    res.json(orderData);
+  } catch (err) {
+    console.error('Erro ao buscar pedido por sessionId:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Admin: update tracking code
 router.patch('/:id/tracking', async (req, res) => {
   try {
