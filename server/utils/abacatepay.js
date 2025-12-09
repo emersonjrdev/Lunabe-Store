@@ -77,26 +77,28 @@ class AbacatePayClient {
         .replace(/\D/g, '')
         .substring(0, 11) || '11111111111'; // CPF genérico se não fornecido
 
-      // Formato para /billing/create conforme documentação
+      // Formato para /billing/create conforme documentação oficial
       const payload = {
-        amount: Math.round(amount), // valor total em centavos
-        customer: {
-          email: customerEmail,
-          name: customerName || 'Cliente',
-          cellphone: customerPhone || '',
-          taxId: sanitizedTaxId,
-        },
+        frequency: 'ONE_TIME',
+        methods: ['PIX', 'CARD'], // métodos de pagamento
         products: items.map((item, index) => ({
           externalId: `${orderId}_${index}`, // usar orderId no externalId
           name: item.name || 'Produto',
+          description: item.name || 'Produto', // description é obrigatório conforme documentação
           quantity: item.quantity || 1,
           price: Math.round(item.price * 100), // em centavos
         })),
         returnUrl: successUrl,
         completionUrl: successUrl,
-        cancelUrl: cancelUrl, // adicionar cancelUrl ao payload
-        frequency: 'ONE_TIME',
-        methods: ['PIX', 'CARD'], // métodos de pagamento (CARD, não CREDIT_CARD conforme documentação)
+        customer: {
+          name: customerName || 'Cliente',
+          cellphone: customerPhone || '',
+          email: customerEmail,
+          taxId: sanitizedTaxId,
+        },
+        allowCoupons: false,
+        coupons: [],
+        externalId: orderId, // externalId no nível raiz conforme documentação
         metadata: metadata || {}
       };
 
