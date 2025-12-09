@@ -365,27 +365,33 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
         // Pagamento via PIX AbacatePay
         console.log('🔵 Processando resposta PIX AbacatePay...');
         console.log('🔵 qrCode presente:', !!orderData.qrCode);
+        console.log('🔵 qrCodeBase64 presente:', !!orderData.qrCodeBase64);
         console.log('🔵 orderId presente:', !!orderData.orderId);
         console.log('🔵 sessionId presente:', !!orderData.sessionId);
+        console.log('🔵 checkoutUrl presente:', !!orderData.checkoutUrl);
         
-        if (orderData.sessionId) {
-          // Redirecionar para página de checkout do AbacatePay que mostrará o QR Code PIX
-          console.log('✅ Redirecionando para checkout AbacatePay PIX:', orderData.sessionId);
-          navigate(`/checkout/${orderData.sessionId}`);
-        } else if (orderData.qrCode && orderData.orderId) {
-          // Fallback: se tiver QR Code direto, usar página de PIX
-          console.log('✅ QR Code PIX gerado, redirecionando...');
-          navigate(`/pix-payment/${orderData.orderId}`, { 
-            state: { 
-              pixQrCode: orderData.qrCode,
-              pixChave: orderData.pixChave || 'AbacatePay',
-              pixValor: orderData.amount ? (orderData.amount / 100) : order.total,
-              pixDescricao: orderData.description || `Pedido ${orderData.orderId?.slice(-8)} - Lunabê`,
-            } 
-          });
+        // Para PIX, sempre redirecionar para a página de checkout que buscará o QR Code
+        if (orderData.sessionId || orderData.orderId) {
+          const redirectId = orderData.sessionId || orderData.orderId;
+          console.log('✅ Redirecionando para checkout PIX:', redirectId);
+          
+          // Se tiver QR Code direto na resposta, passar via state
+          if (orderData.qrCode || orderData.qrCodeBase64) {
+            navigate(`/checkout/${redirectId}`, {
+              state: {
+                pixQrCode: orderData.qrCode,
+                pixQrCodeBase64: orderData.qrCodeBase64,
+                pixValor: orderData.amount ? (orderData.amount / 100) : totalPrice,
+              }
+            });
+          } else {
+            // Sem QR Code na resposta, a página de checkout vai buscar do pedido
+            navigate(`/checkout/${redirectId}`);
+          }
         } else {
           console.error('❌ Dados PIX incompletos:', {
             hasQrCode: !!orderData.qrCode,
+            hasQrCodeBase64: !!orderData.qrCodeBase64,
             hasOrderId: !!orderData.orderId,
             hasSessionId: !!orderData.sessionId,
             orderData: orderData

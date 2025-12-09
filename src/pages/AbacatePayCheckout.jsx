@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import PaymentService from '../services/paymentService'
 
 export default function AbacatePayCheckout() {
   const { sessionId } = useParams()
   const [searchParams] = useSearchParams()
+  const location = useLocation()
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [checkoutUrl, setCheckoutUrl] = useState(null)
+  const [pixQrCode, setPixQrCode] = useState(null)
+  const [pixQrCodeBase64, setPixQrCodeBase64] = useState(null)
+  const [copied, setCopied] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -17,8 +21,22 @@ export default function AbacatePayCheckout() {
         const data = await PaymentService.getOrderBySession(sessionId)
         setOrder(data)
         
-        // Se houver checkoutUrl do AbacatePay, redirecionar automaticamente
-        // (isso acontece quando a API real está configurada)
+        // Verificar se é PIX (tem QR Code)
+        const isPixPayment = data.abacatepayQrCode || data.abacatepayQrCodeBase64 || 
+                            (location.state?.pixQrCode) || (location.state?.pixQrCodeBase64)
+        
+        // Se for PIX, NÃO redirecionar automaticamente - mostrar QR Code na página
+        if (isPixPayment) {
+          console.log('🔵 Pagamento PIX detectado, mostrando QR Code na página')
+          // Priorizar dados do state, depois do pedido
+          setPixQrCode(location.state?.pixQrCode || data.abacatepayQrCode)
+          setPixQrCodeBase64(location.state?.pixQrCodeBase64 || data.abacatepayQrCodeBase64)
+          setLoading(false)
+          return
+        }
+        
+        // Se houver checkoutUrl do AbacatePay e NÃO for PIX, redirecionar automaticamente
+        // (isso acontece quando a API real está configurada e é pagamento com cartão)
         if (data.checkoutUrl && data.checkoutUrl.startsWith('http')) {
           setCheckoutUrl(data.checkoutUrl)
           // Redirecionar para o checkout do AbacatePay
@@ -66,12 +84,6 @@ export default function AbacatePayCheckout() {
     }
   }
 
-  const copyQrCode = () => {
-    if (order?.abacatepayQrCode) {
-      navigator.clipboard.writeText(order.abacatepayQrCode)
-      alert('Código PIX copiado!')
-    }
-  }
 
   if (loading) {
     return (
@@ -102,7 +114,16 @@ export default function AbacatePayCheckout() {
   }
 
   // Se houver QR Code PIX, mostrar opção de pagamento via PIX
-  const hasPixPayment = order.abacatepayQrCode || order.abacatepayQrCodeBase64
+  const hasPixPayment = pixQrCode || pixQrCodeBase64 || order?.abacatepayQrCode || order?.abacatepayQrCodeBase64
+  
+  const copyPixCode = () => {
+    const codeToCopy = pixQrCode || order?.abacatepayQrCode
+    if (codeToCopy) {
+      navigator.clipboard.writeText(codeToCopy)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-6">
@@ -138,40 +159,63 @@ export default function AbacatePayCheckout() {
         {/* QR Code PIX se disponível */}
         {hasPixPayment && (
           <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <h3 className="font-semibold mb-2">Pagamento via PIX</h3>
-            {order.abacatepayQrCodeBase64 && (
-              <div className="mb-3 flex justify-center">
+            <h3 className="font-semibold mb-4 text-center">Pagamento via PIX</h3>
+            
+            {/* QR Code Image */}
+            {(pixQrCodeBase64 || order?.abacatepayQrCodeBase64) && (
+              <div className="mb-4 flex justify-center">
                 <img 
-                  src={`data:image/png;base64,${order.abacatepayQrCodeBase64}`} 
+                  src={`data:image/png;base64,${pixQrCodeBase64 || order.abacatepayQrCodeBase64}`} 
                   alt="QR Code PIX" 
-                  className="w-48 h-48 border-2 border-gray-300 rounded"
+                  className="w-64 h-64 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white p-2"
                 />
               </div>
             )}
-            {order.abacatepayQrCode && (
+            
+            {/* QR Code via API se não tiver base64 */}
+            {!pixQrCodeBase64 && !order?.abacatepayQrCodeBase64 && (pixQrCode || order?.abacatepayQrCode) && (
+              <div className="mb-4 flex justify-center">
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(pixQrCode || order.abacatepayQrCode)}`}
+                  alt="QR Code PIX" 
+                  className="w-64 h-64 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white p-2"
+                />
+              </div>
+            )}
+            
+            {/* Código PIX copia-e-cola */}
+            {(pixQrCode || order?.abacatepayQrCode) && (
               <div className="space-y-2">
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                  Ou copie o código PIX:
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 font-semibold">
+                  Código PIX (copia-e-cola):
                 </p>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     readOnly
-                    value={order.abacatepayQrCode}
-                    className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border rounded text-xs"
+                    value={pixQrCode || order.abacatepayQrCode}
+                    className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border rounded text-xs font-mono"
                   />
                   <button
-                    onClick={copyQrCode}
-                    className="px-4 py-2 bg-lunabe-pink text-white rounded text-sm font-semibold"
+                    onClick={copyPixCode}
+                    className={`px-4 py-2 rounded text-sm font-semibold transition-all ${
+                      copied 
+                        ? 'bg-green-600 text-white' 
+                        : 'bg-lunabe-pink text-white hover:bg-pink-600'
+                    }`}
                   >
-                    Copiar
+                    {copied ? '✓ Copiado' : 'Copiar'}
                   </button>
                 </div>
               </div>
             )}
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-              Após o pagamento, você receberá a confirmação automaticamente.
-            </p>
+            
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                <i className="fas fa-info-circle mr-1"></i>
+                Escaneie o QR Code ou copie o código PIX para pagar. Após o pagamento, você receberá a confirmação automaticamente.
+              </p>
+            </div>
           </div>
         )}
 
