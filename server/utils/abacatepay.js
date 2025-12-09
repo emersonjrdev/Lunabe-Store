@@ -91,10 +91,10 @@ class AbacatePayClient {
           name: item.name || 'Produto',
           quantity: item.quantity || 1,
           price: Math.round(item.price * 100), // em centavos
-          description: item.name || 'Produto'
         })),
         returnUrl: successUrl,
-        completionUrl: successUrl, // usar successUrl também para completionUrl
+        completionUrl: successUrl,
+        cancelUrl: cancelUrl, // adicionar cancelUrl ao payload
         frequency: 'ONE_TIME',
         methods: ['PIX', 'CARD'], // métodos de pagamento (CARD, não CREDIT_CARD conforme documentação)
         metadata: metadata || {}
