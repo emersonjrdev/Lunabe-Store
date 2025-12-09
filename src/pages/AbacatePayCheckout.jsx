@@ -31,29 +31,30 @@ export default function AbacatePayCheckout() {
         setOrder(data)
         
         // Verificar se é PIX (tem QR Code ou método de pagamento é PIX)
-        const isPixPayment = data.paymentMethod === 'abacatepay-pix' || 
-                            data.abacatepayQrCode || 
-                            data.abacatepayQrCodeBase64 || 
-                            (location.state?.pixQrCode) || 
-                            (location.state?.pixQrCodeBase64)
+        const isPixPayment = data.paymentMethod === 'abacatepay-pix'
+        const hasQrCode = data.abacatepayQrCode || data.abacatepayQrCodeBase64 || 
+                         (location.state?.pixQrCode) || (location.state?.pixQrCodeBase64)
         
         console.log('🔵 É pagamento PIX?', isPixPayment);
+        console.log('🔵 Tem QR Code?', hasQrCode);
         
-        // Se for PIX, NÃO redirecionar automaticamente - mostrar QR Code na página
-        if (isPixPayment) {
-          console.log('🔵 Pagamento PIX detectado, mostrando QR Code na página')
+        // Se for PIX e tiver QR Code, mostrar na página
+        if (isPixPayment && hasQrCode) {
+          console.log('🔵 Pagamento PIX detectado com QR Code, mostrando na página')
           // Priorizar dados do state, depois do pedido
           setPixQrCode(location.state?.pixQrCode || data.abacatepayQrCode)
           setPixQrCodeBase64(location.state?.pixQrCodeBase64 || data.abacatepayQrCodeBase64)
-          
-          // Se ainda não tiver QR Code, tentar buscar do backend
-          if (!pixQrCode && !pixQrCodeBase64 && !data.abacatepayQrCode && !data.abacatepayQrCodeBase64) {
-            console.log('🔵 QR Code não encontrado, tentando buscar do backend...');
-            // O backend pode precisar buscar o QR Code do AbacatePay
-            // Por enquanto, apenas mostrar mensagem de carregamento
-          }
-          
           setLoading(false)
+          return
+        }
+        
+        // Se for PIX mas não tiver QR Code, redirecionar para a URL do checkout do AbacatePay
+        // que mostrará o QR Code
+        if (isPixPayment && !hasQrCode && data.checkoutUrl && data.checkoutUrl.startsWith('http')) {
+          console.log('🔵 Pagamento PIX sem QR Code, redirecionando para checkout do AbacatePay:', data.checkoutUrl);
+          setCheckoutUrl(data.checkoutUrl)
+          // Redirecionar para o checkout do AbacatePay que mostrará o QR Code
+          window.location.href = data.checkoutUrl
           return
         }
         

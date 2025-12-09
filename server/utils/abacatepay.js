@@ -108,16 +108,21 @@ class AbacatePayClient {
         billingData.checkout_url ||
         (billingData.id ? `https://abacatepay.com/pay/${billingData.id}` : null);
 
+      // AbacatePay retorna brCode e brCodeBase64 (não qr_code)
       const qrCode =
+        billingData.brCode ||
         billingData.qr_code ||
         billingData.pix?.qr_code ||
         billingData.pix?.qrcode ||
+        billingData.pix?.brCode ||
         null;
 
       const qrCodeBase64 =
+        billingData.brCodeBase64 ||
         billingData.qr_code_base64 ||
         billingData.pix?.qr_code_base64 ||
         billingData.pix?.qrcode_base64 ||
+        billingData.pix?.brCodeBase64 ||
         null;
 
       return {
@@ -149,9 +154,24 @@ class AbacatePayClient {
   async getBilling(billingId) {
     try {
       console.log(`🔵 Buscando billing: ${billingId}`);
-      const response = await this.client.get(`/billing/get`, {
-        params: { id: billingId }
-      });
+      // Tentar diferentes endpoints possíveis
+      let response;
+      try {
+        // Tentar GET /billing/{id} primeiro
+        response = await this.client.get(`/billing/${billingId}`);
+      } catch (err) {
+        // Se falhar, tentar GET /billing/get?id={id}
+        try {
+          response = await this.client.get(`/billing/get`, {
+            params: { id: billingId }
+          });
+        } catch (err2) {
+          // Se ambos falharem, tentar GET /billing?id={id}
+          response = await this.client.get(`/billing`, {
+            params: { id: billingId }
+          });
+        }
+      }
       
       const responseData = response.data;
       const billingData = responseData.data || responseData;
@@ -163,8 +183,9 @@ class AbacatePayClient {
         url: billingData.url,
         status: billingData.status,
         amount: billingData.amount,
-        qrCode: billingData.qr_code || billingData.pix?.qr_code || billingData.pix?.qrcode || null,
-        qrCodeBase64: billingData.qr_code_base64 || billingData.pix?.qr_code_base64 || billingData.pix?.qrcode_base64 || null,
+        // AbacatePay retorna brCode e brCodeBase64
+        qrCode: billingData.brCode || billingData.qr_code || billingData.pix?.qr_code || billingData.pix?.qrcode || billingData.pix?.brCode || null,
+        qrCodeBase64: billingData.brCodeBase64 || billingData.qr_code_base64 || billingData.pix?.qr_code_base64 || billingData.pix?.qrcode_base64 || billingData.pix?.brCodeBase64 || null,
         methods: billingData.methods || [],
         raw: billingData,
       };
