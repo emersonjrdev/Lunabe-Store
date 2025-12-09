@@ -278,10 +278,18 @@ router.post("/create-checkout-session", async (req, res) => {
         order.abacatepayPaymentId = checkoutSession.paymentId || checkoutSession.sessionId;
         
         // Se for PIX, salvar dados do QR Code
-        if (isPix && checkoutSession.qrCode) {
-          order.abacatepayQrCode = checkoutSession.qrCode;
+        // Se não tiver QR Code mas tiver checkoutUrl, o QR Code será exibido na página do AbacatePay
+        if (isPix) {
+          if (checkoutSession.qrCode) {
+            order.abacatepayQrCode = checkoutSession.qrCode;
+          }
           if (checkoutSession.qrCodeBase64) {
             order.abacatepayQrCodeBase64 = checkoutSession.qrCodeBase64;
+          }
+          // Se não tiver QR Code, salvar a URL do checkout para redirecionar
+          if (!checkoutSession.qrCode && !checkoutSession.qrCodeBase64 && checkoutSession.checkoutUrl) {
+            console.log('🔵 QR Code não disponível, mas checkoutUrl está disponível:', checkoutSession.checkoutUrl);
+            // A URL do checkout do AbacatePay mostrará o QR Code
           }
         }
         
