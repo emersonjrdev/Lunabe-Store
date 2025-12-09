@@ -909,6 +909,8 @@ const Admin = () => {
                             }
                             
                             console.log('🔵 Data convertida:', scheduleDate);
+                            console.log('🔵 Data toString:', scheduleDate.toString());
+                            console.log('🔵 Data toISOString:', scheduleDate.toISOString());
                             console.log('🔵 É válida?', !isNaN(scheduleDate.getTime()));
                             
                             // Verificar se a data é válida
@@ -921,6 +923,9 @@ const Admin = () => {
                               );
                             }
                             
+                            // Usar toLocaleString para garantir que está no fuso horário local
+                            const localDate = new Date(scheduleDate.getTime() - (scheduleDate.getTimezoneOffset() * 60000));
+                            
                             return (
                               <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded border border-blue-200">
                                 <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">
@@ -932,14 +937,16 @@ const Admin = () => {
                                     weekday: 'long', 
                                     year: 'numeric', 
                                     month: 'long', 
-                                    day: 'numeric' 
+                                    day: 'numeric',
+                                    timeZone: 'America/Sao_Paulo' // Forçar fuso horário do Brasil
                                   })}
                                 </p>
                                 <p className="text-sm font-semibold text-lunabe-pink dark:text-pink-400 mt-1">
                                   <i className="fas fa-clock mr-1"></i>
                                   {scheduleDate.toLocaleTimeString('pt-BR', { 
                                     hour: '2-digit', 
-                                    minute: '2-digit' 
+                                    minute: '2-digit',
+                                    timeZone: 'America/Sao_Paulo' // Forçar fuso horário do Brasil
                                   })}
                                 </p>
                               </div>

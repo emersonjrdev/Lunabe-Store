@@ -125,14 +125,28 @@ router.post("/create-checkout-session", async (req, res) => {
         } : null,
         // Endereço da loja para retirada
         pickupAddress: deliveryType === 'pickup' ? 'Rua José Ribeiro da Silva - Jardim Portão Vermelho, Vargem Grande Paulista/SP, 06735-322' : null,
-        // Horário agendado para retirada (converter string para Date se fornecido)
+        // Horário agendado para retirada
+        // IMPORTANTE: datetime-local envia no formato YYYY-MM-DDTHH:mm sem timezone
+        // Vamos salvar como Date, mas ajustando para manter o horário local
         pickupSchedule: (() => {
           if (deliveryType === 'pickup' && pickupSchedule) {
             console.log('🔵 Salvando pickupSchedule:', pickupSchedule);
             console.log('🔵 Tipo do pickupSchedule:', typeof pickupSchedule);
-            const scheduleDate = new Date(pickupSchedule);
-            console.log('🔵 Data convertida:', scheduleDate);
+            
+            // datetime-local envia no formato YYYY-MM-DDTHH:mm (sem timezone)
+            // Precisamos criar a data no horário local, não UTC
+            const [datePart, timePart] = pickupSchedule.split('T');
+            const [year, month, day] = datePart.split('-').map(Number);
+            const [hours, minutes] = timePart.split(':').map(Number);
+            
+            // Criar data no horário local (não UTC)
+            const scheduleDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+            
+            console.log('🔵 Data criada (local):', scheduleDate);
+            console.log('🔵 Data toString:', scheduleDate.toString());
+            console.log('🔵 Data toISOString:', scheduleDate.toISOString());
             console.log('🔵 Data é válida?', !isNaN(scheduleDate.getTime()));
+            
             return scheduleDate;
           }
           console.log('🔵 pickupSchedule não será salvo (deliveryType:', deliveryType, ', pickupSchedule:', pickupSchedule, ')');
