@@ -18,12 +18,26 @@ export default function AbacatePayCheckout() {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
+        console.log('🔵 Buscando pedido com sessionId:', sessionId);
         const data = await PaymentService.getOrderBySession(sessionId)
+        console.log('🔵 Dados do pedido recebidos:', {
+          orderId: data._id,
+          paymentMethod: data.paymentMethod,
+          hasAbacatepayQrCode: !!data.abacatepayQrCode,
+          hasAbacatepayQrCodeBase64: !!data.abacatepayQrCodeBase64,
+          hasCheckoutUrl: !!data.checkoutUrl,
+        });
+        
         setOrder(data)
         
-        // Verificar se é PIX (tem QR Code)
-        const isPixPayment = data.abacatepayQrCode || data.abacatepayQrCodeBase64 || 
-                            (location.state?.pixQrCode) || (location.state?.pixQrCodeBase64)
+        // Verificar se é PIX (tem QR Code ou método de pagamento é PIX)
+        const isPixPayment = data.paymentMethod === 'abacatepay-pix' || 
+                            data.abacatepayQrCode || 
+                            data.abacatepayQrCodeBase64 || 
+                            (location.state?.pixQrCode) || 
+                            (location.state?.pixQrCodeBase64)
+        
+        console.log('🔵 É pagamento PIX?', isPixPayment);
         
         // Se for PIX, NÃO redirecionar automaticamente - mostrar QR Code na página
         if (isPixPayment) {
@@ -31,6 +45,14 @@ export default function AbacatePayCheckout() {
           // Priorizar dados do state, depois do pedido
           setPixQrCode(location.state?.pixQrCode || data.abacatepayQrCode)
           setPixQrCodeBase64(location.state?.pixQrCodeBase64 || data.abacatepayQrCodeBase64)
+          
+          // Se ainda não tiver QR Code, tentar buscar do backend
+          if (!pixQrCode && !pixQrCodeBase64 && !data.abacatepayQrCode && !data.abacatepayQrCodeBase64) {
+            console.log('🔵 QR Code não encontrado, tentando buscar do backend...');
+            // O backend pode precisar buscar o QR Code do AbacatePay
+            // Por enquanto, apenas mostrar mensagem de carregamento
+          }
+          
           setLoading(false)
           return
         }
@@ -44,14 +66,14 @@ export default function AbacatePayCheckout() {
           return
         }
       } catch (err) {
-        console.error('Erro ao buscar sessão:', err)
+        console.error('❌ Erro ao buscar sessão:', err)
       } finally {
         setLoading(false)
       }
     }
 
     fetchOrder()
-  }, [sessionId])
+  }, [sessionId, location.state])
 
   // Verificar se veio do AbacatePay (success callback)
   useEffect(() => {

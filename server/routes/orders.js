@@ -228,7 +228,29 @@ router.post("/create-checkout-session", async (req, res) => {
             paymentId: checkoutSession.paymentId,
             hasCheckoutUrl: !!checkoutSession.checkoutUrl,
             hasQrCode: !!checkoutSession.qrCode,
+            hasQrCodeBase64: !!checkoutSession.qrCodeBase64,
           });
+          
+          // Se for PIX e não tiver QR Code na resposta inicial, buscar do billing
+          if (isPix && !checkoutSession.qrCode && !checkoutSession.qrCodeBase64 && checkoutSession.sessionId) {
+            console.log('🔵 QR Code não veio na resposta inicial, buscando do billing...');
+            try {
+              const billingData = await abacatepayClient.getBilling(checkoutSession.sessionId);
+              if (billingData.qrCode || billingData.qrCodeBase64) {
+                console.log('✅ QR Code encontrado ao buscar billing:', {
+                  hasQrCode: !!billingData.qrCode,
+                  hasQrCodeBase64: !!billingData.qrCodeBase64,
+                });
+                checkoutSession.qrCode = billingData.qrCode || checkoutSession.qrCode;
+                checkoutSession.qrCodeBase64 = billingData.qrCodeBase64 || checkoutSession.qrCodeBase64;
+              } else {
+                console.warn('⚠️ QR Code ainda não disponível no billing. Pode estar sendo gerado.');
+              }
+            } catch (billingError) {
+              console.warn('⚠️ Erro ao buscar billing para QR Code (não crítico):', billingError.message);
+              // Não falhar o pedido se não conseguir buscar o QR Code
+            }
+          }
         } catch (abacatepayError) {
           console.error('❌ ========== ERRO AO CRIAR SESSÃO ABACATEPAY ==========');
           console.error('❌ Mensagem:', abacatepayError.message);
