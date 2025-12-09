@@ -364,6 +364,9 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
       console.log('🔵 Método de pagamento selecionado:', paymentMethod);
       console.log('🔵 Dados enviados:', { cart, user: { email: user.email }, address, cpf: cleanCpf, deliveryType, shipping: finalShipping, paymentMethod, totalAmount });
       
+      console.log('🔵 Enviando pickupSchedule:', pickupSchedule);
+      console.log('🔵 Tipo do pickupSchedule:', typeof pickupSchedule);
+      console.log('🔵 deliveryType:', deliveryType);
       const orderData = await PaymentService.createOrder(cart, user, deliveryType === 'delivery' ? address : null, cleanCpf, deliveryType, finalShipping, paymentMethod, pickupSchedule)
 
       console.log('🔵 Resposta do createOrder:', orderData);

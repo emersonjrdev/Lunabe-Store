@@ -33,6 +33,9 @@ class PaymentService {
         paymentMethod,
         pickupSchedule,
       };
+      
+      console.log('🔵 PaymentService - pickupSchedule no requestBody:', requestBody.pickupSchedule);
+      console.log('🔵 PaymentService - deliveryType:', requestBody.deliveryType);
 
       console.log('🔵 Request body:', requestBody);
       console.log('🔵 Fazendo requisição para:', `${API_URL}/api/orders/create-checkout-session`);

@@ -40,7 +40,10 @@ router.post("/create-checkout-session", async (req, res) => {
       hasAddress: !!address,
       hasCpf: !!cpf,
       cpfLength: cpf?.length,
-      address: address ? { street: address.street, city: address.city, zip: address.zip } : null
+      address: address ? { street: address.street, city: address.city, zip: address.zip } : null,
+      deliveryType,
+      pickupSchedule,
+      pickupScheduleType: typeof pickupSchedule
     });
 
     // Validações básicas
@@ -123,7 +126,18 @@ router.post("/create-checkout-session", async (req, res) => {
         // Endereço da loja para retirada
         pickupAddress: deliveryType === 'pickup' ? 'Rua José Ribeiro da Silva - Jardim Portão Vermelho, Vargem Grande Paulista/SP, 06735-322' : null,
         // Horário agendado para retirada (converter string para Date se fornecido)
-        pickupSchedule: deliveryType === 'pickup' && pickupSchedule ? new Date(pickupSchedule) : null,
+        pickupSchedule: (() => {
+          if (deliveryType === 'pickup' && pickupSchedule) {
+            console.log('🔵 Salvando pickupSchedule:', pickupSchedule);
+            console.log('🔵 Tipo do pickupSchedule:', typeof pickupSchedule);
+            const scheduleDate = new Date(pickupSchedule);
+            console.log('🔵 Data convertida:', scheduleDate);
+            console.log('🔵 Data é válida?', !isNaN(scheduleDate.getTime()));
+            return scheduleDate;
+          }
+          console.log('🔵 pickupSchedule não será salvo (deliveryType:', deliveryType, ', pickupSchedule:', pickupSchedule, ')');
+          return null;
+        })(),
         paymentSessionId: "pending", // será atualizado após criar sessão no AbacatePay
         // Armazenar informações de estoque para uso no webhook
         stockReservations: stockChecks, // Array de {productId, quantity, availableStock}
