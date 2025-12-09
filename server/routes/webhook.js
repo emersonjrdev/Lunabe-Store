@@ -13,6 +13,10 @@ const router = express.Router();
 // Webhook endpoint para receber notificações do AbacatePay
 router.post('/abacatepay', async (req, res) => {
   try {
+    console.log('🔵 ========== WEBHOOK ABACATEPAY RECEBIDO ==========');
+    console.log('🔵 Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('🔵 Body:', JSON.stringify(req.body, null, 2));
+    
     // Obter assinatura do header (se disponível)
     const signature = req.headers['x-abacatepay-signature'] || req.headers['abacatepay-signature'];
     const webhookData = req.body;
@@ -21,7 +25,7 @@ router.post('/abacatepay', async (req, res) => {
     if (signature) {
       const isValid = abacatepayClient.verifyWebhookSignature(signature, webhookData);
       if (!isValid) {
-        console.warn('Webhook AbacatePay: assinatura inválida');
+        console.warn('⚠️ Webhook AbacatePay: assinatura inválida');
         return res.status(401).json({ error: 'Assinatura inválida' });
       }
     }
@@ -29,30 +33,62 @@ router.post('/abacatepay', async (req, res) => {
     // Processar dados do webhook
     const processed = abacatepayClient.processWebhook(webhookData);
     
-    console.log('Webhook AbacatePay recebido:', {
+    console.log('🔵 Dados processados do webhook:', {
       eventType: processed.eventType,
       paymentId: processed.paymentId,
       sessionId: processed.sessionId,
       status: processed.status,
+      amount: processed.amount,
     });
 
-    // Buscar pedido pelo sessionId ou paymentId
+    // Buscar pedido pelo sessionId, paymentId ou metadata.orderId
     let order = null;
+    
+    // Tentar buscar por sessionId primeiro
     if (processed.sessionId) {
       order = await Order.findOne({ paymentSessionId: processed.sessionId });
+      console.log(`🔵 Busca por sessionId (${processed.sessionId}):`, order ? '✅ Encontrado' : '❌ Não encontrado');
     }
     
+    // Tentar buscar por paymentId
     if (!order && processed.paymentId) {
       order = await Order.findOne({ abacatepayPaymentId: processed.paymentId });
+      console.log(`🔵 Busca por paymentId (${processed.paymentId}):`, order ? '✅ Encontrado' : '❌ Não encontrado');
+    }
+    
+    // Tentar buscar por metadata.orderId (fallback)
+    if (!order && processed.metadata && processed.metadata.orderId) {
+      order = await Order.findById(processed.metadata.orderId);
+      console.log(`🔵 Busca por metadata.orderId (${processed.metadata.orderId}):`, order ? '✅ Encontrado' : '❌ Não encontrado');
+    }
+    
+    // Tentar buscar pelo ID do billing (bill_xxx)
+    if (!order && processed.paymentId && processed.paymentId.startsWith('bill_')) {
+      // Tentar buscar pelo ID completo ou parte dele
+      const possibleOrders = await Order.find({
+        $or: [
+          { paymentSessionId: processed.paymentId },
+          { abacatepayPaymentId: processed.paymentId },
+          { paymentSessionId: { $regex: processed.paymentId } }
+        ]
+      });
+      if (possibleOrders.length > 0) {
+        order = possibleOrders[0];
+        console.log(`🔵 Busca por billing ID (${processed.paymentId}): ✅ Encontrado`);
+      }
     }
 
     if (!order) {
-      console.warn('Pedido não encontrado para webhook:', {
+      console.warn('❌ Pedido não encontrado para webhook:', {
         sessionId: processed.sessionId,
         paymentId: processed.paymentId,
+        metadata: processed.metadata,
+        rawData: webhookData,
       });
       return res.status(404).json({ error: 'Pedido não encontrado' });
     }
+    
+    console.log(`✅ Pedido encontrado: ${order._id}, Status atual: ${order.status}`);
 
     // Funções reduceStock e restoreStock agora estão em utils/stockManager.js
     // e usam transações atômicas para garantir consistência
@@ -160,10 +196,15 @@ router.post('/abacatepay', async (req, res) => {
 
     await order.save();
 
-    console.log(`Pedido ${order._id} atualizado para status: ${order.status}`);
+    console.log(`✅ Pedido ${order._id} atualizado para status: ${order.status}`);
+    console.log('🔵 ========== WEBHOOK PROCESSADO COM SUCESSO ==========');
 
     // Retornar sucesso para o AbacatePay
-    res.status(200).json({ received: true });
+    res.status(200).json({ 
+      received: true, 
+      orderId: order._id.toString(),
+      status: order.status 
+    });
   } catch (error) {
     console.error('Erro ao processar webhook AbacatePay:', error);
     res.status(500).json({ error: 'Erro ao processar webhook' });
