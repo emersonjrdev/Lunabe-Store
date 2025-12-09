@@ -278,6 +278,47 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
         setIsProcessing(false)
         return
       }
+      
+      // Validar horário de retirada
+      if (deliveryType === 'pickup' && pickupSchedule) {
+        const selectedDate = new Date(pickupSchedule);
+        const dayOfWeek = selectedDate.getDay(); // 0 = domingo, 1 = segunda, ..., 6 = sábado
+        const hour = selectedDate.getHours();
+        const minutes = selectedDate.getMinutes();
+        const timeInMinutes = hour * 60 + minutes;
+        
+        // Domingo não permitido
+        if (dayOfWeek === 0) {
+          console.log('❌ Domingo não permitido para retirada');
+          addToast('Retirada não disponível aos domingos. Selecione de segunda a sábado.', 'error')
+          setIsProcessing(false)
+          return
+        }
+        
+        // Segunda a sexta: 10h às 18h
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          const minTime = 10 * 60; // 10:00 em minutos
+          const maxTime = 18 * 60; // 18:00 em minutos
+          if (timeInMinutes < minTime || timeInMinutes > maxTime) {
+            console.log('❌ Horário fora do permitido (seg-sex: 10h-18h)');
+            addToast('Horário de retirada: Segunda a Sexta das 10h às 18h', 'error')
+            setIsProcessing(false)
+            return
+          }
+        }
+        
+        // Sábado: 10h às 15h
+        if (dayOfWeek === 6) {
+          const minTime = 10 * 60; // 10:00 em minutos
+          const maxTime = 15 * 60; // 15:00 em minutos
+          if (timeInMinutes < minTime || timeInMinutes > maxTime) {
+            console.log('❌ Horário fora do permitido (sábado: 10h-15h)');
+            addToast('Horário de retirada: Sábado das 10h às 15h', 'error')
+            setIsProcessing(false)
+            return
+          }
+        }
+      }
       console.log('✅ Tipo de entrega validado');
 
       // Validar endereço apenas se for entrega
@@ -763,9 +804,17 @@ const Cart = ({ cart, onUpdateQuantity, onRemoveFromCart, totalPrice, user, onCl
                       className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-800 dark:text-white text-sm"
                       required={deliveryType === 'pickup'}
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      Selecione o melhor horário para retirar seu pedido
-                    </p>
+                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                        <i className="fas fa-clock mr-1"></i>
+                        Horários de Retirada:
+                      </p>
+                      <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-0.5 ml-4 list-disc">
+                        <li>Segunda a Sexta: 10h às 18h</li>
+                        <li>Sábado: 10h às 15h</li>
+                        <li>Domingo: Não disponível</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>

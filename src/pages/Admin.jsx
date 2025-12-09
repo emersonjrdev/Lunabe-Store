@@ -875,9 +875,27 @@ const Admin = () => {
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{o.pickupAddress}</p>
                         )}
                         {o.pickupSchedule && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            Agendado para: {new Date(o.pickupSchedule).toLocaleString('pt-BR')}
-                          </p>
+                          <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded border border-blue-200">
+                            <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                              <i className="fas fa-calendar-alt mr-1"></i>
+                              Agendamento:
+                            </p>
+                            <p className="text-sm font-medium text-gray-800 dark:text-white">
+                              {new Date(o.pickupSchedule).toLocaleDateString('pt-BR', { 
+                                weekday: 'long', 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })}
+                            </p>
+                            <p className="text-sm font-semibold text-lunabe-pink dark:text-pink-400 mt-1">
+                              <i className="fas fa-clock mr-1"></i>
+                              {new Date(o.pickupSchedule).toLocaleTimeString('pt-BR', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </p>
+                          </div>
                         )}
                       </div>
                     ) : o.address && (
