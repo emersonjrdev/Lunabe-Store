@@ -127,24 +127,32 @@ router.post("/create-checkout-session", async (req, res) => {
         pickupAddress: deliveryType === 'pickup' ? 'Rua José Ribeiro da Silva - Jardim Portão Vermelho, Vargem Grande Paulista/SP, 06735-322' : null,
         // Horário agendado para retirada
         // IMPORTANTE: datetime-local envia no formato YYYY-MM-DDTHH:mm sem timezone
-        // Vamos salvar como Date, mas ajustando para manter o horário local
+        // Vamos salvar como Date, ajustando para o timezone do Brasil (UTC-3)
         pickupSchedule: (() => {
           if (deliveryType === 'pickup' && pickupSchedule) {
             console.log('🔵 Salvando pickupSchedule:', pickupSchedule);
             console.log('🔵 Tipo do pickupSchedule:', typeof pickupSchedule);
             
             // datetime-local envia no formato YYYY-MM-DDTHH:mm (sem timezone)
-            // Precisamos criar a data no horário local, não UTC
+            // O usuário selecionou no horário local do Brasil (UTC-3)
+            // Precisamos criar a data considerando que é horário de Brasília
             const [datePart, timePart] = pickupSchedule.split('T');
             const [year, month, day] = datePart.split('-').map(Number);
             const [hours, minutes] = timePart.split(':').map(Number);
             
-            // Criar data no horário local (não UTC)
-            const scheduleDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+            // Criar string no formato ISO com timezone do Brasil
+            // Usar Date no formato que o MongoDB entende como horário local
+            // Criar como se fosse UTC, mas ajustar para Brasil (UTC-3)
+            // Se o usuário selecionou 12:00 no Brasil, isso é 15:00 UTC
+            // Mas queremos salvar como 12:00 local, então criamos como UTC e ajustamos
+            const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00-03:00`;
+            const scheduleDate = new Date(dateString);
             
-            console.log('🔵 Data criada (local):', scheduleDate);
+            console.log('🔵 Data string criada:', dateString);
+            console.log('🔵 Data criada:', scheduleDate);
             console.log('🔵 Data toString:', scheduleDate.toString());
             console.log('🔵 Data toISOString:', scheduleDate.toISOString());
+            console.log('🔵 Horas locais (Brasil):', scheduleDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
             console.log('🔵 Data é válida?', !isNaN(scheduleDate.getTime()));
             
             return scheduleDate;

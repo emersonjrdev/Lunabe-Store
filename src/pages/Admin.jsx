@@ -923,8 +923,35 @@ const Admin = () => {
                               );
                             }
                             
-                            // Usar toLocaleString para garantir que está no fuso horário local
-                            const localDate = new Date(scheduleDate.getTime() - (scheduleDate.getTimezoneOffset() * 60000));
+                            // A data foi salva com timezone do Brasil (-03:00)
+                            // Ao exibir, precisamos garantir que está no timezone correto
+                            // Se a data foi salva como "2025-12-10T12:00:00-03:00", 
+                            // ao ler do MongoDB pode vir como UTC, então ajustamos
+                            
+                            // Criar uma nova data ajustada para o timezone do Brasil
+                            const brasilOffset = -3 * 60; // UTC-3 em minutos
+                            const utcTime = scheduleDate.getTime() + (scheduleDate.getTimezoneOffset() * 60000);
+                            const brasilTime = new Date(utcTime + (brasilOffset * 60000));
+                            
+                            // Ou simplesmente usar toLocaleString com timezone
+                            const dateStr = scheduleDate.toLocaleString('pt-BR', { 
+                              timeZone: 'America/Sao_Paulo',
+                              weekday: 'long', 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric'
+                            });
+                            
+                            const timeStr = scheduleDate.toLocaleTimeString('pt-BR', { 
+                              timeZone: 'America/Sao_Paulo',
+                              hour: '2-digit', 
+                              minute: '2-digit'
+                            });
+                            
+                            console.log('🔵 Data original:', scheduleDate);
+                            console.log('🔵 Data ajustada Brasil:', brasilTime);
+                            console.log('🔵 Data string (Brasil):', dateStr);
+                            console.log('🔵 Hora string (Brasil):', timeStr);
                             
                             return (
                               <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded border border-blue-200">
@@ -933,21 +960,11 @@ const Admin = () => {
                                   Agendamento:
                                 </p>
                                 <p className="text-sm font-medium text-gray-800 dark:text-white">
-                                  {scheduleDate.toLocaleDateString('pt-BR', { 
-                                    weekday: 'long', 
-                                    year: 'numeric', 
-                                    month: 'long', 
-                                    day: 'numeric',
-                                    timeZone: 'America/Sao_Paulo' // Forçar fuso horário do Brasil
-                                  })}
+                                  {dateStr}
                                 </p>
                                 <p className="text-sm font-semibold text-lunabe-pink dark:text-pink-400 mt-1">
                                   <i className="fas fa-clock mr-1"></i>
-                                  {scheduleDate.toLocaleTimeString('pt-BR', { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit',
-                                    timeZone: 'America/Sao_Paulo' // Forçar fuso horário do Brasil
-                                  })}
+                                  {timeStr}
                                 </p>
                               </div>
                             );
