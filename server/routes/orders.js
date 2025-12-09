@@ -188,19 +188,22 @@ router.post("/create-checkout-session", async (req, res) => {
         const cancelUrl = `${frontendUrl}/carrinho?status=cancelled`;
         
         // Preparar dados do pagamento para AbacatePay
+        const orderId = order._id.toString();
         const paymentData = {
+          orderId: orderId, // orderId é obrigatório e deve ser passado diretamente
           amount: totalInCents,
           currency: 'BRL',
           customerEmail: customerEmail,
           customerName: customerName || 'Cliente',
           customerPhone: customerPhone || '',
+          customerTaxId: cpf || '', // CPF também pode ser passado diretamente
           items: validatedItems.map(item => ({
             name: item.name,
             quantity: item.quantity,
             price: item.price, // em reais, será convertido para centavos no cliente
           })),
           metadata: {
-            orderId: order._id.toString(),
+            orderId: orderId,
             customerTaxId: cpf || '',
           },
           successUrl: successUrl,

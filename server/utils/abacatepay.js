@@ -36,17 +36,24 @@ class AbacatePayClient {
   async createCheckoutSession(paymentData) {
     try {
       const {
+        orderId, // orderId é obrigatório e deve ser passado diretamente
         amount, // valor total em centavos
         currency = 'BRL',
         customerEmail,
         customerName,
         customerPhone,
+        customerTaxId, // CPF pode ser passado diretamente ou via metadata
         items = [],
         metadata = {},
         successUrl,
         cancelUrl,
         webhookUrl,
       } = paymentData;
+
+      // Validação obrigatória de orderId
+      if (!orderId) {
+        throw new Error('orderId é obrigatório e não foi enviado para createCheckoutSession()');
+      }
 
       if (!amount || amount <= 0) {
         throw new Error('Valor do pagamento deve ser maior que zero');
@@ -64,6 +71,12 @@ class AbacatePayClient {
         throw new Error('URL de cancelamento inválida');
       }
 
+      // Sanitizar CPF (pode vir de customerTaxId ou metadata.customerTaxId)
+      const sanitizedTaxId = (customerTaxId || (metadata && metadata.customerTaxId) || '')
+        .toString()
+        .replace(/\D/g, '')
+        .substring(0, 11) || '11111111111'; // CPF genérico se não fornecido
+
       // Formato para /billing/create conforme documentação
       const payload = {
         amount: Math.round(amount), // valor total em centavos
@@ -71,19 +84,17 @@ class AbacatePayClient {
           email: customerEmail,
           name: customerName || 'Cliente',
           cellphone: customerPhone || '',
-          // taxId pode ser necessário - usar do metadata se disponível
-          taxId: (metadata && metadata.customerTaxId) 
-            ? metadata.customerTaxId.replace(/\D/g, '').substring(0, 11) 
-            : '11111111111', // CPF genérico se não fornecido
+          taxId: sanitizedTaxId,
         },
-        products: items.map(item => ({
+        products: items.map((item, index) => ({
+          externalId: `${orderId}_${index}`, // usar orderId no externalId
           name: item.name || 'Produto',
           quantity: item.quantity || 1,
           price: Math.round(item.price * 100), // em centavos
           description: item.name || 'Produto'
         })),
         returnUrl: successUrl,
-        completionUrl: cancelUrl,
+        completionUrl: successUrl, // usar successUrl também para completionUrl
         frequency: 'ONE_TIME',
         methods: ['PIX', 'CREDIT_CARD'], // métodos de pagamento (maiúsculas conforme documentação)
         metadata: metadata || {}
