@@ -144,6 +144,12 @@ router.post("/create-checkout-session", async (req, res) => {
       });
       await order.save();
       console.log('✅ Pedido criado no banco:', order._id);
+      console.log('🔵 pickupSchedule salvo no pedido:', order.pickupSchedule);
+      console.log('🔵 Tipo do pickupSchedule salvo:', typeof order.pickupSchedule);
+      if (order.pickupSchedule) {
+        console.log('🔵 pickupSchedule como string:', order.pickupSchedule.toString());
+        console.log('🔵 pickupSchedule como ISO:', order.pickupSchedule.toISOString());
+      }
     } catch (orderError) {
       console.error('❌ Erro ao criar pedido no banco:', orderError);
       console.error('❌ Stack trace:', orderError.stack);
