@@ -96,7 +96,7 @@ class AbacatePayClient {
         returnUrl: successUrl,
         completionUrl: successUrl, // usar successUrl também para completionUrl
         frequency: 'ONE_TIME',
-        methods: ['PIX', 'CREDIT_CARD'], // métodos de pagamento (maiúsculas conforme documentação)
+        methods: ['PIX', 'CARD'], // métodos de pagamento (CARD, não CREDIT_CARD conforme documentação)
         metadata: metadata || {}
       };
 
