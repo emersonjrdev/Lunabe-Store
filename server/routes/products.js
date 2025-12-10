@@ -35,7 +35,7 @@ router.get("/:id", async (req, res) => {
 // CREATE PRODUCT + CLOUDINARY UPLOAD
 router.post("/", upload.array("images", 13), async (req, res) => {
   try {
-    const { name, description, price_cents, stock } = req.body;
+    const { name, description, price_cents, stock, category } = req.body;
     // sizes and colors can be sent as comma-separated strings from the admin UI
     const parseCsv = (val) => {
       if (!val) return [];
