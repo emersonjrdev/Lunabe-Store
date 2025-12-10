@@ -46,12 +46,13 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
 
   const filteredProducts = products
     .filter(product => {
-      // Filtros por categoria/classificação
-      if (filter === 'feminino' && product.category !== 'feminino') return false
-      if (filter === 'masculino' && product.category !== 'masculino') return false
-      if (filter === 'infantil' && product.category !== 'infantil') return false
-      if (filter === 'familia' && product.category !== 'familia') return false
-      if (filter === 'especial-natal' && product.category !== 'especial-natal') return false
+      // Filtros por categoria/classificação (suporta múltiplas categorias)
+      const productCategories = product.categories || (product.category ? [product.category] : []);
+      if (filter === 'feminino' && !productCategories.includes('feminino')) return false
+      if (filter === 'masculino' && !productCategories.includes('masculino')) return false
+      if (filter === 'infantil' && !productCategories.includes('infantil')) return false
+      if (filter === 'familia' && !productCategories.includes('familia')) return false
+      if (filter === 'especial-natal' && !productCategories.includes('especial-natal')) return false
       
       // Filtros antigos (manter compatibilidade)
       if (filter === 'new' && !product.isNew) return false

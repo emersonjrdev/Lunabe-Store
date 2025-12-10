@@ -20,7 +20,7 @@ const Admin = () => {
     images: [],
     sizes: "",
     colors: "",
-    category: "feminino", // Categoria padrão
+    categories: ["feminino"], // Array de categorias
     stockByVariant: {}, // { "P-Rosa": 10, "M-Azul": 5, ... }
   });
 
@@ -127,7 +127,8 @@ const Admin = () => {
     formData.append("stock", Number(form.stock) || 0);
     formData.append("sizes", form.sizes);
     formData.append("colors", form.colors);
-    formData.append("category", form.category || "feminino");
+    // Enviar categorias como array JSON
+    formData.append("categories", JSON.stringify(form.categories || ["feminino"]));
     
     // Adicionar estoque por variante se existir
     if (Object.keys(form.stockByVariant || {}).length > 0) {

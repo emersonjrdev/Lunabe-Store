@@ -35,7 +35,7 @@ router.get("/:id", async (req, res) => {
 // CREATE PRODUCT + CLOUDINARY UPLOAD
 router.post("/", upload.array("images", 13), async (req, res) => {
   try {
-    const { name, description, price_cents, stock, category } = req.body;
+    const { name, description, price_cents, stock, categories } = req.body;
     // sizes and colors can be sent as comma-separated strings from the admin UI
     const parseCsv = (val) => {
       if (!val) return [];
@@ -107,7 +107,7 @@ router.post("/", upload.array("images", 13), async (req, res) => {
       images,
       sizes,
       colors,
-      category: category || 'feminino', // Categoria padrão: feminino
+      categories: Array.isArray(categories) ? categories : (categories ? [categories] : ['feminino']), // Categorias (array)
       createdAt: new Date(),
     });
 
@@ -126,7 +126,7 @@ router.put("/:id", upload.array("images", 13), async (req, res) => {
       return res.status(404).json({ error: "Produto não encontrado" });
     }
 
-    const { name, description, price_cents, stock, category } = req.body;
+    const { name, description, price_cents, stock, categories } = req.body;
     const parseCsv = (val) => {
       if (!val) return [];
       if (Array.isArray(val)) return val;
@@ -219,7 +219,15 @@ router.put("/:id", upload.array("images", 13), async (req, res) => {
     product.images = images;
     product.sizes = sizes.length > 0 ? sizes : product.sizes;
     product.colors = colors.length > 0 ? colors : product.colors;
-    product.category = category || product.category || 'feminino'; // Atualizar categoria se fornecida
+    // Processar categorias (pode vir como array ou string)
+    if (categories !== undefined) {
+      product.categories = Array.isArray(categories) 
+        ? categories 
+        : (categories ? [categories] : ['feminino']);
+    } else if (!product.categories || product.categories.length === 0) {
+      // Se não tem categorias e não foi enviado, manter padrão ou migrar category antiga
+      product.categories = product.category ? [product.category] : ['feminino'];
+    }
 
     await product.save();
     res.json(product);

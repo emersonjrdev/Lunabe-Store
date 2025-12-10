@@ -115,3 +115,4 @@ O **Vercel** é apenas para hospedar o frontend. Os registros DNS do SendGrid de
 
 
 
+
