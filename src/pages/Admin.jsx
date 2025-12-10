@@ -167,7 +167,7 @@ const Admin = () => {
         images: [],
         sizes: "",
         colors: "",
-        category: "feminino",
+        categories: ["feminino"],
         stockByVariant: {},
       });
       setEditingId(null);
@@ -194,7 +194,9 @@ const Admin = () => {
       images: existingImages, // URLs das imagens existentes (strings)
       sizes: product.sizes ? product.sizes.join(', ') : "",
       colors: product.colors ? product.colors.join(', ') : "",
-      category: product.category || "feminino",
+      categories: product.categories && Array.isArray(product.categories) 
+        ? product.categories 
+        : (product.category ? [product.category] : ["feminino"]),
       stockByVariant: product.stockByVariant 
         ? (product.stockByVariant instanceof Map 
           ? Object.fromEntries(product.stockByVariant) 
@@ -487,21 +489,38 @@ const Admin = () => {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                     <i className="fas fa-tags mr-2"></i>
-                    Categoria/Classificação *
+                    Categorias/Classificações * (pode selecionar múltiplas)
                   </label>
-                  <select
-                    name="category"
-                    value={form.category}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white"
-                  >
-                    <option value="feminino">Feminino</option>
-                    <option value="masculino">Masculino</option>
-                    <option value="infantil">Infantil</option>
-                    <option value="familia">Família</option>
-                    <option value="especial-natal">Especial de Natal</option>
-                  </select>
+                  <div className="space-y-2 bg-gray-50 dark:bg-gray-700 rounded-xl p-4 border-2 border-gray-300 dark:border-gray-600">
+                    {[
+                      { value: 'feminino', label: 'Feminino', icon: 'fa-venus' },
+                      { value: 'masculino', label: 'Masculino', icon: 'fa-mars' },
+                      { value: 'infantil', label: 'Infantil', icon: 'fa-child' },
+                      { value: 'familia', label: 'Família', icon: 'fa-users' },
+                      { value: 'especial-natal', label: 'Especial de Natal', icon: 'fa-gift' }
+                    ].map((cat) => (
+                      <label key={cat.value} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 p-2 rounded-lg transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={form.categories?.includes(cat.value) || false}
+                          onChange={(e) => {
+                            const currentCategories = form.categories || [];
+                            if (e.target.checked) {
+                              setForm({ ...form, categories: [...currentCategories, cat.value] });
+                            } else {
+                              setForm({ ...form, categories: currentCategories.filter(c => c !== cat.value) });
+                            }
+                          }}
+                          className="w-5 h-5 text-gray-900 dark:text-gray-300 rounded focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300"
+                        />
+                        <i className={`fas ${cat.icon} text-gray-600 dark:text-gray-400`}></i>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {(!form.categories || form.categories.length === 0) && (
+                    <p className="text-xs text-red-500 mt-1">Selecione pelo menos uma categoria</p>
+                  )}
                 </div>
               </div>
 
