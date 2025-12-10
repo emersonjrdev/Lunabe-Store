@@ -37,6 +37,11 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
   useEffect(() => {
     const query = searchParams.get('q')
     if (query) setSearchQuery(query)
+    
+    const categoryParam = searchParams.get('category')
+    if (categoryParam) {
+      setFilter(categoryParam)
+    }
   }, [searchParams])
 
   const filteredProducts = products

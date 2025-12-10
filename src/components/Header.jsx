@@ -215,22 +215,31 @@ const Header = ({ cartCount, user, onLogout, onLoginClick }) => {
             ))}
           </nav>
 
-          {/* Contato Mobile */}
+          {/* Categorias Mobile */}
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <h4 className="font-semibold text-sm mb-3 text-gray-800 dark:text-gray-200">
-              Contato
+              Categorias
             </h4>
-            <a 
-              href="tel:+5511999999999" 
-              className="flex items-center space-x-3 py-3 px-4 rounded-xl transition-all duration-300 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <i className="fas fa-phone text-gray-500 text-lg"></i>
-              <div>
-                <p className="font-medium text-sm">(11) 99999-9999</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Seg a Sex: 9h às 18h</p>
-              </div>
-            </a>
+            <div className="space-y-2">
+              {[
+                { value: 'all', label: 'Todos', icon: 'fa-th' },
+                { value: 'feminino', label: 'Feminino', icon: 'fa-venus' },
+                { value: 'masculino', label: 'Masculino', icon: 'fa-mars' },
+                { value: 'infantil', label: 'Infantil', icon: 'fa-child' },
+                { value: 'familia', label: 'Família', icon: 'fa-users' },
+                { value: 'especial-natal', label: 'Especial de Natal', icon: 'fa-gift' }
+              ].map((category) => (
+                <Link
+                  key={category.value}
+                  to={`/?category=${category.value}`}
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center space-x-3 py-2 px-4 rounded-xl transition-all duration-300 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
+                >
+                  <i className={`fas ${category.icon} text-gray-500 text-sm`}></i>
+                  <span className="font-medium text-sm">{category.label}</span>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       )}
