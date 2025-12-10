@@ -8,8 +8,21 @@ const router = express.Router();
 
 // GET ALL
 router.get("/", async (req, res) => {
-  const products = await Product.find().sort({ createdAt: -1 });
-  res.json(products);
+  try {
+    const { category } = req.query;
+    let query = {};
+    
+    // Filtrar por categoria se fornecida
+    if (category && category !== 'all') {
+      query.category = category;
+    }
+    
+    const products = await Product.find(query).sort({ createdAt: -1 });
+    res.json(products);
+  } catch (err) {
+    console.error('Erro ao buscar produtos:', err);
+    res.status(500).json({ error: "Erro ao buscar produtos" });
+  }
 });
 
 // GET BY ID
@@ -94,6 +107,7 @@ router.post("/", upload.array("images", 13), async (req, res) => {
       images,
       sizes,
       colors,
+      category: category || 'feminino', // Categoria padrão: feminino
       createdAt: new Date(),
     });
 
@@ -205,6 +219,10 @@ router.put("/:id", upload.array("images", 13), async (req, res) => {
     product.images = images;
     product.sizes = sizes.length > 0 ? sizes : product.sizes;
     product.colors = colors.length > 0 ? colors : product.colors;
+    product.category = req.body.category || product.category || 'feminino'; // Atualizar categoria se fornecida
+    if (category) {
+      product.category = category;
+    }
 
     await product.save();
     res.json(product);

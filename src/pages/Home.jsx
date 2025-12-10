@@ -12,6 +12,7 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
   const [isLoading, setIsLoading] = useState(true)
   const [products, setProducts] = useState([])
   const [filter, setFilter] = useState('all')
+  const [category, setCategory] = useState('all') // Filtro por categoria
   const [sort, setSort] = useState('name')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchParams, setSearchParams] = useSearchParams()
@@ -19,7 +20,9 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await axios.get(API_URL)
+        // Buscar produtos com filtro de categoria se aplicável
+        const url = category !== 'all' ? `${API_URL}?category=${category}` : API_URL
+        const res = await axios.get(url)
         setProducts(res.data)
       } catch (error) {
         console.error("Erro ao buscar produtos:", error)
@@ -29,7 +32,7 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
     }
 
     fetchProducts()
-  }, [])
+  }, [category])
 
   useEffect(() => {
     const query = searchParams.get('q')
@@ -38,6 +41,14 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
 
   const filteredProducts = products
     .filter(product => {
+      // Filtros por categoria/classificação
+      if (filter === 'feminino' && product.category !== 'feminino') return false
+      if (filter === 'masculino' && product.category !== 'masculino') return false
+      if (filter === 'infantil' && product.category !== 'infantil') return false
+      if (filter === 'familia' && product.category !== 'familia') return false
+      if (filter === 'especial-natal' && product.category !== 'especial-natal') return false
+      
+      // Filtros antigos (manter compatibilidade)
       if (filter === 'new' && !product.isNew) return false
       if (filter === 'sale' && !product.originalPrice) return false
       if (filter === 'premium' && product.category !== 'premium') return false
@@ -121,19 +132,24 @@ const Home = ({ onAddToCart, user, onLoginClick }) => {
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                {['all', 'new', 'sale', 'premium'].map(f => (
+                {[
+                  { value: 'all', label: 'Todos' },
+                  { value: 'feminino', label: 'Feminino' },
+                  { value: 'masculino', label: 'Masculino' },
+                  { value: 'infantil', label: 'Infantil' },
+                  { value: 'familia', label: 'Família' },
+                  { value: 'especial-natal', label: 'Especial de Natal' }
+                ].map(f => (
                   <button
-                    key={f}
-                    onClick={() => setFilter(f)}
+                    key={f.value}
+                    onClick={() => setFilter(f.value)}
                     className={`px-3 py-2 text-sm md:px-4 md:py-2 md:text-base rounded-lg font-semibold transition-all ${
-                      filter === f
+                      filter === f.value
                         ? 'bg-gray-800 dark:bg-gray-300 text-white dark:text-gray-900'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                     }`}
                   >
-                    {f === 'all' ? 'Todos' :
-                     f === 'new' ? 'Novidades' :
-                     f === 'sale' ? 'Promoções' : 'Premium'}
+                    {f.label}
                   </button>
                 ))}
               </div>

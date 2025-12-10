@@ -20,6 +20,7 @@ const Admin = () => {
     images: [],
     sizes: "",
     colors: "",
+    category: "feminino", // Categoria padrão
     stockByVariant: {}, // { "P-Rosa": 10, "M-Azul": 5, ... }
   });
 
@@ -126,6 +127,7 @@ const Admin = () => {
     formData.append("stock", Number(form.stock) || 0);
     formData.append("sizes", form.sizes);
     formData.append("colors", form.colors);
+    formData.append("category", form.category || "feminino");
     
     // Adicionar estoque por variante se existir
     if (Object.keys(form.stockByVariant || {}).length > 0) {
@@ -164,6 +166,7 @@ const Admin = () => {
         images: [],
         sizes: "",
         colors: "",
+        category: "feminino",
         stockByVariant: {},
       });
       setEditingId(null);
@@ -190,6 +193,7 @@ const Admin = () => {
       images: existingImages, // URLs das imagens existentes (strings)
       sizes: product.sizes ? product.sizes.join(', ') : "",
       colors: product.colors ? product.colors.join(', ') : "",
+      category: product.category || "feminino",
       stockByVariant: product.stockByVariant 
         ? (product.stockByVariant instanceof Map 
           ? Object.fromEntries(product.stockByVariant) 
@@ -218,6 +222,7 @@ const Admin = () => {
       images: [],
       sizes: "",
       colors: "",
+      category: "feminino",
       stockByVariant: {},
     });
   };
@@ -427,6 +432,26 @@ const Admin = () => {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  <i className="fas fa-tags mr-2"></i>
+                  Categoria *
+                </label>
+                <select
+                  name="category"
+                  value={form.category}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white"
+                >
+                  <option value="feminino">Feminino</option>
+                  <option value="masculino">Masculino</option>
+                  <option value="infantil">Infantil</option>
+                  <option value="familia">Família</option>
+                  <option value="natal">Especial de Natal</option>
+                </select>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -456,6 +481,26 @@ const Admin = () => {
                     onChange={handleChange}
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white placeholder-gray-400"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <i className="fas fa-tags mr-2"></i>
+                    Categoria/Classificação *
+                  </label>
+                  <select
+                    name="category"
+                    value={form.category}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-300 focus:border-transparent transition-all text-gray-800 dark:text-white"
+                  >
+                    <option value="feminino">Feminino</option>
+                    <option value="masculino">Masculino</option>
+                    <option value="infantil">Infantil</option>
+                    <option value="familia">Família</option>
+                    <option value="especial-natal">Especial de Natal</option>
+                  </select>
                 </div>
               </div>
 

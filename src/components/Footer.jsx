@@ -119,20 +119,6 @@ const Footer = () => {
             <ul className="space-y-3 sm:space-y-4 text-gray-600 dark:text-gray-400">
               <li className="flex flex-col sm:flex-row sm:items-start space-y-1 sm:space-y-0 sm:space-x-3">
                 <div className="flex items-center justify-center sm:justify-start space-x-2">
-                  <i className="fas fa-phone text-gray-500 text-sm"></i>
-                  <div>
-                    <a 
-                      href="tel:+5511999999999" 
-                      className="font-medium text-sm sm:text-base hover:text-gray-900 dark:hover:text-white transition-colors"
-                    >
-                      (11) 99999-9999
-                    </a>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Seg a Sex: 9h às 18h</p>
-                  </div>
-                </div>
-              </li>
-              <li className="flex flex-col sm:flex-row sm:items-start space-y-1 sm:space-y-0 sm:space-x-3">
-                <div className="flex items-center justify-center sm:justify-start space-x-2">
                   <i className="fas fa-envelope text-gray-500 text-sm"></i>
                   <div>
                     <a 
