@@ -236,15 +236,23 @@ router.put("/:id", upload.array("images", 13), async (req, res) => {
     product.images = images;
     product.sizes = sizes.length > 0 ? sizes : product.sizes;
     product.colors = colors.length > 0 ? colors : product.colors;
-    // Processar categorias (pode vir como array ou string)
+    // Processar categorias (pode vir como JSON string ou array)
+    let processedCategories = product.categories || (product.category ? [product.category] : ['feminino']);
     if (categories !== undefined) {
-      product.categories = Array.isArray(categories) 
-        ? categories 
-        : (categories ? [categories] : ['feminino']);
-    } else if (!product.categories || product.categories.length === 0) {
-      // Se não tem categorias e não foi enviado, manter padrão ou migrar category antiga
-      product.categories = product.category ? [product.category] : ['feminino'];
+      try {
+        if (typeof categories === 'string') {
+          processedCategories = JSON.parse(categories);
+        } else if (Array.isArray(categories)) {
+          processedCategories = categories;
+        } else {
+          processedCategories = [categories];
+        }
+      } catch (e) {
+        console.error('Erro ao processar categorias:', e);
+        processedCategories = ['feminino'];
+      }
     }
+    product.categories = processedCategories;
 
     await product.save();
     res.json(product);
