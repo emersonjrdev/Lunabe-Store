@@ -134,6 +134,23 @@ router.put("/:id", upload.array("images", 13), async (req, res) => {
     };
     const sizes = parseCsv(req.body.sizes);
     const colors = parseCsv(req.body.colors);
+    
+    // Processar categorias (pode vir como JSON string ou array)
+    let processedCategories = ['feminino']; // padrão
+    if (categories) {
+      try {
+        if (typeof categories === 'string') {
+          processedCategories = JSON.parse(categories);
+        } else if (Array.isArray(categories)) {
+          processedCategories = categories;
+        } else {
+          processedCategories = [categories];
+        }
+      } catch (e) {
+        console.error('Erro ao processar categorias:', e);
+        processedCategories = ['feminino'];
+      }
+    }
 
     // Processar novas imagens se fornecidas
     let images = product.images || [];
