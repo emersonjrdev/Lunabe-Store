@@ -140,15 +140,37 @@ router.put("/:id", upload.array("images", 13), async (req, res) => {
     if (categories) {
       try {
         if (typeof categories === 'string') {
-          processedCategories = JSON.parse(categories);
+          // Tentar parsear como JSON
+          try {
+            processedCategories = JSON.parse(categories);
+            if (!Array.isArray(processedCategories)) {
+              processedCategories = [processedCategories];
+            }
+          } catch (parseError) {
+            // Se não for JSON válido, tratar como string simples
+            processedCategories = [categories];
+          }
         } else if (Array.isArray(categories)) {
           processedCategories = categories;
         } else {
           processedCategories = [categories];
         }
+        // Validar que todas as categorias estão no enum
+        const validCategories = ['feminino', 'masculino', 'infantil', 'familia', 'especial-natal'];
+        processedCategories = processedCategories.filter(cat => validCategories.includes(cat));
+        if (processedCategories.length === 0) {
+          processedCategories = ['feminino'];
+        }
       } catch (e) {
         console.error('Erro ao processar categorias:', e);
         processedCategories = ['feminino'];
+      }
+    } else {
+      // Se não foi enviado categories, tentar migrar do campo antigo category
+      if (product.category && !product.categories) {
+        processedCategories = [product.category];
+      } else if (product.categories && Array.isArray(product.categories) && product.categories.length > 0) {
+        processedCategories = product.categories;
       }
     }
 
@@ -236,29 +258,34 @@ router.put("/:id", upload.array("images", 13), async (req, res) => {
     product.images = images;
     product.sizes = sizes.length > 0 ? sizes : product.sizes;
     product.colors = colors.length > 0 ? colors : product.colors;
-    // Processar categorias (pode vir como JSON string ou array)
-    let processedCategories = product.categories || (product.category ? [product.category] : ['feminino']);
-    if (categories !== undefined) {
-      try {
-        if (typeof categories === 'string') {
-          processedCategories = JSON.parse(categories);
-        } else if (Array.isArray(categories)) {
-          processedCategories = categories;
-        } else {
-          processedCategories = [categories];
-        }
-      } catch (e) {
-        console.error('Erro ao processar categorias:', e);
-        processedCategories = ['feminino'];
-      }
-    }
+    // As categorias já foram processadas acima
     product.categories = processedCategories;
 
+    console.log('🔵 Atualizando produto:', {
+      id: product._id,
+      name: product.name,
+      categories: product.categories,
+      stock: product.stock
+    });
+    
     await product.save();
+    
+    console.log('✅ Produto atualizado com sucesso:', product._id);
     res.json(product);
   } catch (err) {
-    console.error('Erro ao atualizar produto:', err);
-    res.status(500).json({ error: "Erro ao atualizar produto", details: err.message });
+    console.error('❌ Erro ao atualizar produto:', err);
+    console.error('❌ Stack trace:', err.stack);
+    console.error('❌ Dados recebidos:', {
+      id: req.params.id,
+      name: req.body.name,
+      categories: req.body.categories,
+      hasFiles: !!req.files
+    });
+    res.status(500).json({ 
+      error: "Erro ao atualizar produto", 
+      details: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 
