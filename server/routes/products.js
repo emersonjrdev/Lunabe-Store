@@ -126,7 +126,7 @@ router.put("/:id", upload.array("images", 13), async (req, res) => {
       return res.status(404).json({ error: "Produto não encontrado" });
     }
 
-    const { name, description, price_cents, stock } = req.body;
+    const { name, description, price_cents, stock, category } = req.body;
     const parseCsv = (val) => {
       if (!val) return [];
       if (Array.isArray(val)) return val;
@@ -219,10 +219,7 @@ router.put("/:id", upload.array("images", 13), async (req, res) => {
     product.images = images;
     product.sizes = sizes.length > 0 ? sizes : product.sizes;
     product.colors = colors.length > 0 ? colors : product.colors;
-    product.category = req.body.category || product.category || 'feminino'; // Atualizar categoria se fornecida
-    if (category) {
-      product.category = category;
-    }
+    product.category = category || product.category || 'feminino'; // Atualizar categoria se fornecida
 
     await product.save();
     res.json(product);
