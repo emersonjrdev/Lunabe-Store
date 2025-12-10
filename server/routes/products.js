@@ -107,7 +107,23 @@ router.post("/", upload.array("images", 13), async (req, res) => {
       images,
       sizes,
       colors,
-      categories: Array.isArray(categories) ? categories : (categories ? [categories] : ['feminino']), // Categorias (array)
+      categories: (() => {
+        // Processar categorias (pode vir como JSON string ou array)
+        if (!categories) return ['feminino'];
+        try {
+          if (typeof categories === 'string') {
+            const parsed = JSON.parse(categories);
+            return Array.isArray(parsed) ? parsed : [parsed];
+          } else if (Array.isArray(categories)) {
+            return categories;
+          } else {
+            return [categories];
+          }
+        } catch (e) {
+          console.error('Erro ao processar categorias na criação:', e);
+          return ['feminino'];
+        }
+      })(),
       createdAt: new Date(),
     });
 
