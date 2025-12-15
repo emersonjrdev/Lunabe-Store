@@ -1456,12 +1456,12 @@ router.get('/:id/print', async (req, res) => {
     <div class="section">
       <h2>📍 Endereço de Entrega</h2>
       <div class="address-box">
-        <strong>${safeValue(orderAddress.name, 'Nome não informado')}</strong><br>
-        ${orderAddress.phone ? `Tel: ${safeValue(orderAddress.phone)}<br>` : ''}
-        ${safeValue(orderAddress.street)}<br>
-        ${safeValue(orderAddress.city)} - ${safeValue(orderAddress.state)}<br>
-        CEP: ${safeValue(orderAddress.zip)}<br>
-        ${safeValue(orderAddress.country, 'Brasil')}
+        <div style="margin-bottom: 4px;"><strong>${safeValue(orderAddress.name, 'Nome não informado')}</strong></div>
+        ${orderAddress.phone ? `<div style="margin-bottom: 4px;">Tel: ${safeValue(orderAddress.phone)}</div>` : ''}
+        <div style="margin-bottom: 4px;">${safeValue(orderAddress.street)}</div>
+        <div style="margin-bottom: 4px;">${safeValue(orderAddress.city)} - ${safeValue(orderAddress.state)}</div>
+        <div style="margin-bottom: 4px;"><strong>CEP:</strong> ${safeValue(orderAddress.zip)}</div>
+        <div>${safeValue(orderAddress.country, 'Brasil')}</div>
       </div>
     </div>
     ` : ''}
@@ -1501,8 +1501,13 @@ router.get('/:id/print', async (req, res) => {
             const specsText = specs.length > 0 ? ` (${specs.join(', ')})` : '';
             const itemName = safeValue(item.name, 'Produto sem nome');
             const itemQuantity = item.quantity || 0;
-            // O preço no banco está em REAIS, não em centavos
-            const itemPrice = item.price ? Number(item.price) : 0;
+            // O preço no banco está em REAIS (já convertido de price_cents/100)
+            // Mas vamos garantir que está correto verificando se é muito grande (provavelmente está em centavos)
+            let itemPrice = item.price ? Number(item.price) : 0;
+            // Se o preço for muito grande (maior que 10000), provavelmente está em centavos
+            if (itemPrice > 10000) {
+              itemPrice = itemPrice / 100;
+            }
             const itemSubtotal = itemPrice * itemQuantity;
             return `
             <tr>
@@ -1517,7 +1522,7 @@ router.get('/:id/print', async (req, res) => {
       </table>
       ` : '<p>Nenhum item encontrado no pedido.</p>'}
       <div class="total">
-        Total: R$ ${orderTotal}
+        Total: R$ ${orderTotalFormatted}
       </div>
     </div>
 
