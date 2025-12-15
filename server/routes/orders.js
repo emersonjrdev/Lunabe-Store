@@ -1181,21 +1181,57 @@ router.get('/:id/print', async (req, res) => {
     const order = await Order.findById(id);
     
     if (!order) {
+      console.log('❌ Pedido não encontrado para ID:', id);
       return res.status(404).send('<html><body><h1>Pedido não encontrado</h1></body></html>');
     }
+    
+    console.log('✅ Pedido encontrado:', order._id);
+    
+    // Função auxiliar para escapar HTML e evitar XSS
+    const escapeHtml = (str) => {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+    
+    // Função auxiliar para valores seguros
+    const safeValue = (value, defaultValue = 'N/A') => {
+      if (value === null || value === undefined || value === '') return defaultValue;
+      return escapeHtml(String(value));
+    };
     
     // Formatar data
     const formatDate = (date) => {
       if (!date) return 'N/A';
-      return new Date(date).toLocaleString('pt-BR', { 
-        timeZone: 'America/Sao_Paulo',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      try {
+        const dateObj = new Date(date);
+        if (isNaN(dateObj.getTime())) return 'N/A';
+        return dateObj.toLocaleString('pt-BR', { 
+          timeZone: 'America/Sao_Paulo',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch (e) {
+        console.error('Erro ao formatar data:', e);
+        return 'N/A';
+      }
     };
+    
+    // Garantir que os dados do pedido existam
+    const orderId = order._id ? String(order._id).slice(-8) : 'N/A';
+    const orderStatus = safeValue(order.status, 'N/A');
+    const orderEmail = safeValue(order.email, 'N/A');
+    const orderTotal = order.total ? (Number(order.total) / 100).toFixed(2) : '0.00';
+    const orderItems = order.items || [];
+    const orderAddress = order.address || {};
+    const orderDeliveryType = order.deliveryType || 'delivery';
     
     // Gerar HTML formatado para impressão
     const html = `
@@ -1204,7 +1240,7 @@ router.get('/:id/print', async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Etiqueta de Envio - Pedido #${order._id.slice(-8)}</title>
+  <title>Etiqueta de Envio - Pedido #${orderId}</title>
   <style>
     @media print {
       @page {
@@ -1351,7 +1387,7 @@ router.get('/:id/print', async (req, res) => {
   <div class="container">
     <div class="header">
       <h1>Etiqueta de Envio</h1>
-      <p>Pedido #${order._id.slice(-8)}</p>
+      <p>Pedido #${orderId}</p>
       <p>Data: ${formatDate(order.createdAt)}</p>
     </div>
 
@@ -1359,11 +1395,11 @@ router.get('/:id/print', async (req, res) => {
       <h2>📦 Dados do Pedido</h2>
       <div class="info-row">
         <span class="info-label">Número do Pedido:</span>
-        <span class="info-value">#${order._id.slice(-8)}</span>
+        <span class="info-value">#${orderId}</span>
       </div>
       <div class="info-row">
         <span class="info-label">Status:</span>
-        <span class="info-value">${order.status || 'N/A'}</span>
+        <span class="info-value">${orderStatus}</span>
       </div>
       <div class="info-row">
         <span class="info-label">Data do Pedido:</span>
@@ -1378,29 +1414,29 @@ router.get('/:id/print', async (req, res) => {
       ${order.trackingCode ? `
       <div class="info-row">
         <span class="info-label">Código de Rastreamento:</span>
-        <span class="info-value"><strong>${order.trackingCode}</strong></span>
+        <span class="info-value"><strong>${safeValue(order.trackingCode)}</strong></span>
       </div>
       ` : ''}
     </div>
 
-    ${order.deliveryType === 'pickup' ? `
+    ${orderDeliveryType === 'pickup' ? `
     <div class="section">
       <h2>🏪 Retirada na Loja</h2>
       <div class="address-box">
-        <strong>${order.pickupAddress || 'Endereço da loja não informado'}</strong><br>
+        <strong>${safeValue(order.pickupAddress, 'Endereço da loja não informado')}</strong><br>
         ${order.pickupSchedule ? `Agendado para: ${formatDate(order.pickupSchedule)}` : 'Horário não agendado'}
       </div>
     </div>
-    ` : order.address ? `
+    ` : orderAddress && Object.keys(orderAddress).length > 0 ? `
     <div class="section">
       <h2>📍 Endereço de Entrega</h2>
       <div class="address-box">
-        <strong>${order.address.name || 'Nome não informado'}</strong><br>
-        ${order.address.phone ? `Tel: ${order.address.phone}<br>` : ''}
-        ${order.address.street || ''}<br>
-        ${order.address.city || ''} - ${order.address.state || ''}<br>
-        CEP: ${order.address.zip || 'N/A'}<br>
-        ${order.address.country || 'Brasil'}
+        <strong>${safeValue(orderAddress.name, 'Nome não informado')}</strong><br>
+        ${orderAddress.phone ? `Tel: ${safeValue(orderAddress.phone)}<br>` : ''}
+        ${safeValue(orderAddress.street)}<br>
+        ${safeValue(orderAddress.city)} - ${safeValue(orderAddress.state)}<br>
+        CEP: ${safeValue(orderAddress.zip)}<br>
+        ${safeValue(orderAddress.country, 'Brasil')}
       </div>
     </div>
     ` : ''}
@@ -1409,18 +1445,19 @@ router.get('/:id/print', async (req, res) => {
       <h2>👤 Dados do Cliente</h2>
       <div class="info-row">
         <span class="info-label">Email:</span>
-        <span class="info-value">${order.email || 'N/A'}</span>
+        <span class="info-value">${orderEmail}</span>
       </div>
-      ${order.address?.phone ? `
+      ${orderAddress?.phone ? `
       <div class="info-row">
         <span class="info-label">Telefone:</span>
-        <span class="info-value">${order.address.phone}</span>
+        <span class="info-value">${safeValue(orderAddress.phone)}</span>
       </div>
       ` : ''}
     </div>
 
     <div class="section">
       <h2>🛍️ Itens do Pedido</h2>
+      ${orderItems.length > 0 ? `
       <table class="items-table">
         <thead>
           <tr>
@@ -1431,31 +1468,37 @@ router.get('/:id/print', async (req, res) => {
           </tr>
         </thead>
         <tbody>
-          ${order.items.map(item => {
+          ${orderItems.map(item => {
+            if (!item) return '';
             const specs = [];
-            if (item.selectedSize) specs.push(`Tam: ${item.selectedSize}`);
-            if (item.selectedColor) specs.push(`Cor: ${item.selectedColor}`);
+            if (item.selectedSize) specs.push(`Tam: ${safeValue(item.selectedSize)}`);
+            if (item.selectedColor) specs.push(`Cor: ${safeValue(item.selectedColor)}`);
             const specsText = specs.length > 0 ? ` (${specs.join(', ')})` : '';
+            const itemName = safeValue(item.name, 'Produto sem nome');
+            const itemQuantity = item.quantity || 0;
+            const itemPrice = item.price ? Number(item.price) : 0;
+            const itemSubtotal = itemPrice * itemQuantity;
             return `
             <tr>
-              <td>${item.name}${specsText}</td>
-              <td>${item.quantity}</td>
-              <td>R$ ${(item.price / 100).toFixed(2)}</td>
-              <td>R$ ${((item.price * item.quantity) / 100).toFixed(2)}</td>
+              <td>${itemName}${specsText}</td>
+              <td>${itemQuantity}</td>
+              <td>R$ ${(itemPrice / 100).toFixed(2)}</td>
+              <td>R$ ${(itemSubtotal / 100).toFixed(2)}</td>
             </tr>
             `;
           }).join('')}
         </tbody>
       </table>
+      ` : '<p>Nenhum item encontrado no pedido.</p>'}
       <div class="total">
-        Total: R$ ${((order.total || 0) / 100).toFixed(2)}
+        Total: R$ ${orderTotal}
       </div>
     </div>
 
     ${order.trackingCode ? `
     <div class="barcode-area">
       <div style="font-size: 18px; margin-bottom: 10px;">CÓDIGO DE RASTREAMENTO</div>
-      <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px;">${order.trackingCode}</div>
+      <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px;">${safeValue(order.trackingCode)}</div>
     </div>
     ` : ''}
 
@@ -1478,13 +1521,31 @@ router.get('/:id/print', async (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch (err) {
-    console.error('Erro ao gerar HTML de impressão:', err);
+    console.error('❌ Erro ao gerar HTML de impressão:', err);
+    console.error('❌ Stack trace:', err.stack);
+    console.error('❌ Tipo do erro:', err.constructor.name);
+    console.error('❌ Mensagem:', err.message);
     
     if (err.name === 'CastError') {
-      return res.status(400).send('<html><body><h1>ID do pedido inválido</h1></body></html>');
+      return res.status(400).send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; padding: 20px;">
+            <h1>ID do pedido inválido</h1>
+            <p>O ID fornecido não é válido.</p>
+          </body>
+        </html>
+      `);
     }
     
-    res.status(500).send('<html><body><h1>Erro ao gerar etiqueta de envio</h1></body></html>');
+    res.status(500).send(`
+      <html>
+        <body style="font-family: Arial, sans-serif; padding: 20px;">
+          <h1>Erro ao gerar etiqueta de envio</h1>
+          <p>Ocorreu um erro ao processar a solicitação. Por favor, tente novamente.</p>
+          ${process.env.NODE_ENV === 'development' ? `<pre>${err.message}\n${err.stack}</pre>` : ''}
+        </body>
+      </html>
+    `);
   }
 });
 
