@@ -1077,7 +1077,17 @@ const Admin = () => {
                       </ul>
                     </div>
 
-                    <div className="mt-3 flex items-center space-x-2">
+                    <div className="mt-3 flex items-center space-x-2 flex-wrap gap-2">
+                      <button
+                        onClick={() => {
+                          window.open(`${API_BASE}/api/orders/${o._id}/print`, '_blank');
+                        }}
+                        className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center gap-1"
+                        title="Imprimir etiqueta para correios"
+                      >
+                        🖨️ Imprimir Etiqueta
+                      </button>
+                      
                       <select defaultValue={o.status} id={`status-${o._id}`} className="p-2 border rounded" >
                         <option> Aguardando pagamento </option>
                         <option> Processando </option>

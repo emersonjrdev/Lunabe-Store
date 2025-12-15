@@ -1165,6 +1165,326 @@ router.patch('/:id/return-status', async (req, res) => {
   }
 });
 
+// Rota para imprimir dados do pedido (etiqueta para correios)
+router.get('/:id/print', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validar formato do ID
+    if (!id || id.length !== 24) {
+      return res.status(400).send('<html><body><h1>ID do pedido inválido</h1></body></html>');
+    }
+    
+    const order = await Order.findById(id);
+    
+    if (!order) {
+      return res.status(404).send('<html><body><h1>Pedido não encontrado</h1></body></html>');
+    }
+    
+    // Formatar data
+    const formatDate = (date) => {
+      if (!date) return 'N/A';
+      return new Date(date).toLocaleString('pt-BR', { 
+        timeZone: 'America/Sao_Paulo',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+    
+    // Gerar HTML formatado para impressão
+    const html = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Etiqueta de Envio - Pedido #${order._id.slice(-8)}</title>
+  <style>
+    @media print {
+      @page {
+        size: A4;
+        margin: 1cm;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      .no-print {
+        display: none;
+      }
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border: 2px solid #000;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .header {
+      text-align: center;
+      border-bottom: 3px solid #000;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    .header p {
+      font-size: 16px;
+      color: #666;
+    }
+    .section {
+      margin-bottom: 30px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      background: #f9f9f9;
+    }
+    .section h2 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: #333;
+      border-bottom: 2px solid #000;
+      padding-bottom: 5px;
+      text-transform: uppercase;
+    }
+    .info-row {
+      display: flex;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .info-label {
+      font-weight: bold;
+      min-width: 150px;
+      color: #333;
+    }
+    .info-value {
+      flex: 1;
+      color: #666;
+    }
+    .address-box {
+      background: white;
+      border: 2px solid #000;
+      padding: 20px;
+      margin-top: 10px;
+      font-size: 16px;
+      line-height: 1.8;
+    }
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .items-table th,
+    .items-table td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+    .items-table th {
+      background: #333;
+      color: white;
+      font-weight: bold;
+    }
+    .items-table tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+    .total {
+      text-align: right;
+      font-size: 20px;
+      font-weight: bold;
+      margin-top: 20px;
+      padding: 15px;
+      background: #333;
+      color: white;
+    }
+    .print-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 30px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+    .print-button:hover {
+      background: #0056b3;
+    }
+    .barcode-area {
+      text-align: center;
+      margin-top: 30px;
+      padding: 20px;
+      border: 2px dashed #000;
+      font-family: 'Courier New', monospace;
+      font-size: 24px;
+      letter-spacing: 3px;
+    }
+  </style>
+</head>
+<body>
+  <button class="print-button no-print" onclick="window.print()">🖨️ Imprimir</button>
+  
+  <div class="container">
+    <div class="header">
+      <h1>Etiqueta de Envio</h1>
+      <p>Pedido #${order._id.slice(-8)}</p>
+      <p>Data: ${formatDate(order.createdAt)}</p>
+    </div>
+
+    <div class="section">
+      <h2>📦 Dados do Pedido</h2>
+      <div class="info-row">
+        <span class="info-label">Número do Pedido:</span>
+        <span class="info-value">#${order._id.slice(-8)}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Status:</span>
+        <span class="info-value">${order.status || 'N/A'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Data do Pedido:</span>
+        <span class="info-value">${formatDate(order.createdAt)}</span>
+      </div>
+      ${order.paidAt ? `
+      <div class="info-row">
+        <span class="info-label">Data do Pagamento:</span>
+        <span class="info-value">${formatDate(order.paidAt)}</span>
+      </div>
+      ` : ''}
+      ${order.trackingCode ? `
+      <div class="info-row">
+        <span class="info-label">Código de Rastreamento:</span>
+        <span class="info-value"><strong>${order.trackingCode}</strong></span>
+      </div>
+      ` : ''}
+    </div>
+
+    ${order.deliveryType === 'pickup' ? `
+    <div class="section">
+      <h2>🏪 Retirada na Loja</h2>
+      <div class="address-box">
+        <strong>${order.pickupAddress || 'Endereço da loja não informado'}</strong><br>
+        ${order.pickupSchedule ? `Agendado para: ${formatDate(order.pickupSchedule)}` : 'Horário não agendado'}
+      </div>
+    </div>
+    ` : order.address ? `
+    <div class="section">
+      <h2>📍 Endereço de Entrega</h2>
+      <div class="address-box">
+        <strong>${order.address.name || 'Nome não informado'}</strong><br>
+        ${order.address.phone ? `Tel: ${order.address.phone}<br>` : ''}
+        ${order.address.street || ''}<br>
+        ${order.address.city || ''} - ${order.address.state || ''}<br>
+        CEP: ${order.address.zip || 'N/A'}<br>
+        ${order.address.country || 'Brasil'}
+      </div>
+    </div>
+    ` : ''}
+
+    <div class="section">
+      <h2>👤 Dados do Cliente</h2>
+      <div class="info-row">
+        <span class="info-label">Email:</span>
+        <span class="info-value">${order.email || 'N/A'}</span>
+      </div>
+      ${order.address?.phone ? `
+      <div class="info-row">
+        <span class="info-label">Telefone:</span>
+        <span class="info-value">${order.address.phone}</span>
+      </div>
+      ` : ''}
+    </div>
+
+    <div class="section">
+      <h2>🛍️ Itens do Pedido</h2>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Quantidade</th>
+            <th>Valor Unit.</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${order.items.map(item => {
+            const specs = [];
+            if (item.selectedSize) specs.push(`Tam: ${item.selectedSize}`);
+            if (item.selectedColor) specs.push(`Cor: ${item.selectedColor}`);
+            const specsText = specs.length > 0 ? ` (${specs.join(', ')})` : '';
+            return `
+            <tr>
+              <td>${item.name}${specsText}</td>
+              <td>${item.quantity}</td>
+              <td>R$ ${(item.price / 100).toFixed(2)}</td>
+              <td>R$ ${((item.price * item.quantity) / 100).toFixed(2)}</td>
+            </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+      <div class="total">
+        Total: R$ ${((order.total || 0) / 100).toFixed(2)}
+      </div>
+    </div>
+
+    ${order.trackingCode ? `
+    <div class="barcode-area">
+      <div style="font-size: 18px; margin-bottom: 10px;">CÓDIGO DE RASTREAMENTO</div>
+      <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px;">${order.trackingCode}</div>
+    </div>
+    ` : ''}
+
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #000; text-align: center; font-size: 12px; color: #666;">
+      <p>Este documento contém informações confidenciais do pedido.</p>
+      <p>Imprima e cole na embalagem do envio.</p>
+    </div>
+  </div>
+
+  <script>
+    // Auto-imprimir quando a página carregar (opcional)
+    // window.onload = function() {
+    //   window.print();
+    // };
+  </script>
+</body>
+</html>
+    `;
+    
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    console.error('Erro ao gerar HTML de impressão:', err);
+    
+    if (err.name === 'CastError') {
+      return res.status(400).send('<html><body><h1>ID do pedido inválido</h1></body></html>');
+    }
+    
+    res.status(500).send('<html><body><h1>Erro ao gerar etiqueta de envio</h1></body></html>');
+  }
+});
+
 // Get order by ID - DEVE vir DEPOIS de todas as rotas específicas
 router.get('/:id', async (req, res) => {
   try {
