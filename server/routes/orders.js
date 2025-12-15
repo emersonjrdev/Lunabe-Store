@@ -1256,7 +1256,7 @@ router.get('/:id/print', async (req, res) => {
     @media print {
       @page {
         size: A4;
-        margin: 1cm;
+        margin: 0.8cm;
       }
       body {
         margin: 0;
@@ -1264,6 +1264,10 @@ router.get('/:id/print', async (req, res) => {
       }
       .no-print {
         display: none;
+      }
+      .container {
+        box-shadow: none;
+        border: none;
       }
     }
     * {
@@ -1273,54 +1277,54 @@ router.get('/:id/print', async (req, res) => {
     }
     body {
       font-family: Arial, sans-serif;
-      padding: 20px;
+      padding: 10px;
       background: #f5f5f5;
     }
     .container {
       max-width: 800px;
       margin: 0 auto;
       background: white;
-      padding: 30px;
+      padding: 15px;
       border: 2px solid #000;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
     .header {
       text-align: center;
-      border-bottom: 3px solid #000;
-      padding-bottom: 20px;
-      margin-bottom: 30px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
     }
     .header h1 {
-      font-size: 28px;
-      margin-bottom: 10px;
+      font-size: 20px;
+      margin-bottom: 4px;
       text-transform: uppercase;
     }
     .header p {
-      font-size: 16px;
+      font-size: 12px;
       color: #666;
     }
     .section {
-      margin-bottom: 30px;
-      padding: 15px;
+      margin-bottom: 12px;
+      padding: 8px;
       border: 1px solid #ddd;
       background: #f9f9f9;
     }
     .section h2 {
-      font-size: 18px;
-      margin-bottom: 15px;
+      font-size: 14px;
+      margin-bottom: 6px;
       color: #333;
-      border-bottom: 2px solid #000;
-      padding-bottom: 5px;
+      border-bottom: 1px solid #000;
+      padding-bottom: 3px;
       text-transform: uppercase;
     }
     .info-row {
       display: flex;
-      margin-bottom: 10px;
-      font-size: 14px;
+      margin-bottom: 4px;
+      font-size: 11px;
     }
     .info-label {
       font-weight: bold;
-      min-width: 150px;
+      min-width: 120px;
       color: #333;
     }
     .info-value {
@@ -1329,37 +1333,39 @@ router.get('/:id/print', async (req, res) => {
     }
     .address-box {
       background: white;
-      border: 2px solid #000;
-      padding: 20px;
-      margin-top: 10px;
-      font-size: 16px;
-      line-height: 1.8;
+      border: 1px solid #000;
+      padding: 8px;
+      margin-top: 6px;
+      font-size: 11px;
+      line-height: 1.4;
     }
     .items-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      margin-top: 6px;
+      font-size: 10px;
     }
     .items-table th,
     .items-table td {
       border: 1px solid #ddd;
-      padding: 10px;
+      padding: 4px;
       text-align: left;
     }
     .items-table th {
       background: #333;
       color: white;
       font-weight: bold;
+      font-size: 10px;
     }
     .items-table tr:nth-child(even) {
       background: #f9f9f9;
     }
     .total {
       text-align: right;
-      font-size: 20px;
+      font-size: 14px;
       font-weight: bold;
-      margin-top: 20px;
-      padding: 15px;
+      margin-top: 8px;
+      padding: 8px;
       background: #333;
       color: white;
     }
@@ -1383,12 +1389,20 @@ router.get('/:id/print', async (req, res) => {
     }
     .barcode-area {
       text-align: center;
-      margin-top: 30px;
-      padding: 20px;
-      border: 2px dashed #000;
+      margin-top: 12px;
+      padding: 10px;
+      border: 1px dashed #000;
       font-family: 'Courier New', monospace;
-      font-size: 24px;
-      letter-spacing: 3px;
+      font-size: 16px;
+      letter-spacing: 2px;
+    }
+    .footer {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid #000;
+      text-align: center;
+      font-size: 9px;
+      color: #666;
     }
   </style>
 </head>
@@ -1514,7 +1528,7 @@ router.get('/:id/print', async (req, res) => {
     </div>
     ` : ''}
 
-    <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #000; text-align: center; font-size: 12px; color: #666;">
+    <div class="footer">
       <p>Este documento contém informações confidenciais do pedido.</p>
       <p>Imprima e cole na embalagem do envio.</p>
     </div>
