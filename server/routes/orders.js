@@ -1166,12 +1166,15 @@ router.patch('/:id/return-status', async (req, res) => {
 });
 
 // Rota para imprimir dados do pedido (etiqueta para correios)
+// IMPORTANTE: Esta rota deve vir ANTES da rota /:id para funcionar corretamente
 router.get('/:id/print', async (req, res) => {
+  console.log('🔵 Rota /:id/print chamada - ID:', req.params.id);
   try {
     const { id } = req.params;
     
-    // Validar formato do ID
-    if (!id || id.length !== 24) {
+    // Validar formato do ID (MongoDB ObjectId tem 24 caracteres hexadecimais)
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      console.log('❌ ID inválido:', id);
       return res.status(400).send('<html><body><h1>ID do pedido inválido</h1></body></html>');
     }
     
