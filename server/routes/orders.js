@@ -1506,12 +1506,17 @@ router.get('/:id/print', async (req, res) => {
             const specsText = specs.length > 0 ? ` (${specs.join(', ')})` : '';
             const itemName = safeValue(item.name, 'Produto sem nome');
             const itemQuantity = item.quantity || 0;
-            // O preço no banco está em REAIS (já convertido de price_cents/100)
-            // Mas vamos garantir que está correto verificando se é muito grande (provavelmente está em centavos)
+            // O preço pode estar em REAIS ou CENTAVOS no banco
+            // Verificar se está em centavos (valores muito grandes ou valores pequenos que fazem sentido como centavos)
             let itemPrice = item.price ? Number(item.price) : 0;
-            // Se o preço for muito grande (maior que 10000), provavelmente está em centavos
-            if (itemPrice > 10000) {
-              itemPrice = itemPrice / 100;
+            // Se o preço for maior que 1000, provavelmente está em centavos
+            // Ou se for menor que 1 e maior que 0, pode estar em reais mas muito pequeno (improvável para produtos)
+            // Valores entre 1 e 1000 podem estar em reais ou centavos, mas se for um valor "redondo" como 7799, está em centavos
+            if (itemPrice > 1000 || (itemPrice < 100 && itemPrice > 0 && itemPrice % 1 !== 0 && itemPrice < 1)) {
+              // Se parece estar em centavos, converter para reais
+              if (itemPrice > 1000) {
+                itemPrice = itemPrice / 100;
+              }
             }
             const itemSubtotal = itemPrice * itemQuantity;
             return `
