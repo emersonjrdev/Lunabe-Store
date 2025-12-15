@@ -1225,7 +1225,17 @@ router.get('/:id/print', async (req, res) => {
     };
     
     // Garantir que os dados do pedido existam
-    const orderId = order._id ? String(order._id).slice(-8) : 'N/A';
+    // Converter _id para string de forma segura (pode ser ObjectId do MongoDB)
+    let orderId = 'N/A';
+    try {
+      if (order._id) {
+        const idString = order._id.toString ? order._id.toString() : String(order._id);
+        orderId = idString.length >= 8 ? idString.slice(-8) : idString;
+      }
+    } catch (e) {
+      console.error('Erro ao converter order._id:', e);
+      orderId = 'N/A';
+    }
     const orderStatus = safeValue(order.status, 'N/A');
     const orderEmail = safeValue(order.email, 'N/A');
     const orderTotal = order.total ? (Number(order.total) / 100).toFixed(2) : '0.00';
