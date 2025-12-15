@@ -1238,10 +1238,24 @@ router.get('/:id/print', async (req, res) => {
     }
     const orderStatus = safeValue(order.status, 'N/A');
     const orderEmail = safeValue(order.email, 'N/A');
-    // O total no banco está em REAIS, mas vamos verificar se não está em centavos
-    let orderTotal = order.total ? Number(order.total) : 0;
-    // Se o total for muito grande (maior que 10000), provavelmente está em centavos
-    if (orderTotal > 10000) {
+    // Calcular o total a partir dos itens para garantir consistência
+    let calculatedTotal = 0;
+    if (order.items && order.items.length > 0) {
+      order.items.forEach(item => {
+        if (item && item.price && item.quantity) {
+          let itemPrice = Number(item.price);
+          // Se o preço for >= 100, está em centavos, converter para reais
+          if (itemPrice >= 100) {
+            itemPrice = itemPrice / 100;
+          }
+          calculatedTotal += itemPrice * item.quantity;
+        }
+      });
+    }
+    // Usar o total calculado ou o total do pedido (se o calculado for 0)
+    let orderTotal = calculatedTotal > 0 ? calculatedTotal : (order.total ? Number(order.total) : 0);
+    // Se o total do pedido for >= 100, provavelmente está em centavos
+    if (orderTotal >= 100 && calculatedTotal === 0) {
       orderTotal = orderTotal / 100;
     }
     const orderTotalFormatted = orderTotal.toFixed(2);
