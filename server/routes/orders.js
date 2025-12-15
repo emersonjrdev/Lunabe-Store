@@ -1238,7 +1238,8 @@ router.get('/:id/print', async (req, res) => {
     }
     const orderStatus = safeValue(order.status, 'N/A');
     const orderEmail = safeValue(order.email, 'N/A');
-    const orderTotal = order.total ? (Number(order.total) / 100).toFixed(2) : '0.00';
+    // O total no banco está em REAIS, não em centavos
+    const orderTotal = order.total ? Number(order.total).toFixed(2) : '0.00';
     const orderItems = order.items || [];
     const orderAddress = order.address || {};
     const orderDeliveryType = order.deliveryType || 'delivery';
