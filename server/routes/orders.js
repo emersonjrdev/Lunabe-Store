@@ -1486,14 +1486,15 @@ router.get('/:id/print', async (req, res) => {
             const specsText = specs.length > 0 ? ` (${specs.join(', ')})` : '';
             const itemName = safeValue(item.name, 'Produto sem nome');
             const itemQuantity = item.quantity || 0;
+            // O preço no banco está em REAIS, não em centavos
             const itemPrice = item.price ? Number(item.price) : 0;
             const itemSubtotal = itemPrice * itemQuantity;
             return `
             <tr>
               <td>${itemName}${specsText}</td>
               <td>${itemQuantity}</td>
-              <td>R$ ${(itemPrice / 100).toFixed(2)}</td>
-              <td>R$ ${(itemSubtotal / 100).toFixed(2)}</td>
+              <td>R$ ${itemPrice.toFixed(2)}</td>
+              <td>R$ ${itemSubtotal.toFixed(2)}</td>
             </tr>
             `;
           }).join('')}
